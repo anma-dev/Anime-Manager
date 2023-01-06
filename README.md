@@ -2,6 +2,9 @@
 
 anime-manager is a powerful open source script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
 
+https://user-images.githubusercontent.com/121255032/210994787-c6f273fd-66b1-484b-a787-be1092bcb79a.mp4
+
+
 You can use your existing anime list service (those [trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your lists as you watch anime by streaming or torrenting, all from one utility for added convenience!
 
 - 🔄 Set series as completed or (re)watching as you go.
