@@ -248,7 +248,6 @@ function install_dependencies() {
 					dbus-python
 				pip3 install Trackma
 			fi
-			git clone https://github.com/anma-dev/webtorrent-cli.git lib/webtorrent-cli
 		elif [[ "$OSTYPE" == "darwin"* ]]; then
 			log "🍏 Installing macOS dependencies."
 			if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | grep version &>/dev/null; then
