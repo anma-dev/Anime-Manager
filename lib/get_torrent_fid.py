@@ -89,29 +89,36 @@ try:
             continue
         # print(filename)
         parsed_title = anitopy.parse(filename)
-        if not "episode_number" in parsed_title:
-            tmp_delim = valid_delim
-            # try to detect separator
-            while not "episode_number" in parsed_title and len(tmp_delim) > 0:
-                # the csv parser complains when it can't find a delimiter
-                with suppress(Exception):
-                    dialect = sniffer.sniff(filename, delimiters=tmp_delim)
-                parsed_title = anitopy.parse(
-                    filename, {'allowed_delimiters': dialect.delimiter})
-                # narrow down the valid delimiters
-                tmp_delim = tmp_delim[1:]
-        # print(parsed_title)
-        if ("episode_number" in parsed_title and "anime_title" in parsed_title):
-            if type(parsed_title["episode_number"]) == list:
-                ep_range_start = parseEpisode(
-                    parsed_title["episode_number"][0])
-                ep_range_end = parseEpisode(parsed_title["episode_number"][1])
-                if (not args.episode >= ep_range_start and not args.episode <= ep_range_end):
+        if args.show_type == "movie":
+            if len(result) == 1:
+                index = 0
+            video_res.append(filename_og)
+        else:
+            if not "episode_number" in parsed_title:
+                tmp_delim = valid_delim
+                # try to detect separator
+                while not "episode_number" in parsed_title and len(tmp_delim) > 0:
+                    # the csv parser complains when it can't find a delimiter
+                    with suppress(Exception):
+                        dialect = sniffer.sniff(filename, delimiters=tmp_delim)
+                    parsed_title = anitopy.parse(
+                        filename, {'allowed_delimiters': dialect.delimiter})
+                    # narrow down the valid delimiters
+                    tmp_delim = tmp_delim[1:]
+            # print(parsed_title)
+            if ("episode_number" in parsed_title and "anime_title" in parsed_title):
+                if type(parsed_title["episode_number"]) == list:
+                    ep_range_start = parseEpisode(
+                        parsed_title["episode_number"][0])
+                    ep_range_end = parseEpisode(parsed_title["episode_number"][1])
+                    if (not args.episode >= ep_range_start and not args.episode <= ep_range_end):
+                        continue
+                elif (not args.episode == parseEpisode(parsed_title["episode_number"])):
                     continue
-            elif (not args.episode == parseEpisode(parsed_title["episode_number"])):
-                continue
-            if any(x in filename for x in args.title):
-                video_res.append(filename_og)
+                if any(x in filename for x in args.title):
+                    video_res.append(filename_og)
+
+
 except Exception as e:
     logger.error(traceback.format_exc())
     index = -2
@@ -134,5 +141,5 @@ else:
             "^(\d+)\s+.*", video_res[0])[0])
         comp_res = '\\n'.join(video_res)
         parsed_title_res = anitopy.parse(video_res[0])
-        res = f"{json.dumps(parsed_title_res)}////{comp_res}////{index}"
+        res = f"{json.dumps(parsed_title_res, ensure_ascii=True)}////{comp_res}////{index}"
 print(res)

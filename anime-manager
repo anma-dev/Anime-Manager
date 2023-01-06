@@ -1186,7 +1186,7 @@ while true; do
 			# configure the menu entries
 			if [[ $LAST_SHOW_EP != "?" && $ANIME_EP -eq "$LAST_SHOW_EP" ]]; then
 				PLAYING_MENU="🏁 Set as watched + Move to Completed list"
-				ANIME_MENU_TITLE="🏁 END! ─ $ANIME_MENU_TITLE"
+				[[ $SHOW_TYPE != "movie" ]] && ANIME_MENU_TITLE="🏁 END! ─ $ANIME_MENU_TITLE"
 			else
 				PLAYING_MENU="⏭️  Set as watched + Play next\n✅ Set as watched"
 			fi
@@ -1265,9 +1265,10 @@ while true; do
 		[[ $STATUS == "$to_submenu" ]] && PROMPT="$to_submenu" && continue
 		STATUS=$(get_trackma_status_code "$STATUS")
 		FULL_LIST=$(printf "filter %s\nls" "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
+		[[ -z $FULL_LIST ]] && FULL_LIST="No entries found in this list..."
 		FULL_LIST="$FULL_LIST\n$to_submenu\n$SWITCH_STATUS_MSG_MENU_ENTRY"
 		TRACKMA_SHOW_INDEX=$(printf "%b" "$FULL_LIST" |
-			$FZF -i --prompt="Choose a series to delete: " --border-label "╢ ♣  DELETE SERIES ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" --header-first | cut -d" " -f1)
+			$FZF -i --prompt="Choose a series to DELETE: " --border-label "╢ ♣  DELETE SERIES ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" --header-first | cut -d" " -f1)
 		[[ $TRACKMA_SHOW_INDEX == "🐇" ]] && PROMPT="$to_submenu" && continue
 		[[ $TRACKMA_SHOW_INDEX == "🔄" ]] && continue
 		printf "filter %s\ndelete %s\ny" "$STATUS" "$TRACKMA_SHOW_INDEX" | trackma &>"$TRACKMA_LOGFILE"
