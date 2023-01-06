@@ -47,10 +47,9 @@ Ensure all dependencies binaries are available through your `$PATH`.
 ### Installation
 
 The script has an automatic install mode for dependencies that supports macOS and Ubuntu. Automatic install respects your existing installation. AM needs testers to extend to other platforms.
-````
-sudo curl -sL https://github.com/anma-dev/anime-manager/raw/main/anime-manager -o /usr/local/bin/anime-manager
-sudo chmod +x /usr/local/bin/anime-manager
-````
+
+Just clone the repo and give exec permissions to anime-manager and put anime-manager in path.
+
 Run the script to accept the terms and begin automatic installation of dependencies if your platform is supported.
 
 ### Usage
