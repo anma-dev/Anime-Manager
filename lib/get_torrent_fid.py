@@ -69,9 +69,9 @@ try:
     magnet_content = subprocess.run(
         command, stdout=subprocess.PIPE, shell=True, timeout=webtorrent_timeout)
     result = magnet_content.stdout.decode("utf-8").splitlines()
+    result = [x for x in result if len(x) != 0]
     del result[0]
     del result[-3:]
-    result = [x for x in result if len(x) != 0]
     # print(result)
     # exit()
     if len(result) == 0:
@@ -90,9 +90,9 @@ try:
         # print(filename)
         parsed_title = anitopy.parse(filename)
         if args.show_type == "movie":
-            if len(result) == 1:
-                index = 0
+            index = 0
             video_res.append(filename_og)
+            break
         else:
             if not "episode_number" in parsed_title:
                 tmp_delim = valid_delim
@@ -141,5 +141,5 @@ else:
             "^(\d+)\s+.*", video_res[0])[0])
         comp_res = '\\n'.join(video_res)
         parsed_title_res = anitopy.parse(video_res[0])
-        res = f"{json.dumps(parsed_title_res, ensure_ascii=True)}////{comp_res}////{index}"
+        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{index}"
 print(res)

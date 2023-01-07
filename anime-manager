@@ -348,7 +348,7 @@ TORRENT_DOWNLOAD_DIR="${TMP_PATH}/webtorrent"
 WEBTORRENT_LOGFILE="$CONFIG_PATH/webtorrent.log"
 TRACKMA_LOGFILE="$CONFIG_PATH/trackma.log"
 # CURRENTLY_PLAYING_LOGFILE="$CONFIG_PATH/now_playing.log"
-ANIMDL_DEF_PROVIDER="allanime"
+ANIMDL_DEF_PROVIDER="9anime"
 ANIMDL_LOGFILE="$CONFIG_PATH/animdl.log"
 # webtorrent globals
 # torrent status codes
@@ -733,71 +733,107 @@ function play_episode() {
 			PLAY_STATUS=$PLAY_STATUS_ERRORED
 		fi
 	elif [[ $PLAYER_SOURCE == "streaming" ]]; then
+		declare -a stream_providers
+		stream_providers=("allanime" "zoro" "animepahe" "animeout" "gogoanime" "tenshi")
 		echo && line_to_remove
 		pastel paint $MSG_INFO_COLOR "      💡 Streaming (animdl)" && line_to_remove
-		if [[ $ANIMDL_PLAYTHROUGH -eq 0 ]]; then
-			local animdl_tmpfile
-			local animdl_fifo_write
-			animdl_tmpfile="$(mktemp)"
-			animdl_fifo_write="$(mktemp -u)"
-			mkfifo -m 600 "$animdl_fifo_write"
-			# TODO: can't stream with iina
-			nohup animdl stream "$ANIMDL_DEF_PROVIDER:$ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$animdl_fifo_write" 2>"$animdl_tmpfile" 1>&2 &
-			exec 3<>"$animdl_fifo_write"
-			pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($ANIMDL_DEF_PROVIDER)..." && line_to_remove
-			animdl_stream_health=10
-			while [[ animdl_stream_health -gt 0 ]]; do
-				if ! grep "Select the search result" "$animdl_tmpfile" &>/dev/null; then
-					if ! grep "Currently playing" "$animdl_tmpfile" &>/dev/null; then
+		for provider in "${stream_providers[@]}"; do
+			if [[ $ANIMDL_PLAYTHROUGH -eq 0 ]]; then
+				local animdl_fifo_write
+				animdl_fifo_write="$(mktemp -u)"
+				mkfifo -m 600 "$animdl_fifo_write"
+				# TODO: can't stream with iina
+				nohup animdl stream "$provider:$ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$animdl_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+				animdl_pid=$!
+				disown "$animdl_pid"
+				exec 3<>"$animdl_fifo_write"
+				pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($provider)..." && line_to_remove
+				animdl_stream_health=10
+				while [[ animdl_stream_health -gt 0 ]]; do
+					# check for search result prompt
+					if ! grep "Select the search result" "$ANIMDL_LOGFILE" &>/dev/null; then
+						if ! grep "AV:" "$ANIMDL_LOGFILE" &>/dev/null; then
+							animdl_stream_health=$((animdl_stream_health - 1))
+						else
+							# stream started automatically
+							ANIMDL_DEF_PROVIDER=$provider
+							PLAY_STATUS=$PLAY_STATUS_OKPLAYING
+							pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
+							return
+						fi
+					else
+						break
+					fi
+					sleep 1
+				done
+				if [[ $animdl_stream_health -eq 0 ]]; then
+					pastel paint $MSG_WARN_COLOR "      🚫 No results found ($provider), next..." && line_to_remove
+					PLAY_STATUS=$PLAY_STATUS_ERRORED
+					# next provider
+					echo "" >"$ANIMDL_LOGFILE"
+					continue
+				fi
+				clear_lines
+				results=$(sed -n -E '/^[[:space:]]+[0-9]+\./p' "$ANIMDL_LOGFILE")
+				ANIMDL_SEARCH_INDEX="$(printf "%b" "$to_mainmenu\n$results" | sed "s/^[[:space:]]*//" | $FZF --prompt="Select a search result: " --border-label "╢ ♣  SEARCH RESULTS ($provider): $(trim "$ANIME_TITLE") ▶ Episode $ANIME_EP ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" --header-first | cut -d '.' -f1)"
+				[[ -z $ANIMDL_SEARCH_INDEX ]] && exit 1
+				[[ $ANIMDL_SEARCH_INDEX == "$to_mainmenu" ]] && PLAY_STATUS=$PLAY_STATUS_EXITED && ANIMDL_SEARCH_INDEX="" && return
+				printf "%b" "$ANIMDL_SEARCH_INDEX\n" >&3
+				3>&-:
+				sleep 2 # wait for the stream to start
+				pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
+				animdl_stream_health=15
+				while [[ animdl_stream_health -gt 0 ]]; do
+					if ! grep "AV:" "$ANIMDL_LOGFILE" &>/dev/null; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
-						clear_lines
-						PLAY_STATUS=$PLAY_STATUS_OKPLAYING
-						return
+						break
 					fi
+					sleep 1
+				done
+				if [[ $animdl_stream_health -eq 0 ]]; then
+					echo && line_to_remove
+					pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $provider, next..." && line_to_remove
+					PLAY_STATUS=$PLAY_STATUS_ERRORED
+					# next provider
+					echo "" >"$ANIMDL_LOGFILE"
+					continue
 				else
-					break
+					rm "$animdl_fifo_write"
+					unset animdl_tmpfile
+					unset animdl_fifo_write
+					PLAY_STATUS=$PLAY_STATUS_OKPLAYING
+					return
 				fi
-				sleep 1
-			done
-			clear_lines
-			if [[ $animdl_stream_health -eq 0 ]]; then
-				pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream" && line_to_remove
-				PLAY_STATUS=$PLAY_STATUS_ERRORED
-				return
-			fi
-			results=$(sed -n -E '/^[[:space:]]+[0-9]+\./p' "$animdl_tmpfile")
-			ANIMDL_SEARCH_INDEX="$(printf "%b" "$to_mainmenu\n$results" | sed "s/^[[:space:]]*//" | $FZF --prompt="Select a search result: " --border-label "╢ ♣  SEARCH RESULTS (animdl): $(trim "$ANIME_TITLE") ▶ Episode $ANIME_EP ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" --header-first | cut -d '.' -f1)"
-			[[ -z $ANIMDL_SEARCH_INDEX ]] && exit 1
-			[[ $ANIMDL_SEARCH_INDEX == "$to_mainmenu" ]] && PLAY_STATUS=$PLAY_STATUS_EXITED && ANIMDL_SEARCH_INDEX="" && return
-			printf "%b" "$ANIMDL_SEARCH_INDEX\n" >&3
-			3>&-:
-			sleep 2 # wait for the stream to start before presenting the streaming options
-			animdl_stream_health=10
-			while [[ animdl_stream_health -gt 0 ]]; do
-				if ! grep "Currently playing" "$animdl_tmpfile" &>/dev/null; then
-					animdl_stream_health=$((animdl_stream_health - 1))
-				else
-					break
-				fi
-				sleep 1
-			done
-			rm "$animdl_fifo_write" "$animdl_tmpfile"
-			unset animdl_tmpfile
-			unset animdl_fifo_write
-			if [[ $animdl_stream_health -eq 0 ]]; then
-				echo && line_to_remove
-				pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with anmdl (allanime)" && line_to_remove
-				PLAY_STATUS=$PLAY_STATUS_ERRORED
-				return
 			else
-				PLAY_STATUS=$PLAY_STATUS_OKPLAYING
+				[[ -z $ANIMDL_SEARCH_INDEX ]] && exit 1
+				# TODO: can't stream with iina
+				nohup animdl stream "$provider:$ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &
+				sleep 2 # wait for the stream to start before presenting the streaming options
+				animdl_stream_health=10
+				while [[ animdl_stream_health -gt 0 ]]; do
+					if ! grep "AV:" "$ANIMDL_LOGFILE" &>/dev/null; then
+						animdl_stream_health=$((animdl_stream_health - 1))
+					else
+						break
+					fi
+					sleep 1
+				done
+				if [[ $animdl_stream_health -eq 0 ]]; then
+					echo && line_to_remove
+					pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $provider" && line_to_remove
+					PLAY_STATUS=$PLAY_STATUS_ERRORED
+					# next provider
+					continue
+				else
+					PLAY_STATUS=$PLAY_STATUS_OKPLAYING
+					return
+				fi
 			fi
-		else
-			[[ -z $ANIMDL_SEARCH_INDEX ]] && exit 1
-			# TODO: can't stream with iina
-			nohup animdl stream "$ANIMDL_DEF_PROVIDER:$ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" 1>&2 2>"$ANIMDL_LOGFILE" &
-		fi
+		done
+		pastel paint $MSG_INFO_COLOR ""
+		PLAY_STATUS=$PLAY_STATUS_ERRORED
+		return
 	elif [[ $PLAYER_SOURCE == "self_magnet" ]]; then
 		echo && line_to_remove
 		printf "      🧲 Paste your magnet link: " && line_to_remove
@@ -1232,6 +1268,11 @@ while true; do
 				FILE_INDEX="$NYAAPY_FILE_SEL_CODE"
 			fi
 		done
+		set +u nounset
+		if ps "$animdl_pid" &>/dev/null; then
+			kill -9 "$animdl_pid"
+		fi
+		set -u nounset
 		;;
 	"$add_show")
 		STATUS="Plan to Watch"
