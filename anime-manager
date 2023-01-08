@@ -280,7 +280,7 @@ install_dependencies() {
 					nyaapy \
 					anitopy \
 					'requests>=2.20.0' \
-					beautifulsoup4=4.6.0 \
+					beautifulsoup4==4.6.0 \
 					lxml \
 					wheel \
 					Trackma
