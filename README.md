@@ -26,7 +26,7 @@ It integrates the following functionality and tools:
 - Episode search and torrenting ([NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) + [(patched) webtorrent-cli](https://github.com/anma-dev/webtorrent-cli))
 - Beautiful menus ([fzf](https://github.com/junegunn/fzf/))
 
-AM starts empty by default, with no account configured. You will have to configure Trackma with a acocunt separately for AM to work properly. The script will walk you through that.
+AM starts empty by default, with no account configured. You will have to configure Trackma with an account separately for AM to work properly. The script will walk you through that.
 
 ### Dependencies
 Python 3+ and modern bash or zsh.
