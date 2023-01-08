@@ -2,6 +2,8 @@
 set -o errexit
 set -o nounset
 
+. ./lib/array
+
 version="0.0.1"
 OSTYPE="$(uname -s 2>/dev/null)"
 parse_args() {
@@ -25,8 +27,8 @@ parse_args "$@"
 # cleanly go to the main loop
 # a 'modifier' for us is a flow control variable
 clear_modifiers() {
-	RANDOM_ANIME=""
-	RANDOM_AIRING=""
+	RANDOM_ANIME=0
+	RANDOM_AIRING=0
 	PROMPT=""
 	LIST_AIRING=""
 	SORT_SCORE=""
@@ -45,7 +47,7 @@ clear_modifiers() {
 	DEBUG_MATCH_INFO=""
 	FILE_LIST=""
 	FILE_INDEX=""
-	ANIMDL_PLAYTHROUGH=""
+	ANIMDL_PLAYTHROUGH=0
 	ANIMDL_SEARCH_INDEX=1
 }
 
@@ -237,7 +239,7 @@ install_dependencies() {
 					nyaapy \
 					anitopy \
 					'requests>=2.20.0' \
-					beautifulsoup4=4.6.0 \
+					beautifulsoup4==4.6.0 \
 					lxml \
 					dbus-python
 				pip3 install Trackma
@@ -301,8 +303,8 @@ install_dependencies() {
 # sanitizes a string to be used in an extended regular expression
 sanitize_ext_regex() {
 	printf "%s" "$1" |
-		sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],," |
-		sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" |
+		sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],," |
+		sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" |
 		sed 's/[]\/$*.^+()[-]/\\&/g' |
 		sed "s/ $//"
 }
@@ -505,11 +507,8 @@ get_show_status() {
 		STATUS="$(get_trackma_status_code "$STATUS")"
 		printf "%s" "$STATUS"
 	else
-		get_show_status_ANIME_TITLE
-		get_show_status_RES_TITLE
 		RES_TITLE=""
 		ANIME_TITLE="$1"
-		get_show_status_RES
 		while read -r trackma_code; do
 			# trackma search uses regex so we need to sanitize it
 			FULL_ENTRY=$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(sanitize_ext_regex "$ANIME_TITLE")" | trackma)
@@ -520,7 +519,7 @@ get_show_status() {
 				break
 			fi
 		done <<EOF
-"$TRACKMA_STATUS_MENU_ENTRIES"
+$TRACKMA_STATUS_MENU_ENTRIES
 EOF
 		if [ -z "$STATUS" ]; then
 			printf "%b\n" "💥 ERROR getting show status.\nPlease report this error message to the developer."
@@ -694,19 +693,19 @@ play_episode() {
 			PLAY_STATUS=$PLAY_STATUS_ERRORED
 		fi
 	elif [ "$PLAYER_SOURCE" = "streaming" ]; then
-		set -- allanime zoro animepahe animeout gogoanime tenshi
+		animdl_providers=$(array "allanime" "zoro" "animepahe" "animeout" "gogoanime" "tenshi")
 		echo && line_to_remove
 		pastel paint $MSG_INFO_COLOR "      💡 Streaming (animdl)" && line_to_remove
-		for provider_index in $(seq 1 10); do
-			if [ $ANIMDL_PLAYTHROUGH -eq 0 ]; then
-				play_episode_animdl_fifo_write
+		printf '%s\n' "$animdl_providers" | while IFS= read -r provider; do
+			d_provider=$(printf '%s\n' "$provider" | array_element_decode)
+			if [ "$ANIMDL_PLAYTHROUGH" -eq 0 ]; then
 				play_episode_animdl_fifo_write="$(mktemp -u)"
 				mkfifo -m 600 "$play_episode_animdl_fifo_write"
 				# TODO: can't stream with iina
-				nohup animdl stream "$provider_index:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_animdl_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_animdl_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
 				animdl_pid=$!
 				exec 3<>"$play_episode_animdl_fifo_write"
-				pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($provider_index)..." && line_to_remove
+				pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
 				animdl_stream_health=10
 				while [ $animdl_stream_health -gt 0 ]; do
 					# check for search result prompt
@@ -725,7 +724,7 @@ play_episode() {
 					sleep 1
 				done
 				if [ $animdl_stream_health -eq 0 ]; then
-					pastel paint $MSG_WARN_COLOR "      🚫 No results found ($provider_index), next..." && line_to_remove
+					pastel paint $MSG_WARN_COLOR "      🚫 No results found ($d_provider), next..." && line_to_remove
 					PLAY_STATUS=$PLAY_STATUS_ERRORED
 					# next provider
 					echo "" >"$ANIMDL_LOGFILE"
@@ -733,7 +732,7 @@ play_episode() {
 				fi
 				clear_lines
 				results=$(sed -n -E '/^[[:space:]]+[0-9]+\./p' "$ANIMDL_LOGFILE")
-				ANIMDL_SEARCH_INDEX="$(printf "%b" "$to_mainmenu\n$results" | sed "s/^[[:space:]]*//" | $FZF --prompt="Select a search result: " --border-label "╢ ♣  SEARCH RESULTS ($provider_index): $(trim "$play_episode_ANIME_TITLE") ▶ Episode $ANIME_EP ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" --header-first | cut -d '.' -f1)"
+				ANIMDL_SEARCH_INDEX="$(printf "%b" "$to_mainmenu\n$results" | sed "s/^[[:space:]]*//" | $FZF --prompt="Select a search result: " --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_ANIME_TITLE") ▶ Episode $ANIME_EP ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" --header-first | cut -d '.' -f1)"
 				[ -z "$ANIMDL_SEARCH_INDEX" ] && exit 1
 				[ "$ANIMDL_SEARCH_INDEX" = "$to_mainmenu" ] && PLAY_STATUS=$PLAY_STATUS_EXITED && ANIMDL_SEARCH_INDEX="" && return
 				printf "%b" "$ANIMDL_SEARCH_INDEX\n" >&3
@@ -751,7 +750,7 @@ play_episode() {
 				done
 				if [ $animdl_stream_health -eq 0 ]; then
 					echo && line_to_remove
-					pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $provider_index, next..." && line_to_remove
+					pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $d_provider, next..." && line_to_remove
 					PLAY_STATUS=$PLAY_STATUS_ERRORED
 					# next provider
 					echo "" >"$ANIMDL_LOGFILE"
@@ -766,7 +765,7 @@ play_episode() {
 			else
 				[ -z "$ANIMDL_SEARCH_INDEX" ] && exit 1
 				# TODO: can't stream with iina
-				nohup animdl stream "$provider_index:$play_episode_ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &
+				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &
 				sleep 2 # wait for the stream to start before presenting the streaming options
 				animdl_stream_health=10
 				while [ $animdl_stream_health -gt 0 ]; do
@@ -779,7 +778,7 @@ play_episode() {
 				done
 				if [ $animdl_stream_health -eq 0 ]; then
 					echo && line_to_remove
-					pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $provider_index" && line_to_remove
+					pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $d_provider" && line_to_remove
 					PLAY_STATUS=$PLAY_STATUS_ERRORED
 					# next provider
 					continue
@@ -876,7 +875,6 @@ LOGO_B64=$LOGO_DEFAULT_B64
 # set -x
 if [ $debug -eq 0 ]; then
 	if [ $small_logo = 0 ]; then
-		# printf "%b\n" "$(base64 -d <<<"$(printf "%s" "$LOGO_B64")" | gunzip)"
 		printf "%b\n" "$(
 			base64 -d <<EOF | gunzip
 $LOGO_B64
@@ -1016,13 +1014,13 @@ while true; do
 			fi
 
 			# remove character sequences and add an emoji next to shows currently airing
-			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 
 			if [ "$RANDOM_ANIME" -eq 1 ]; then
 				CHOICE=$(printf "%s" "$FULL_INFO" | shuf -n 1)
 			elif [ "$RANDOM_AIRING" -eq 1 ]; then
 				# format and filter airing shows, select one randomly
-				CHOICE=$(printf "%s" "$FULL_INFO" | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],📣 ," | sed -n "/📣/p" | shuf -n 1)
+				CHOICE=$(printf "%s" "$FULL_INFO" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed -n "/📣/p" | shuf -n 1)
 			else
 				FULL_INFO="$(printf "%s" "$FULL_INFO" | sort -r --version-sort)"
 				CHOICE=$(printf "%s\n%s" "$to_mainmenu" "$FULL_INFO" |
@@ -1142,14 +1140,14 @@ while true; do
 			play_episode "$ANIME_TITLE" "$ANIME_EP" "$PLAYER_SOURCE" "$STATUS" "$SHOW_TYPE" "$SHOW_SYNONYMS"
 
 			# block until the play status is set up
-			while [ $PLAY_STATUS -eq $PLAY_STATUS_WAITING ]; do
+			while [ "$PLAY_STATUS" = "$PLAY_STATUS_WAITING" ]; do
 				sleep 1
 			done
-			if [ $PLAY_STATUS -eq $PLAY_STATUS_ERRORED ]; then
+			if [ "$PLAY_STATUS" = "$PLAY_STATUS_ERRORED" ]; then
 				# fatal error, go back to mainmenu
 				echo && line_to_remove
 				if [ "$PLAYER_SOURCE" = "streaming" ]; then
-					pastel paint $MSG_ERR_COLOR "      💥 Unable to play the episode with animdl." && line_to_remove
+					pastel paint $MSG_ERR_COLOR "      💥 Unable to play the episode via streaming." && line_to_remove
 				else
 					pastel paint $MSG_ERR_COLOR "      💥 Unable to stream the episode via torrenting." && line_to_remove
 				fi
@@ -1166,7 +1164,7 @@ while true; do
 					fi
 				done
 				continue
-			elif [ $PLAY_STATUS -eq $PLAY_STATUS_EXITED ]; then
+			elif [ "$PLAY_STATUS" = "$PLAY_STATUS_EXITED" ]; then
 				clear_lines
 				clear_modifiers
 				break
@@ -1259,7 +1257,7 @@ while true; do
 		STATUS=$(printf "%b\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$to_submenu" | $FZF -i --prompt="Choose a status: " --border-label "╢ ♣  DELETE SERIES (Status select) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
 		[ "$STATUS" = "$to_submenu" ] && PROMPT="$to_submenu" && continue
 		STATUS=$(get_trackma_status_code "$STATUS")
-		FULL_LIST=$(printf "filter %s\nls" "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
+		FULL_LIST=$(printf "filter %s\nls" "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
 		[ -z "$FULL_LIST" ] && FULL_LIST="No entries found in this list..."
 		FULL_LIST="$FULL_LIST\n$to_submenu\n$SWITCH_STATUS_MSG_MENU_ENTRY"
 		TRACKMA_SHOW_INDEX=$(printf "%b" "$FULL_LIST" |
@@ -1320,7 +1318,7 @@ while true; do
 		while true; do
 			FULL_INFO="$(printf "filter %s\nls" "$STATUS" | trackma | sort -r | grep -Eo "$TRACKMA_LIST_REGEX")"
 			# remove character sequences and add an emoji next to airing shows
-			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 			FULL_INFO="$FULL_INFO\n$to_mainmenu"
 			TRACKMA_SHOW_INDEX="$(printf "%b" "$FULL_INFO" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  RATE SERIES ($STATUS) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first | cut -d" " -f1)"
 			[ "$TRACKMA_SHOW_INDEX" = "<" ] && unset PROMPT && break
@@ -1343,7 +1341,7 @@ while true; do
 
 		while true; do
 			FULL_INFO="$(printf "filter %s\nls" "$STATUS" | trackma | sort -r | grep -Eo "$TRACKMA_LIST_REGEX")"
-			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 			FULL_INFO="$FULL_INFO\n$to_submenu\n$SWITCH_STATUS_MSG_MENU_ENTRY"
 			TRACKMA_SHOW_INDEX="$(printf "%b" "$FULL_INFO" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  SET ALTERNATIVE NAME ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)"
 			[ "$TRACKMA_SHOW_INDEX" = "$to_submenu" ] && PROMPT=$to_submenu && break
@@ -1391,7 +1389,7 @@ while true; do
 			MSG=$(printf 'filter %s\nls' "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sort -r --version-sort)
 		fi
 		# remove character sequences and add an emoji next to airing shows
-		MSG=$(printf '%s\n' "$MSG" | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+		MSG=$(printf '%s\n' "$MSG" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 
 		if [ "$LIST_AIRING" -eq 1 ]; then
 			# filter airing show per user request
