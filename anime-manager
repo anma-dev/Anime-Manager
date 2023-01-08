@@ -348,7 +348,6 @@ TORRENT_DOWNLOAD_DIR="${TMP_PATH}/webtorrent"
 WEBTORRENT_LOGFILE="$CONFIG_PATH/webtorrent.log"
 TRACKMA_LOGFILE="$CONFIG_PATH/trackma.log"
 # CURRENTLY_PLAYING_LOGFILE="$CONFIG_PATH/now_playing.log"
-ANIMDL_DEF_PROVIDER="9anime"
 ANIMDL_LOGFILE="$CONFIG_PATH/animdl.log"
 # webtorrent globals
 # torrent status codes
@@ -752,11 +751,10 @@ function play_episode() {
 				while [[ animdl_stream_health -gt 0 ]]; do
 					# check for search result prompt
 					if ! grep "Select the search result" "$ANIMDL_LOGFILE" &>/dev/null; then
-						if ! grep "AV:" "$ANIMDL_LOGFILE" &>/dev/null; then
+						if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" &>/dev/null; then
 							animdl_stream_health=$((animdl_stream_health - 1))
 						else
 							# stream started automatically
-							ANIMDL_DEF_PROVIDER=$provider
 							PLAY_STATUS=$PLAY_STATUS_OKPLAYING
 							pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
 							return
@@ -781,10 +779,10 @@ function play_episode() {
 				printf "%b" "$ANIMDL_SEARCH_INDEX\n" >&3
 				3>&-:
 				sleep 2 # wait for the stream to start
-				pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
+				pastel paint $MSG_INFO_COLOR "      Trying to stream with $provider" && line_to_remove
 				animdl_stream_health=15
 				while [[ animdl_stream_health -gt 0 ]]; do
-					if ! grep "AV:" "$ANIMDL_LOGFILE" &>/dev/null; then
+					if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" &>/dev/null; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
 						break
@@ -802,6 +800,7 @@ function play_episode() {
 					rm "$animdl_fifo_write"
 					unset animdl_tmpfile
 					unset animdl_fifo_write
+					pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
 					PLAY_STATUS=$PLAY_STATUS_OKPLAYING
 					return
 				fi
@@ -812,7 +811,7 @@ function play_episode() {
 				sleep 2 # wait for the stream to start before presenting the streaming options
 				animdl_stream_health=10
 				while [[ animdl_stream_health -gt 0 ]]; do
-					if ! grep "AV:" "$ANIMDL_LOGFILE" &>/dev/null; then
+					if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" &>/dev/null; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
 						break
