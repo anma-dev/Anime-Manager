@@ -30,8 +30,8 @@ clear_modifiers() {
 	RANDOM_ANIME=0
 	RANDOM_AIRING=0
 	PROMPT=""
-	LIST_AIRING=""
-	SORT_SCORE=""
+	LIST_AIRING=0
+	SORT_SCORE=0
 	ANIME_TITLE=""
 	ANIME_TITLE_TRACKMA=""
 	TRACKMA_SHOW_INDEX=""
@@ -40,7 +40,7 @@ clear_modifiers() {
 	NEW_STATUS=""
 	LAST_WATCHED_EP=""
 	NYAA_SEARCH_RES=""
-	PLAY_STATUS=""
+	PLAY_STATUS=$PLAY_STATUS_WAITING
 	PLAYER_SOURCE="torrenting"
 	MAGNET_LINK=""
 	PLAY_METHOD_MENU_OPT=""
@@ -64,7 +64,7 @@ onexit() {
 	onexit_last_exit_status="$?"
 	onexit_parent_lineno="$1"
 	onexit_message="${2:-(no message ($onexit_last_exit_status))}"
-	onexit_exit_code="${3:-$last_exit_status}"
+	onexit_exit_code="${3:-$onexit_last_exit_status}"
 	if [ "$onexit_exit_code" -eq 130 ] || [ "$onexit_exit_code" -eq 0 ]; then
 		tput clear && tput clear
 		echo
@@ -168,12 +168,11 @@ autoCompat() {
 
 # get the shell configuration file path
 getShellConfigFile() {
-	getShellConfigFile_shell_cfig
-	shell_cfig=""
-	[ "$SHELL" = "/bin/bash" ] && touch "$HOME/.bash_profile" && shell_cfig="$HOME/.bash_profile"
+	getShellConfigFile_shell_cfig=""
+	[ "$SHELL" = "/bin/bash" ] && touch "$HOME/.bash_profile" && getShellConfigFile_shell_cfig="$HOME/.bash_profile"
 	# nvm on macos needs the shell config file
-	[ "$SHELL" = "/bin/zsh" ] && touch "$HOME/.zshrc" && shell_cfig="$HOME/.zshrc"
-	printf "%s" "$shell_cfig"
+	[ "$SHELL" = "/bin/zsh" ] && touch "$HOME/.zshrc" && getShellConfigFile_shell_cfig="$HOME/.zshrc"
+	printf "%s" "$getShellConfigFile_shell_cfig"
 }
 
 # install dependencies automatically if we can
@@ -672,7 +671,9 @@ play_episode() {
 
 		if [ "$FILE_INDEX" != "$NYAA_SEARCH_ERROR_CODE" ]; then
 			# run completely detached from terminal for availability
+			set +m
 			nohup node "$WEBTORRENT_CLI" download "$MAGNET_LINK" --select "$FILE_INDEX" --out "$TORRENT_DOWNLOAD_DIR" --"$MEDIA_PLAYER" >"$WEBTORRENT_LOGFILE" 2>&1 &
+			set -m
 			# printf "%s" "$EP_DATA" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
 			webtorrentpid=$!
 			# remove from job queue to avoid info messages if we have to end the process with kill
@@ -696,13 +697,15 @@ play_episode() {
 		animdl_providers=$(array "allanime" "zoro" "animepahe" "animeout" "gogoanime" "tenshi")
 		echo && line_to_remove
 		pastel paint $MSG_INFO_COLOR "      💡 Streaming (animdl)" && line_to_remove
-		printf '%s\n' "$animdl_providers" | while IFS= read -r provider; do
+		while IFS= read -r provider; do
 			d_provider=$(printf '%s\n' "$provider" | array_element_decode)
 			if [ "$ANIMDL_PLAYTHROUGH" -eq 0 ]; then
 				play_episode_animdl_fifo_write="$(mktemp -u)"
 				mkfifo -m 600 "$play_episode_animdl_fifo_write"
 				# TODO: can't stream with iina
+				set +m
 				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_animdl_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+				set -m
 				animdl_pid=$!
 				exec 3<>"$play_episode_animdl_fifo_write"
 				pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
@@ -710,7 +713,7 @@ play_episode() {
 				while [ $animdl_stream_health -gt 0 ]; do
 					# check for search result prompt
 					if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-						if ! grep "AV:" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+						if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
 							animdl_stream_health=$((animdl_stream_health - 1))
 						else
 							# stream started automatically
@@ -738,10 +741,10 @@ play_episode() {
 				printf "%b" "$ANIMDL_SEARCH_INDEX\n" >&3
 				3>&-:
 				sleep 2 # wait for the stream to start
-				pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
 				animdl_stream_health=15
+				pastel paint $MSG_INFO_COLOR "      Trying to stream with $d_provider" && line_to_remove
 				while [ $animdl_stream_health -gt 0 ]; do
-					if ! grep "AV:" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+					if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
 						break
@@ -759,17 +762,20 @@ play_episode() {
 					rm "$play_episode_animdl_fifo_write"
 					unset animdl_tmpfile
 					unset animdl_fifo_write
+					pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
 					PLAY_STATUS=$PLAY_STATUS_OKPLAYING
 					return
 				fi
 			else
 				[ -z "$ANIMDL_SEARCH_INDEX" ] && exit 1
 				# TODO: can't stream with iina
+				set +m
 				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &
+				set -m
 				sleep 2 # wait for the stream to start before presenting the streaming options
 				animdl_stream_health=10
 				while [ $animdl_stream_health -gt 0 ]; do
-					if ! grep "AV:" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+					if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
 						break
@@ -787,10 +793,9 @@ play_episode() {
 					return
 				fi
 			fi
-		done
-		pastel paint $MSG_INFO_COLOR ""
-		PLAY_STATUS=$PLAY_STATUS_ERRORED
-		return
+		done <<EOF
+$animdl_providers
+EOF
 	elif [ "$PLAYER_SOURCE" = "self_magnet" ]; then
 		echo && line_to_remove
 		printf "      🧲 Paste your magnet link: " && line_to_remove
@@ -1140,10 +1145,10 @@ while true; do
 			play_episode "$ANIME_TITLE" "$ANIME_EP" "$PLAYER_SOURCE" "$STATUS" "$SHOW_TYPE" "$SHOW_SYNONYMS"
 
 			# block until the play status is set up
-			while [ "$PLAY_STATUS" = "$PLAY_STATUS_WAITING" ]; do
+			while [ "$PLAY_STATUS" -eq "$PLAY_STATUS_WAITING" ]; do
 				sleep 1
 			done
-			if [ "$PLAY_STATUS" = "$PLAY_STATUS_ERRORED" ]; then
+			if [ "$PLAY_STATUS" -eq "$PLAY_STATUS_ERRORED" ]; then
 				# fatal error, go back to mainmenu
 				echo && line_to_remove
 				if [ "$PLAYER_SOURCE" = "streaming" ]; then
@@ -1231,7 +1236,7 @@ while true; do
 		echo && line_to_remove
 		printf "      🧩 What anime do you plan to watch❔ \n         👉 " && line_to_remove
 		read -r ANIME
-		ANIME="$(printf "%s" "$ANIME" | sed -E 's/[^a-zA-Z0-9 ]//g}')"
+		ANIME="$(printf "%s" "$ANIME" | sed -E 's/[^a-zA-Z0-9 ]//g')"
 		clear_lines
 		[ -z "$ANIME" ] && clear_modifiers && continue
 		tmpfile="$(mktemp)"
@@ -1291,7 +1296,7 @@ while true; do
 
 		fi
 		if [ "$PROMPT" = "$update_episodes" ]; then
-			printf "      How many episodes of this anime have you watched so far❔ " && line_to_remove
+			printf "      How many episodes of this anime have you watched so far❔\n" && line_to_remove
 			read -r NEW_EPISODE_COUNT # TODO: -n4
 			NEW_EPISODE_COUNT="$(printf "%s" "$NEW_EPISODE_COUNT" | sed -E 's/[^0-9]//g')"
 			clear_lines

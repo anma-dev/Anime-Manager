@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 if ! which nvm; then
     if ! which node; then
@@ -22,7 +22,7 @@ export NVM_DIR="$HOME/.nvm"
     else
         # respect the user installation
         node_v="$(node -v | awk -F"." '{print $1}' | sed 's,v,,g')"
-        if [[ $node_v -lt 14 ]]; then
+        if [ "$node_v" -lt 14 ]; then
             # tell the user to upgrade manually
             install_dep_msg="🎉 Finished the autoinstall!\nNEXT STEPS: manually update your Node.js version to node>=14 and restart your Terminal to start using Anime Manager."
         fi
@@ -32,7 +32,7 @@ else
     nvm install node
     nvm use node
 fi
-if [[ ! -d lib/webtorrent-cli ]]; then
+if [ ! -d lib/webtorrent-cli ]; then
     git clone https://github.com/anma-dev/webtorrent-cli.git lib/webtorrent-cli
     cd lib/webtorrent-cli || exit
     npm i
