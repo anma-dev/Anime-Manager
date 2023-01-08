@@ -1,6 +1,6 @@
 # ~ anime-manager
 
-anime-manager is a powerful open source script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
+anime-manager is a powerful open source (POSIX-compliant) script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
 
 https://user-images.githubusercontent.com/121255032/210994787-c6f273fd-66b1-484b-a787-be1092bcb79a.mp4
 
