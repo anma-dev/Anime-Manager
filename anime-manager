@@ -308,7 +308,6 @@ sanitize_ext_regex() {
 		sed "s/ $//"
 }
 
-# https://stackoverflow.com/a/20053121
 sanitize_bash() {
 	printf "%s" "$1" | LC_ALL=C sed -e 's/[^a-zA-Z0-9,._+@%/-]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
 }
@@ -707,7 +706,7 @@ play_episode() {
 				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_animdl_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
 				set -m
 				animdl_pid=$!
-				exec 3<>"$play_episode_animdl_fifo_write"
+				exec 3>"$play_episode_animdl_fifo_write"
 				pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
 				animdl_stream_health=10
 				while [ $animdl_stream_health -gt 0 ]; do
@@ -877,7 +876,7 @@ LOGO_B64=$LOGO_DEFAULT_B64
 [ "$DATE_MONTH" -eq 10 ] && [ "$DATE_DAY" -eq 31 ] && LOGO_B64=$LOGO_HALLOWEEN_B64
 [ "$DATE_MONTH" -eq 12 ] && [ "$DATE_DAY" -eq 24 ] || [ "$DATE_DAY" -eq 25 ] && LOGO_B64=$LOGO_XMAS_B64
 # [ $DATE_MONTH -eq 12 ] && [ $DATE_DAY -eq 31 ] && LOGO_B64=$LOGO_NEWYEAR_B64
-# set -x
+
 if [ $debug -eq 0 ]; then
 	if [ $small_logo = 0 ]; then
 		printf "%b\n" "$(
@@ -1243,7 +1242,7 @@ while true; do
 		fifo_write="$(mktemp -u)"
 		mkfifo -m 600 "$fifo_write"
 		trackma <"$fifo_write" >"$tmpfile" 2>"$TRACKMA_LOGFILE" &
-		exec 3<>"$fifo_write"
+		exec 3>"$fifo_write"
 		printf "%b" "filter $(get_trackma_status_code "$STATUS")\nadd '$ANIME'\n" >&3
 		pastel paint $MSG_INFO_COLOR "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
 		while ! grep "Choose" "$tmpfile" >/dev/null 2>&1; do :; done
@@ -1251,7 +1250,7 @@ while true; do
 		results=$(sed -n -E '/^[0-9]+\:/p' "$tmpfile")
 		choice="$(printf "%b" "$results" | $FZF --prompt="Choose the anime to add: " --border-label "╢ ♣  ADD NEW ANIME ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Add" --header-first | cut -d ':' -f1)"
 		[ -z "$choice" ] && exit
-		printf "%b" "$choice\n" >&3
+		printf "%b" "$choice\n" >"$fifo_write"
 		rm "$fifo_write" "$tmpfile"
 		unset tmpfile
 		unset fifo_write
