@@ -29,7 +29,7 @@ It integrates the following functionality and tools:
 AM starts empty by default, with no account configured. You will have to configure Trackma with an account separately for AM to work properly. The script will walk you through that.
 
 ### Dependencies
-Python 3+ and modern bash or zsh.
+Python 3+
 
 | Dependency | Description |
 | - | - |
@@ -39,6 +39,7 @@ Python 3+ and modern bash or zsh.
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
 | [Node.js](https://nodejs.org/en/) | Runs the Webtorrent process |
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scrapping magnet links from nyaa.si |
+| [anitopy](https://github.com/igorcmoura/anitopy/) | Parsing filenames |
 | [pastel](https://github.com/sharkdp/pastel) | Text with pretty colors |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
