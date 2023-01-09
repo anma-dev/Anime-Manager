@@ -2,6 +2,36 @@
 set -o errexit
 set -o nounset
 
+LANG="C"
+LC_ALL="C"
+LC_COLLATE="C"
+LC_CTYPE="C"
+LC_MESSAGES="C"
+LC_MONETARY="C"
+LC_NUMERIC="C"
+LC_TIME="C"
+LC_ADDRESS="C"
+LC_IDENTIFICATION="C"
+LC_MEASUREMENT="C"
+LC_NAME="C"
+LC_PAPER="C"
+LC_TELEPHONE="C"
+LANGUAGE="en_US.UTF-8"
+export LANG LC_ALL \
+	LC_COLLATE \
+	LC_CTYPE \
+	LC_MESSAGES \
+	LC_MONETARY \
+	LC_NUMERIC \
+	LC_TIME \
+	LANGUAGE \
+	LC_ADDRESS \
+	LC_IDENTIFICATION \
+	LC_MEASUREMENT \
+	LC_NAME \
+	LC_PAPER \
+	LC_TELEPHONE
+
 . ./lib/array
 
 version="0.0.1"
@@ -22,7 +52,10 @@ parse_args() {
 	done
 }
 
-parse_args "$@"
+case $# in
+0) parse_args ;;
+*) parse_args "$@" ;;
+esac
 
 # cleanly go to the main loop
 # a 'modifier' for us is a flow control variable
@@ -300,13 +333,14 @@ install_dependencies() {
 }
 
 # sanitizes a string to be used in an extended regular expression
-sanitize_ext_regex() {
+sanitize_ext_regex_function_code='sanitize_ext_regex() {
 	printf "%s" "$1" |
-		sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],," |
-		sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" |
-		sed 's/[]\/$*.^+()[-]/\\&/g' |
+		sed "s,$(printf "'"\033"'")\\[[0-9;]*[a-zA-Z],," |
+		sed "s,$(printf "'"\033"'")\\[[0-9;]*[a-zA-Z],,g" |
+		sed "'"s/[]\/$*.^+()[-]/\\&/g"'" |
 		sed "s/ $//"
-}
+}'
+eval "$sanitize_ext_regex_function_code"
 
 sanitize_bash() {
 	printf "%s" "$1" | LC_ALL=C sed -e 's/[^a-zA-Z0-9,._+@%/-]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
@@ -495,7 +529,7 @@ get_watching_shows() {
 # accepts a trackma entry and returns the cleaned show title
 # to use with raw trackma entries only
 get_show_title_function_code='get_show_title() {
-	printf "%s" "$1" | perl -pe "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed "s,$(printf "\033")\\[0-9;]*[a-zA-Z],," | sed "s,$(printf "\033")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed "s/\[.*\]//g" | sed "s/ $//g"
+	printf "%s" "$1" | perl -pe "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed "s/\[.*\]//g" | sed "s/ $//g"
 }'
 eval "$get_show_title_function_code"
 
@@ -1402,14 +1436,14 @@ while true; do
 
 		if [ ! "$MSG" ]; then
 			MSG="This list has no items... "
-			SEL=$(printf "%s\n%s\n%s" "$MSG" "$to_mainmenu" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "get_show_info {} $STATUS | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$([ "$SORT_SCORE" -eq 1 ] && printf ' BY SCORE 🌟' || [ "$LIST_AIRING" -eq 1 ] && printf ' AIRING SHOWS 📣' || printf " SHOWS") ($STATUS list) ♣  " --header "⇅ Navigation - [Enter] Go back" --prompt "")
+			SEL=$(printf "%s\n%s\n%s" "$MSG" "$to_mainmenu" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "$sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $STATUS | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$([ "$SORT_SCORE" -eq 1 ] && printf ' BY SCORE 🌟' || [ "$LIST_AIRING" -eq 1 ] && printf ' AIRING SHOWS 📣' || printf " SHOWS") ($STATUS list) ♣  " --header "⇅ Navigation - [Enter] Go back" --prompt "")
 			[ "$SEL" = "$to_mainmenu" ] && PROMPT="$to_mainmenu" && continue
 			continue
 		fi
 
 		export STATUS
 		while true; do
-			SEL=$(printf "%s\n%s\n%s" "$MSG" "$to_mainmenu" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "get_show_info {} $STATUS | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$([ "$SORT_SCORE" -eq 1 ] && printf ' BY SCORE 🌟' || [ "$LIST_AIRING" -eq 1 ] && printf ' AIRING SHOWS 📣' || printf " SHOWS") ($STATUS list) ♣  " --header "⇅ Navigation - [Ctrl-L] toggle info - [ESC] Exit - [Enter] Play ▸" --prompt "Choose an anime: ")
+			SEL=$(printf "%s\n%s\n%s" "$MSG" "$to_mainmenu" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "$sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $STATUS | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$([ "$SORT_SCORE" -eq 1 ] && printf ' BY SCORE 🌟' || [ "$LIST_AIRING" -eq 1 ] && printf ' AIRING SHOWS 📣' || printf " SHOWS") ($STATUS list) ♣  " --header "⇅ Navigation - [Ctrl-L] toggle info - [ESC] Exit - [Enter] Play ▸" --prompt "Choose an anime: ")
 			[ "$SEL" = "$to_mainmenu" ] && clear_modifiers && break
 			[ "$SEL" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
 			ANIME_TITLE_TRACKMA=$(get_show_title "$SEL")
