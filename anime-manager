@@ -124,7 +124,7 @@ log() {
 
 # returns true if the user has initialized an account
 is_trackma_init() {
-	if printf "q\n" | trackma ls | grep -q -i -E "no account|Available accounts"; then
+	if [ -n "$(printf "q\n" | trackma ls | sed -En "s/no account|Available accounts/&/p")" ]; then
 		false
 	else
 		true
@@ -189,7 +189,7 @@ clear_lines() {
 
 # check if we can run automatic install for missing dependencies
 autoCompat() {
-	if [ "$OSTYPE" = "Linux" ] && grep -iq "ubuntu" /etc/os-release; then
+	if [ "$OSTYPE" = "Linux" ] && grep "Ubuntu" /etc/os-release >/dev/null 2>&1; then
 		true
 	elif [ "$OSTYPE" = "Darwin" ]; then
 		true
@@ -231,7 +231,7 @@ install_dependencies() {
 			esac
 		fi
 		# begin installation
-		if [ "$OSTYPE" = "Linux" ] && grep -iq "ubuntu" /etc/os-release; then
+		if [ "$OSTYPE" = "Linux" ] && grep "Ubuntu" /etc/os-release >/dev/null 2>&1; then
 			log "🐧 Installing Ubuntu dependencies."
 			sudo -v
 			[ $? -ne 0 ] && log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
@@ -286,7 +286,7 @@ install_dependencies() {
 				# Install homebrew unattended
 				NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 			fi
-			if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg"; then
+			if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg" >/dev/null 2>&1; then
 				echo 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
 			fi
 			# https://github.com/sharkdp/pastel
@@ -521,7 +521,7 @@ set_show_status() {
 }
 
 filter_trackma_list() {
-	printf "%b" "$1" | grep -Eo "$TRACKMA_LIST_REGEX"
+	printf "%b" "$1" | sed -En "s/$TRACKMA_LIST_REGEX/\1/p"
 }
 
 # get all the shows the user has set as watching in their lists
@@ -585,7 +585,7 @@ connectivity_check() {
 
 # get shows info from Trackma
 get_show_info_function_code='get_show_info() {
-	if printf "%s" "$1" | grep -Eoq "\d+\s\/\s[0-9?]+"; then
+	if printf "%s" "$1" | sed -En "s/\d+\s\/\s[0-9?]+/\\\&/p" >/dev/null 2>&1; then
 		# raw entry
 		get_show_info_SHOW_TITLE="$(get_show_title "$1")"
 	else
@@ -624,7 +624,7 @@ get_show_entry() {
 	STATUS="$(get_show_status "$play_episode_ANIME_TITLE")"
 	# trackma search uses regex so we need to sanitize it
 	get_show_entry_FULL_ENTRY=$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$STATUS")" "$(sanitize_ext_regex "$play_episode_ANIME_TITLE")" | trackma)
-	get_show_entry_LIST="$(printf "%b" "$get_show_entry_FULL_ENTRY" | grep -Eo "$TRACKMA_LIST_REGEX" | head -n1)"
+	get_show_entry_LIST="$(printf "%b" "$get_show_entry_FULL_ENTRY" | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | head -n1)"
 	# we assume we should find a result
 	[ -z "$get_show_entry_LIST" ] &&
 		printf "%b\n" "💥 ERROR getting show entry.\nPlease report this error message to the developer." && exit 1
@@ -683,8 +683,8 @@ play_episode() {
 			CHOICE=$(printf "%b" "{\"name\": \"$to_mainmenu\"}\n$NYAA_SEARCH_RES" | jq '.name' | sed "s/\"//g" |
 				$FZF -i --prompt "Choose an entry: " --border-label "╢ ♣  NYAA.si SEARCH RESULTS: $(trim "$play_episode_ANIME_TITLE") ▶ $play_episode_ANIME_EPISODE ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" --header-first --preview "printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'" --preview-window "50,hidden,wrap" --preview-label ' Expanded view ' --bind "ctrl-l:toggle-preview")
 			[ "$CHOICE" = "$to_mainmenu" ] && PLAY_STATUS="$PLAY_STATUS_EXITED" && return
-			CHOICE=$(printf "%s" "$CHOICE" | sed -E "s/🔴 |🟢 |⚪️ //g")
-			FILTERED_JSON="$(printf "%s" "$NYAA_SEARCH_RES" | sed "s/\\\ud83d\\\udd34|\\\u26aa\\\ufe0f|\\\ud83d\\\udfe2//g" | grep -F "$CHOICE")"
+			CHOICE=$(printf "%s" "$CHOICE" | sed "s/🔴 //g" | sed "s/🟢 //g" | sed "s/⚪️ //g")
+			FILTERED_JSON="$(printf "%s" "$NYAA_SEARCH_RES" | sed "s/\\\ud83d\\\udd34|\\\u26aa\\\ufe0f|\\\ud83d\\\udfe2//g" | sed -En "/$(sanitize_ext_regex "$CHOICE")/p")"
 			MAGNET_LINK="$(printf "%s" "$FILTERED_JSON" |
 				python3 -c "import sys, json; print(json.load(sys.stdin)['magnet'])")"
 		fi
@@ -758,7 +758,7 @@ play_episode() {
 				while [ $animdl_stream_health -gt 0 ]; do
 					# check for search result prompt
 					if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-						if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+						if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
 							animdl_stream_health=$((animdl_stream_health - 1))
 						else
 							# stream started automatically
@@ -779,7 +779,7 @@ play_episode() {
 					continue
 				fi
 				clear_lines
-				results=$(sed -n -E '/^[[:space:]]+[0-9]+\./p' "$ANIMDL_LOGFILE")
+				results=$(perl -pe 's/^[[:space:]]+[0-9]+\./&/p' "$ANIMDL_LOGFILE")
 				ANIMDL_SEARCH_INDEX="$(printf "%b" "$to_mainmenu\n$results" | sed "s/^[[:space:]]*//" | $FZF --prompt="Select a search result: " --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_ANIME_TITLE") ▶ Episode $ANIME_EP ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" --header-first | cut -d '.' -f1)"
 				[ -z "$ANIMDL_SEARCH_INDEX" ] && exit 1
 				[ "$ANIMDL_SEARCH_INDEX" = "$to_mainmenu" ] && PLAY_STATUS=$PLAY_STATUS_EXITED && ANIMDL_SEARCH_INDEX="" && return
@@ -789,7 +789,7 @@ play_episode() {
 				animdl_stream_health=15
 				pastel paint $MSG_INFO_COLOR "      Trying to stream with $d_provider" && line_to_remove
 				while [ $animdl_stream_health -gt 0 ]; do
-					if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+					if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
 						break
@@ -820,7 +820,7 @@ play_episode() {
 				sleep 2 # wait for the stream to start before presenting the streaming options
 				animdl_stream_health=10
 				while [ $animdl_stream_health -gt 0 ]; do
-					if ! grep -E "AV:|libmpv|A-V" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+					if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
 						animdl_stream_health=$((animdl_stream_health - 1))
 					else
 						break
@@ -845,7 +845,7 @@ EOF
 		echo && line_to_remove
 		printf "      🧲 Paste your magnet link: " && line_to_remove
 		read -r MAGNET_LINK
-		MAGNET_LINK="$(printf "%s" "$MAGNET_LINK" | sed "s/;//g" | tr -d '\n')"
+		MAGNET_LINK="$(printf "%s" "$MAGNET_LINK" | sed "s/;//g" | tr -d '\012')" # newline esc seq in octal
 		clear_lines
 		PLAYER_SOURCE="torrenting"
 		play_episode "$ANIME_TITLE_TRACKMA" "$ANIME_EP" "$PLAYER_SOURCE" "$STATUS" "$SHOW_TYPE" "$SHOW_SYNONYMS"
@@ -863,7 +863,7 @@ check_torrent_health() {
 		# if the torrent is not finding peers
 		# before or after download start
 		lastlog="$(tail -n20 "$WEBTORRENT_LOGFILE")"
-		if ! printf "%s" "$lastlog" | grep -q -E "Streaming" || printf "%s" "$lastlog" | grep -q -E "Peers: 0/0"; then
+		if [ -z "$(printf "%s" "$lastlog" | sed -n "/Streaming/p")" ] || [ -n "$(printf "%s" "$lastlog" | sed -n "/Peers: 0\/0/p")" ]; then
 			check_torrent_health_waitingtime=$((check_torrent_health_waitingtime + check_torrent_health_checkinterval))
 			sleep $check_torrent_health_checkinterval
 		else
@@ -904,7 +904,8 @@ export FZF_DEFAULT_OPTS='--color=fg:#d0d0d0,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00
 FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 50% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1"
 # regex for extracting trackma results
 # gets the whole series list
-TRACKMA_LIST_REGEX="([0-9]+[[:space:]]+(.+?)+[[:space:]]+[0-9]+[[:space:]]+/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+)*"
+TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
+# TRACKMA_LIST_REGEX="([0-9]+[[:space:]]+(.+?)+[[:space:]]+[0-9]+[[:space:]]+/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+)*"
 # gets the multiple parts of an entry, by matching groups
 #	1- list index
 #	2- series title
@@ -1174,14 +1175,14 @@ while true; do
 
 			if [ -z "$SHOW_TYPE" ]; then
 				SHOW_INFO="$(get_show_info "$ANIME_TITLE_TRACKMA" "$STATUS")"
-				if printf "%s" "$SHOW_INFO" | grep -i "type: " >/dev/null 2>&1; then
-					SHOW_TYPE="$(printf "%b" "$SHOW_INFO" | grep -i "type: " | awk -F": " '{print $2}')"
+				if printf "%s" "$SHOW_INFO" | grep "Type: " >/dev/null 2>&1; then
+					SHOW_TYPE="$(printf "%b" "$SHOW_INFO" | grep "Type: " | awk -F": " '{print $2}')"
 				fi
 			fi
 			if [ -z "$SHOW_SYNONYMS" ]; then
 				SHOW_INFO="$(get_show_info "$ANIME_TITLE_TRACKMA" "$STATUS")"
-				if printf "%s" "$SHOW_INFO" | grep -i "synonyms: " >/dev/null 2>&1; then
-					SHOW_SYNONYMS="$(printf "%b" "$SHOW_INFO" | grep -i "synonyms: " | awk -F": " '{print $2}')"
+				if printf "%s" "$SHOW_INFO" | grep "Synonyms: " >/dev/null 2>&1; then
+					SHOW_SYNONYMS="$(printf "%b" "$SHOW_INFO" | grep "Synonyms: " | awk -F": " '{print $2}')"
 					SHOW_SYNONYMS="$ANIME_TITLE_TRACKMA, $(printf "%s" "$SHOW_SYNONYMS" | sed "s/[]'[]//g")"
 				fi
 			fi
@@ -1293,7 +1294,7 @@ while true; do
 		pastel paint $MSG_INFO_COLOR "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
 		while ! grep "Choose" "$tmpfile" >/dev/null 2>&1; do :; done
 		clear_lines
-		results=$(sed -n -E '/^[0-9]+\:/p' "$tmpfile")
+		results=$(sed -En '/^[0-9]+\:/p' "$tmpfile")
 		choice="$(printf "%b" "$results" | $FZF --prompt="Choose the anime to add: " --border-label "╢ ♣  ADD NEW ANIME ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Add" --header-first | cut -d ':' -f1)"
 		[ -z "$choice" ] && exit
 		printf "%b" "$choice\n" >"$fifo_write"
@@ -1307,7 +1308,7 @@ while true; do
 		STATUS=$(printf "%b\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$to_submenu" | $FZF -i --prompt="Choose a status: " --border-label "╢ ♣  DELETE SERIES (Status select) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
 		[ "$STATUS" = "$to_submenu" ] && PROMPT="$to_submenu" && continue
 		STATUS=$(get_trackma_status_code "$STATUS")
-		FULL_LIST=$(printf "filter %s\nls" "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
+		FULL_LIST=$(printf "filter %s\nls" "$STATUS" | trackma | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
 		[ -z "$FULL_LIST" ] && FULL_LIST="No entries found in this list..."
 		FULL_LIST="$FULL_LIST\n$to_submenu\n$SWITCH_STATUS_MSG_MENU_ENTRY"
 		TRACKMA_SHOW_INDEX=$(printf "%b" "$FULL_LIST" |
@@ -1329,7 +1330,7 @@ while true; do
 
 			STATUS=$(get_trackma_status_code "$STATUS")
 
-			RES="$(printf "filter %s\nls" "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sort -r)"
+			RES="$(printf "filter %s\nls" "$STATUS" | trackma | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sort -r)"
 			if [ -z "$RES" ]; then
 				RES="This list has no items..."
 				TRACKMA_SHOW_INDEX="$(printf "%b" "$RES\n$menuitem" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  UPDATE EPISODE ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first | cut -d" " -f1)"
@@ -1366,7 +1367,7 @@ while true; do
 		[ "$STATUS" = "$to_mainmenu" ] && PROMPT=$to_mainmenu && clear_modifiers && continue
 
 		while true; do
-			FULL_INFO="$(printf "filter %s\nls" "$STATUS" | trackma | sort -r | grep -Eo "$TRACKMA_LIST_REGEX")"
+			FULL_INFO="$(printf "filter %s\nls" "$STATUS" | trackma | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
 			# remove character sequences and add an emoji next to airing shows
 			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 			FULL_INFO="$FULL_INFO\n$to_mainmenu"
@@ -1390,7 +1391,7 @@ while true; do
 		[ "$STATUS" = "$to_submenu" ] && PROMPT=$to_submenu && continue
 
 		while true; do
-			FULL_INFO="$(printf "filter %s\nls" "$STATUS" | trackma | sort -r | grep -Eo "$TRACKMA_LIST_REGEX")"
+			FULL_INFO="$(printf "filter %s\nls" "$STATUS" | trackma | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
 			FULL_INFO=$(printf '%s\n' "$FULL_INFO" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 			FULL_INFO="$FULL_INFO\n$to_submenu\n$SWITCH_STATUS_MSG_MENU_ENTRY"
 			TRACKMA_SHOW_INDEX="$(printf "%b" "$FULL_INFO" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  SET ALTERNATIVE NAME ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)"
@@ -1434,9 +1435,9 @@ while true; do
 
 		if [ "$SORT_SCORE" -eq 1 ]; then
 			# sort by score
-			MSG=$(printf 'filter %s\nsort my_score\nls' "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sort -r)
+			MSG=$(printf 'filter %s\nsort my_score\nls' "$STATUS" | trackma | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sort -r)
 		else
-			MSG=$(printf 'filter %s\nls' "$STATUS" | trackma | grep -Eo "$TRACKMA_LIST_REGEX" | sort -r --version-sort)
+			MSG=$(printf 'filter %s\nls' "$STATUS" | trackma | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sort -r --version-sort)
 		fi
 		# remove character sequences and add an emoji next to airing shows
 		MSG=$(printf '%s\n' "$MSG" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
