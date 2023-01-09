@@ -541,7 +541,7 @@ get_watching_shows() {
 # accepts a trackma entry and returns the cleaned show title
 # to use with raw trackma entries only
 get_show_title_function_code='get_show_title() {
-	printf "%s" "$1" | perl -pe "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed "s/\[.*\]//g" | sed "s/ $//g"
+	printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed "s/\.$//g" | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed "s/\[.*\]//g" | sed "s/ $//g"
 }'
 eval "$get_show_title_function_code"
 
@@ -612,7 +612,7 @@ get_last_show_ep() {
 	get_last_show_ep_ANIME_TITLE="$(printf "%s" "$1" | sed "s/\[.*\]//g" | sed "s/ $//g")"
 	get_last_show_ep_FULL_ENTRY=$(get_show_entry "$get_last_show_ep_ANIME_TITLE")
 	[ -z "$get_last_show_ep_FULL_ENTRY" ] && exit 1
-	LAST_EP="$(printf "%b" "$get_last_show_ep_FULL_ENTRY" | perl -pe "s/$TRACKMA_ENTRY_REGEX/\5/p")"
+	LAST_EP="$(printf "%b" "$get_last_show_ep_FULL_ENTRY" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p")"
 	printf "%s" "$LAST_EP"
 }
 
@@ -779,7 +779,7 @@ play_episode() {
 					continue
 				fi
 				clear_lines
-				results=$(perl -pe 's/^[[:space:]]+[0-9]+\./&/p' "$ANIMDL_LOGFILE")
+				results=$(sed -En '/^[[:space:]]+[0-9]+\./p' "$ANIMDL_LOGFILE")
 				ANIMDL_SEARCH_INDEX="$(printf "%b" "$to_mainmenu\n$results" | sed "s/^[[:space:]]*//" | $FZF --prompt="Select a search result: " --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_ANIME_TITLE") ▶ Episode $ANIME_EP ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" --header-first | cut -d '.' -f1)"
 				[ -z "$ANIMDL_SEARCH_INDEX" ] && exit 1
 				[ "$ANIMDL_SEARCH_INDEX" = "$to_mainmenu" ] && PLAY_STATUS=$PLAY_STATUS_EXITED && ANIMDL_SEARCH_INDEX="" && return
@@ -913,8 +913,11 @@ TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:s
 #	4- last watched ep
 #	5- end episode
 #	6- series score
-# caveat: series names ending with one or more dots
-TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([.]*[^.]++)*)\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]*([[:digit:]]+)$"
+# Caveat: removing possesive quantifier makes the \2 match to end
+# with a residual dot, we will have to remove it with sed.
+# We also have no way of making a distinction between series that
+# actually end with a dot from a residual dot.
+TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.)*)\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]*([[:digit:]]+)$"
 
 # print the logos
 tput clear
