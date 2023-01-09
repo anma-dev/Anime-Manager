@@ -335,9 +335,9 @@ install_dependencies() {
 # sanitizes a string to be used in an extended regular expression
 sanitize_ext_regex_function_code='sanitize_ext_regex() {
 	printf "%s" "$1" |
-		sed "s,$(printf "'"\033"'")\\[[0-9;]*[a-zA-Z],," |
-		sed "s,$(printf "'"\033"'")\\[[0-9;]*[a-zA-Z],,g" |
-		sed "'"s/[]\/$*.^+()[-]/\\&/g"'" |
+		sed "s,$(printf "\033")\\[[0-9;]*[a-zA-Z],," |
+		sed "s,$(printf "\033")\\[[0-9;]*[a-zA-Z],,g" |
+		sed "s/[]\/\$*.^+()[-]/\\\&/g" |
 		sed "s/ $//"
 }'
 eval "$sanitize_ext_regex_function_code"
@@ -424,6 +424,18 @@ Do you agree with this? [yes/no]: "
 	echo "$ANSWER" >"$CHECKPOINTFILE"
 	tput clear
 fi
+
+# Create a safe temporary filename in a posix-compliant way
+posix_mktemp_file() {
+	{
+		posix_mktemp_file_file=$(
+			(mktemp -u "$TMP_PATH/anmaXXXXXXXX") 2>/dev/null
+		)
+	} || {
+		posix_mktemp_file_file=$TMP_PATH/anma$$-$(awk 'BEGIN { srand(); print int(rand()*32768) }' /dev/null)
+	} || exit $?
+	printf "%s" "$posix_mktemp_file_file"
+}
 
 # get the account in use in Trackma
 get_account_name() {
@@ -733,7 +745,7 @@ play_episode() {
 		while IFS= read -r provider; do
 			d_provider=$(printf '%s\n' "$provider" | array_element_decode)
 			if [ "$ANIMDL_PLAYTHROUGH" -eq 0 ]; then
-				play_episode_animdl_fifo_write="$(mktemp -u)"
+				play_episode_animdl_fifo_write="$(posix_mktemp_file)"
 				mkfifo -m 600 "$play_episode_animdl_fifo_write"
 				# TODO: can't stream with iina
 				set +m
@@ -1272,8 +1284,8 @@ while true; do
 		ANIME="$(printf "%s" "$ANIME" | sed -E 's/[^a-zA-Z0-9 ]//g')"
 		clear_lines
 		[ -z "$ANIME" ] && clear_modifiers && continue
-		tmpfile="$(mktemp)"
-		fifo_write="$(mktemp -u)"
+		tmpfile="$(posix_mktemp_file)"
+		fifo_write="$(posix_mktemp_file)"
 		mkfifo -m 600 "$fifo_write"
 		trackma <"$fifo_write" >"$tmpfile" 2>"$TRACKMA_LOGFILE" &
 		exec 3>"$fifo_write"
