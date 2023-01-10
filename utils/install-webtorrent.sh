@@ -24,7 +24,7 @@ export NVM_DIR="$HOME/.nvm"
         node_v="$(node -v | awk -F"." '{print $1}' | sed 's,v,,g')"
         if [ "$node_v" -lt 14 ]; then
             # tell the user to upgrade manually
-            install_dep_msg="🎉 Finished the autoinstall!\nNEXT STEPS: manually update your Node.js version to node>=14 and restart your Terminal to start using Anime Manager."
+            printf "%s\n" "Please manually update your Node.js version to node>=14."
         fi
     fi
 else
