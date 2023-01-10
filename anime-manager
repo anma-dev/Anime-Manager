@@ -160,8 +160,6 @@ checkTrackmaConfig() {
 	fi
 }
 
-checkTrackmaConfig
-
 # trim long show titles
 trim() {
 	MAX_LEN=20
@@ -194,7 +192,7 @@ autoCompat() {
 	elif [ "$OSTYPE" = "Darwin" ]; then
 		true
 	else
-		log "Automatic installation does not support your platform yet ($OSTYPE)\n but we may add support for it in the future.\nPlease install the dependencies manually."
+		log "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\n\nMORE INFO: https://github.com/anma-dev/Anime-Manager#dependencies"
 		exit 0
 	fi
 }
@@ -404,6 +402,7 @@ mkdir -p "$CONFIG_PATH"
 # initial checks
 if [ ! -f "$CHECKPOINTFILE" ]; then
 	install_dependencies
+	checkTrackmaConfig
 	printf "%s" "
 READ FIRST --
 
@@ -843,8 +842,11 @@ $animdl_providers
 EOF
 	elif [ "$PLAYER_SOURCE" = "self_magnet" ]; then
 		echo && line_to_remove
-		printf "      🧲 Paste your magnet link: " && line_to_remove
+		pastel paint $MSG_INFO_COLOR "      🧲 Paste your magnet link and press Enter (silent input): " && line_to_remove
+		stty_orig=$(stty -g)
+		stty -echo
 		read -r MAGNET_LINK
+		stty "$stty_orig"
 		MAGNET_LINK="$(printf "%s" "$MAGNET_LINK" | sed "s/;//g" | tr -d '\012')" # newline esc seq in octal
 		clear_lines
 		PLAYER_SOURCE="torrenting"
