@@ -65,7 +65,9 @@ We offer few options because the script is meant to be interacted with through t
 #### `-d`, `--debug`
 Don't print the logo and enable debug mode.
 #### `--monochrome-logo`
-Print the monochromatic logo instead of the orange one, for terminals that do not support 24-bit colors. Currently, there is no holiday seasonal greeting for the monochromatic logo.
+Print the monochromatic logo instead of the orange one, for terminals that do not support 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md), for example.
+
+Currently, there is no holiday seasonal greeting for the monochromatic logo.
 #### `--small-logo`
 Don't print the big, orange logo, print the small yellow one instead.
 The default big logo includes some fun greetings for holiday seasons. Recommended!
