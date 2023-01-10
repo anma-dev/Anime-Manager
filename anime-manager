@@ -127,8 +127,6 @@ function checkTrackmaConfig() {
 	fi
 }
 
-checkTrackmaConfig
-
 # trim long show titles
 function trim() {
 	MAX_LEN=20
@@ -376,6 +374,7 @@ mkdir -p "$CONFIG_PATH"
 # initial checks
 if [[ ! -f $CHECKPOINTFILE ]]; then
 	install_dependencies
+	checkTrackmaConfig
 	printf "%s" "
 READ FIRST --
 
