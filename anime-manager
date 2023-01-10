@@ -585,7 +585,7 @@ connectivity_check() {
 
 # get shows info from Trackma
 get_show_info_function_code='get_show_info() {
-	if printf "%s" "$1" | sed -En "s/\d+\s\/\s[0-9?]+/\\\&/p" >/dev/null 2>&1; then
+	if [ -n "$(printf "%s" "$1" | sed -En "/[[:digit:]]+[[:space:]]+\/[[:space:]]+[[:digit:]]+[[:space:]]+[[:digit:]]/p")" ]; then
 		# raw entry
 		get_show_info_SHOW_TITLE="$(get_show_title "$1")"
 	else
