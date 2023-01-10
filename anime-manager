@@ -910,7 +910,6 @@ FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 50% --border rounded --poin
 # regex for extracting trackma results
 # gets the whole series list
 TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
-# TRACKMA_LIST_REGEX="([0-9]+[[:space:]]+(.+?)+[[:space:]]+[0-9]+[[:space:]]+/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+)*"
 # gets the multiple parts of an entry, by matching groups
 #	1- list index
 #	2- series title
