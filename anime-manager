@@ -747,7 +747,7 @@ play_episode() {
 				mkfifo -m 600 "$play_episode_stream_fifo_write"
 				# TODO: can't stream with iina
 				set +m
-				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+				(nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1) &
 				set -m
 				animdl_pid=$!
 				exec 3>"$play_episode_stream_fifo_write"
