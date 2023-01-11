@@ -17,7 +17,6 @@ parser.add_argument("-d",
                     help="enable debug output")
 parser.add_argument("--title", type=str, help="filter by series title")
 parser.add_argument("--episode",
-                    "--episode",
                     type=int,
                     help="search for this episode")
 parser.add_argument("--quality", type=int, help="filter by quality")

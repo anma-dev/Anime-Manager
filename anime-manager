@@ -918,7 +918,7 @@ TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:s
 # with a residual dot, we will have to remove it with sed.
 # We also have no way of making a distinction between series that
 # actually end with a dot from a residual dot.
-TRACKMA_ENTRY_REGEX="^([[:digit:]])[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
+TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
 
 # print the logos
 tput clear
@@ -1128,7 +1128,7 @@ while true; do
 
 			SEL_PLAY_OPTION=$(printf "%b\n%s" "$PLAY_OPTIONS_MENU" "$to_mainmenu" |
 				$FZF -i --prompt "Choose an option: " --border-label "╢ ♣  PLAY OPTIONS ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first | cut -d " " -f1)
-			set +e
+			[ "$SEL_PLAY_OPTION" = "◂" ] && clear_modifiers && continue
 			if [ "$SEL_PLAY_OPTION" = "🔄" ]; then
 				printf "filter %s\nstatus '%s' %s" "$(get_trackma_status_code "$STATUS")" "$TRACKMA_INDEX" "$(get_trackma_status_code "$NEW_STATUS")" | trackma >"$TRACKMA_LOGFILE" 2>&1
 				if [ $RESET_EPISODES -eq 1 ]; then
@@ -1136,6 +1136,9 @@ while true; do
 					ANIME_EP="1"
 					LAST_WATCHED_EP="0"
 				fi
+				STATUS=$NEW_STATUS
+				# update series index after changing lists
+				TRACKMA_INDEX="$(printf "%s" "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$STATUS")" "$(sanitize_ext_regex "$ANIME_TITLE_TRACKMA")" | trackma | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
 			fi
 		fi
 
@@ -1153,7 +1156,6 @@ while true; do
 		# player loop
 		PLAY_METHOD_MENU_OPT=""
 		PLAYER_SOURCE=""
-		set -e
 		while true; do
 			if [ -z "$PLAYER_SOURCE" ]; then
 				PLAY_METHOD_MENU="😺 Search nyaa.si (torrenting)\n🧲 Paste a magnet link (torrenting)\n💡 Stream with animdl (streaming)\n$to_mainmenu"
