@@ -2,6 +2,9 @@
 set -o errexit
 set -o nounset
 
+# override locale categories
+eval export "$(locale)"
+unset LC_ALL
 LANG="C"
 LC_ALL="C"
 LC_COLLATE="C"
@@ -87,12 +90,12 @@ clear_modifiers() {
 }
 
 reset_logs() {
-	rm -f "$WEBTORRENT_LOGFILE"
-	rm -f "$TRACKMA_LOGFILE"
-	rm -f "$ANIMDL_LOGFILE"
-	# rm -f "$CURRENTLY_PLAYING_LOGFILE"
-	rm -f "$NYAA_SEARCH_LOGFILE"
-	rm -f "$NYAA_FID_LOGFILE"
+	echo > "$WEBTORRENT_LOGFILE"
+	echo > "$TRACKMA_LOGFILE"
+	echo > "$ANIMDL_LOGFILE"
+	# echo > "$CURRENTLY_PLAYING_LOGFILE"
+	echo > "$NYAA_SEARCH_LOGFILE"
+	echo > "$NYAA_FID_LOGFILE"
 }
 
 onexit() {
@@ -213,7 +216,7 @@ install_dependencies() {
 	DEP_ERR=0
 	install_dep_msg="🎉 Finished the autoinstall!\nRestart your Terminal app to start using Anime Manager."
 	# Ubuntu (not WSL) and macOS support
-	if ! which fzf pastel bat animdl trackma jq node >/dev/null 2>&1 || [ ! -d lib/webtorrent-cli ]; then
+	if ! which fzf pastel bat animdl trackma jq node >/dev/null 2>&1 || [ ! -s lib/webtorrent-cli/bin/cmd.js ]; then
 		log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
 		DEP_ERR=1
 
@@ -246,8 +249,13 @@ install_dependencies() {
 				# require an fzf version with label and label coloring support
 				git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
 				~/.fzf/install --all --update-rc
+			else
+				fzf_version="$(fzf --version)"
+				if [ -z "$(printf "%s" "$fzf_version" | awk -F. '$1 >= 0 && $2 >= 35 {print $0}')" ]; then
+					printf "\n\n%s\n\n" "Please manually update your fzf installation to version >= 0.35.x."
+				fi
 			fi
-			[ ! -d .lib/webtorrent-cli ] && ./utils/install-webtorrent.sh
+			[ ! -d lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
 			if ! command -v pastel; then
 				# https://github.com/sharkdp/pastel
 				wget "https://github.com/sharkdp/pastel/releases/download/v0.9.0/pastel_0.9.0_amd64.deb"
@@ -295,7 +303,7 @@ install_dependencies() {
 				# https://github.com/justfoolingaround/animdl
 				pip3 install animdl
 			fi
-			[ ! -d .lib/webtorrent-cli ] && ./utils/install-webtorrent.sh
+			[ ! -d lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
 			if ! command -v trackma; then
 				# https://github.com/z411/trackma
 				# dbus-python module is broken on macOS and cannot be built. This means no trackma mpris support.
@@ -746,7 +754,7 @@ play_episode() {
 				mkfifo -m 600 "$play_episode_stream_fifo_write"
 				# TODO: can't stream with iina
 				set +m
-				(nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &) &
+				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --range "$ANIME_EP" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
 				animdl_pid=$!
 				set -m
 				exec 3>"$play_episode_stream_fifo_write"
@@ -812,7 +820,7 @@ play_episode() {
 				[ -z "$ANIMDL_SEARCH_INDEX" ] && exit 1
 				# TODO: can't stream with iina
 				set +m
-				(nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &) &
+				nohup animdl stream "$d_provider:$play_episode_ANIME_TITLE" --index "$ANIMDL_SEARCH_INDEX" --range "$ANIME_EP" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &
 				set -m
 				sleep 2 # wait for the stream to start before presenting the streaming options
 				stream_health=10
@@ -1144,6 +1152,7 @@ while true; do
 		# We query trackma again because we want official english and romaji titles
 		ANI_INFO=$(printf "filter %s\ninfo %s\n" "$STATUS" "$TRACKMA_INDEX" | trackma)
 		ANIME_TITLE_RO="$(printf "%s" "$ANI_INFO" | sed -n "/Romaji/p" | cut -d ":" -f2 | sed "s/ //")"
+		ANIME_TITLE_EN="$(printf "%s" "$ANI_INFO" | sed -n "/English/p" | cut -d ":" -f2 | sed "s/ //")"
 		# give preference to Romaji, then Japanese, then English titles, as this gives better matching
 		if [ -n "$ANIME_TITLE_RO" ] && [ "$ANIME_TITLE_RO" != "None" ]; then
 			ANIME_TITLE=$ANIME_TITLE_RO
@@ -1189,7 +1198,7 @@ while true; do
 				SHOW_INFO="$(get_show_info "$ANIME_TITLE_TRACKMA" "$STATUS")"
 				if printf "%s" "$SHOW_INFO" | grep "Synonyms: " >/dev/null 2>&1; then
 					SHOW_SYNONYMS="$(printf "%b" "$SHOW_INFO" | grep "Synonyms: " | awk -F": " '{print $2}')"
-					SHOW_SYNONYMS="$ANIME_TITLE_TRACKMA, $(printf "%s" "$SHOW_SYNONYMS" | sed "s/[]'[]//g")"
+					SHOW_SYNONYMS="$ANIME_TITLE_TRACKMA, $ANIME_TITLE_EN, $(printf "%s" "$SHOW_SYNONYMS" | sed "s/[]'[]//g")"
 				fi
 			fi
 
@@ -1230,10 +1239,10 @@ while true; do
 			ANIME_MENU_TITLE=$(trim "$ANIME_TITLE_TRACKMA")
 			# configure the menu entries
 			if [ "$LAST_SHOW_EP" != "?" ] && [ "$ANIME_EP" -eq "$LAST_SHOW_EP" ]; then
-				PLAYING_MENU="🏁 Set as watched + Move to Completed list"
+				PLAYING_MENU="🏁 Set as Watched + Move to Completed list"
 				[ "$SHOW_TYPE" != "movie" ] && ANIME_MENU_TITLE="🏁 END! ─ $ANIME_MENU_TITLE"
 			else
-				PLAYING_MENU="⏭️  Set as watched + Play next\n✅ Set as watched"
+				PLAYING_MENU="⏭️  Set as Watched + Play next\n✅ Set as Watched"
 			fi
 			# player reset options
 			if [ "$PLAYER_SOURCE" = "torrenting" ]; then
@@ -1472,7 +1481,7 @@ while true; do
 			# only increment if it's not the last episode of the show
 			# if we don't know the last aired apisode just attempt playing the next episode
 			# LAST_SHOW_EP can be a string or integer
-			if [ "$LAST_SHOW_EP" = "?" ];then
+			if [ "$LAST_SHOW_EP" = "?" ]; then
 				ANIME_EP=$((LAST_WATCHED_EP + 1))
 			elif [ "$LAST_WATCHED_EP" -lt "$LAST_SHOW_EP" ]; then
 				ANIME_EP=$((LAST_WATCHED_EP + 1))

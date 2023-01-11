@@ -67,7 +67,7 @@ def parseEpisode(ep: str):
 
 def normalize_title(title: str):
     reg = rf"[^a-zA-Z0-9-_ \/!='+.$&%\"]"
-    title = re.sub(reg, title, "", re.IGNORECASE)
+    title = re.sub(reg, "", title, re.IGNORECASE)
     return title.casefold()
 
 

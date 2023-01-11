@@ -16,9 +16,7 @@ parser.add_argument("-d",
                     action='store_true',
                     help="enable debug output")
 parser.add_argument("--title", type=str, help="filter by series title")
-parser.add_argument("--episode",
-                    type=int,
-                    help="search for this episode")
+parser.add_argument("--episode", type=int, help="search for this episode")
 parser.add_argument("--quality", type=int, help="filter by quality")
 parser.add_argument("--show-type",
                     type=str,
@@ -74,8 +72,7 @@ def search_nyaa(query: str, category: str, subcategory: str, filters: str):
     query_res = nyaa.search(keyword=query,
                             category=category,
                             subcategory=subcategory,
-                            filters=filters,
-                            sort="seeders")
+                            filters=filters)
     if (len(query_res) > 0):
         for entry_raw in query_res:
             entry = entry_raw.__dict__

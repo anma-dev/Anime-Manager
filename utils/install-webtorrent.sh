@@ -32,7 +32,7 @@ else
     nvm install node
     nvm use node
 fi
-if [ ! -d lib/webtorrent-cli ]; then
+if [ ! -d lib/webtorrent-cli/bin/cmd.js ]; then
     git clone https://github.com/anma-dev/webtorrent-cli.git lib/webtorrent-cli
     cd lib/webtorrent-cli || exit
     npm i
