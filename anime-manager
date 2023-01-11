@@ -255,7 +255,7 @@ install_dependencies() {
 					printf "\n\n%s\n\n" "Please manually update your fzf installation to version >= 0.35.x."
 				fi
 			fi
-			[ ! -d lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
+			[ ! -s lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
 			if ! command -v pastel; then
 				# https://github.com/sharkdp/pastel
 				wget "https://github.com/sharkdp/pastel/releases/download/v0.9.0/pastel_0.9.0_amd64.deb"
@@ -303,7 +303,7 @@ install_dependencies() {
 				# https://github.com/justfoolingaround/animdl
 				pip3 install animdl
 			fi
-			[ ! -d lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
+			[ ! -s lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
 			if ! command -v trackma; then
 				# https://github.com/z411/trackma
 				# dbus-python module is broken on macOS and cannot be built. This means no trackma mpris support.
