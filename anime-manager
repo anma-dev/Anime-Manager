@@ -102,7 +102,6 @@ onexit() {
 	onexit_exit_code="${3:-$onexit_last_exit_status}"
 	if [ "$onexit_exit_code" -eq 130 ] || [ "$onexit_exit_code" -eq 0 ]; then
 		tput clear && tput clear
-		echo
 	else
 		tput clear
 		printf "%s\n" "ERROR on line $onexit_parent_lineno - $onexit_message - exit code $onexit_exit_code"
@@ -227,7 +226,7 @@ install_dependencies() {
 			case "$yn" in
 			[Yy]*) ;;
 			[Nn]*) exit 0 ;;
-			*) echo "      Please answer 'yes' or 'no'." && line_to_remove ;;
+			*) printf "%s\n" "      Please answer 'yes' or 'no'." && line_to_remove ;;
 			esac
 		fi
 		# begin installation
@@ -241,7 +240,7 @@ install_dependencies() {
 			mkdir -p ~/.local/bin
 			if [ ! -s ~/.local/bin/bat ]; then
 				ln -s /usr/bin/batcat ~/.local/bin/bat
-				echo 'export PATH="$HOME/.local/bin/:$PATH"' >>"$shell_cfg"
+				printf "%s\n" 'export PATH="$HOME/.local/bin/:$PATH"' >>"$shell_cfg"
 			fi
 			if ! command -v fzf; then
 				# require an fzf version with label and label coloring support
@@ -287,7 +286,7 @@ install_dependencies() {
 				NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 			fi
 			if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg" >/dev/null 2>&1; then
-				echo 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
+				printf "%s\n" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
 			fi
 			# https://github.com/sharkdp/pastel
 			brew install curl jq gawk grep axel openssl@1.1 ffmpeg git bat
@@ -325,10 +324,10 @@ install_dependencies() {
 		exit
 	fi
 	if ! grep "export LC_CTYPE=en_US.UTF-8" "$shell_cfg" >/dev/null 2>&1; then
-		echo 'export LC_CTYPE=en_US.UTF-8' >"$shell_cfg"
+		printf "%s\n" 'export LC_CTYPE=en_US.UTF-8' >"$shell_cfg"
 	fi
 	if ! grep "export LC_ALL=en_US.UTF-8" "$shell_cfg" >/dev/null 2>&1; then
-		echo 'export LC_ALL=en_US.UTF-8' >"$shell_cfg"
+		printf "%s\n" 'export LC_ALL=en_US.UTF-8' >"$shell_cfg"
 	fi
 }
 
@@ -422,7 +421,7 @@ Do you agree with this? [yes/no]: "
 		*) printf "%s" "Please answer 'yes' or 'no': " && line_to_remove ;;
 		esac
 	done
-	echo "$ANSWER" >"$CHECKPOINTFILE"
+	printf "%s\n" "$ANSWER" >"$CHECKPOINTFILE"
 	tput clear
 fi
 
@@ -594,9 +593,9 @@ get_show_info_function_code='get_show_info() {
 	fi
 	get_show_info_STATUS="$(get_trackma_status_code "$2")"
 	if [ "$1" = "$to_mainmenu" ]; then
-		echo "Go back to the main menu"
+		printf "%s\n" "Go back to the main menu"
 	elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
-		echo "Switch to another list"
+		printf "%s\n" "Switch to another list"
 	else
 		get_show_info_info="$(printf "filter %s\ninfo \"%s\"" "$get_show_info_STATUS" "$get_show_info_SHOW_TITLE" | trackma | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
 		printf "\n%b" "$get_show_info_info"
