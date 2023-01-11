@@ -688,7 +688,7 @@ play_episode() {
 				fi
 			fi
 			clear_lines
-			CHOICE=$(printf "%b" "{\"name\": \"$to_mainmenu\"}\n$NYAA_SEARCH_RES" | jq '.name' | sed "s/\"//g" |
+			CHOICE=$(printf "%b" "{\"name\": \"$to_mainmenu\"}\n$NYAA_SEARCH_RES" | jq '.name' | sed "s/^\"//g" | sed "s/\"$//g" |
 				$FZF -i --prompt "Choose a search result: " --border-label "╢ ♣  SEARCH RESULTS (nyaa.si): $(trim "$play_episode_ANIME_TITLE") ▶ $play_episode_ANIME_EPISODE ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" --header-first --preview "printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'" --preview-window "50,hidden,wrap" --preview-label ' Expanded view ' --bind "ctrl-l:toggle-preview")
 			[ "$CHOICE" = "$to_mainmenu" ] && PLAY_STATUS="$PLAY_STATUS_EXITED" && return
 			CHOICE=$(printf "%s" "$CHOICE" | sed "s/🔴 //g" | sed "s/🟢 //g" | sed "s/⚪️ //g")
