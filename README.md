@@ -35,7 +35,7 @@ Python 3+
 | - | - |
 | [animdl](https://github.com/justfoolingaround/animdl) | Scrapping and streaming video links. |
 | [bat](https://github.com/sharkdp/bat) | Pretty print anime synopses |
-| [fzf](https://github.com/junegunn/fzf/) | User menus |
+| [fzf](https://github.com/junegunn/fzf/) | User menus.  Get a recent version that supports border label and border label coloring. <br/>Some repos provide older versions of fzf. |
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
 | [Node.js](https://nodejs.org/en/) | Runs the Webtorrent process |
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scrapping magnet links from nyaa.si |
