@@ -90,12 +90,12 @@ clear_modifiers() {
 }
 
 reset_logs() {
-	echo > "$WEBTORRENT_LOGFILE"
-	echo > "$TRACKMA_LOGFILE"
-	echo > "$ANIMDL_LOGFILE"
+	echo >"$WEBTORRENT_LOGFILE"
+	echo >"$TRACKMA_LOGFILE"
+	echo >"$ANIMDL_LOGFILE"
 	# echo > "$CURRENTLY_PLAYING_LOGFILE"
-	echo > "$NYAA_SEARCH_LOGFILE"
-	echo > "$NYAA_FID_LOGFILE"
+	echo >"$NYAA_SEARCH_LOGFILE"
+	echo >"$NYAA_FID_LOGFILE"
 }
 
 onexit() {
@@ -238,7 +238,7 @@ install_dependencies() {
 			sudo -v
 			[ $? -ne 0 ] && log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
 			sudo apt update
-			sudo apt -y install build-essential procps curl file git gawk python3-setuptools python3-pip bat jq
+			sudo apt -y install build-essential procps curl file git python3-setuptools python3-pip bat jq
 			# avoid batcat
 			mkdir -p ~/.local/bin
 			if [ ! -s ~/.local/bin/bat ]; then
@@ -297,7 +297,7 @@ install_dependencies() {
 				printf "%s\n" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
 			fi
 			# https://github.com/sharkdp/pastel
-			brew install curl jq gawk grep axel openssl@1.1 ffmpeg git bat
+			brew install curl jq grep axel openssl@1.1 ffmpeg git bat
 			brew install patchelf cmake automake fzf pastel
 			if ! command -v animdl; then
 				# https://github.com/justfoolingaround/animdl
@@ -513,7 +513,7 @@ set_ep_as_watched() {
 	trackma update "$ANIME_TITLE_TRACKMA" "$ANIME_EP" >"$TRACKMA_LOGFILE" 2>&1
 	# we check if theres actually something to save
 	# save other shows and replace the new updated registry for this show
-	PRESERVED_HISTORY=$(gawk "!/^$(sanitize_ext_regex "$ANIME_TITLE_TRACKMA").*$/" "$WATCH_HISTORY_FILE")
+	PRESERVED_HISTORY=$(awk "!/^$(sanitize_ext_regex "$ANIME_TITLE_TRACKMA").*$/" "$WATCH_HISTORY_FILE")
 	# if there is content that is not replaced add a newline for the show to insert, and only in that case.
 	[ -n "$PRESERVED_HISTORY" ] && printf "%b" "$PRESERVED_HISTORY\n" >"$WATCH_HISTORY_FILE" || printf "%b" "$PRESERVED_HISTORY" >"$WATCH_HISTORY_FILE"
 	printf "%s\n" "$ANIME_TITLE_TRACKMA////$ANIME_EP" >>"$WATCH_HISTORY_FILE"
@@ -549,7 +549,7 @@ get_watching_shows() {
 # accepts a trackma entry and returns the cleaned show title
 # to use with raw trackma entries only
 get_show_title_function_code='get_show_title() {
-	printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed "s/\.*$//g" | sed "s/ *$//g" | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed "s/\[.*\]//g" | sed "s/ $//g"
+	printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
 }'
 eval "$get_show_title_function_code"
 
@@ -1340,7 +1340,7 @@ while true; do
 		fi
 		if [ -z "$NEW_STATUS" ] && [ -z "$TRACKMA_SHOW_INDEX" ]; then
 			# let the user select a show
-			STATUS=$(printf "$TRACKMA_STATUS_MENU_ENTRIES\n%s" "$menuitem" | $FZF -i --prompt="Choose a status: " --border-label "╢ ♣  UPDATE EPISODE (Select series to update) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
+			STATUS=$(printf "%s\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$menuitem" | $FZF -i --prompt="Choose a status: " --border-label "╢ ♣  UPDATE EPISODE (Select series to update) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
 			[ "$STATUS" = "$menuitem" ] && PROMPT=$menuitem && continue
 
 			STATUS=$(get_trackma_status_code "$STATUS")
@@ -1348,12 +1348,14 @@ while true; do
 			RES="$(printf "filter %s\nls" "$STATUS" | trackma | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sort -r)"
 			if [ -z "$RES" ]; then
 				RES="This list has no items..."
-				TRACKMA_SHOW_INDEX="$(printf "%b" "$RES\n$menuitem" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  UPDATE EPISODE ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first | cut -d" " -f1)"
+				CHOICE="$(printf "%b" "$RES\n$menuitem" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  UPDATE EPISODE ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)"
 				PROMPT=$menuitem && continue
 			fi
 
-			TRACKMA_SHOW_INDEX="$(printf "%b" "$RES\n$menuitem" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  UPDATE EPISODE ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first | cut -d" " -f1)"
-			[ "$TRACKMA_SHOW_INDEX" = "🐇" ] && PROMPT=$menuitem && continue
+			CHOICE="$(printf "%b" "$RES\n$menuitem" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  UPDATE EPISODE ($STATUS list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)"
+			[ "$CHOICE" = "$menuitem" ] && PROMPT=$menuitem && continue
+			TRACKMA_SHOW_INDEX="$(printf "%s" "$CHOICE" | cut -d" " -f1)"
+			ANIME_TITLE_TRACKMA="$(get_show_title "$CHOICE")"
 
 		fi
 		if [ "$PROMPT" = "$update_episodes" ]; then
@@ -1363,6 +1365,9 @@ while true; do
 			clear_lines
 			[ -z "$NEW_EPISODE_COUNT" ] && clear_modifiers && continue
 			printf "filter %s\nupdate '%s' %s" "$STATUS" "$TRACKMA_SHOW_INDEX" "$NEW_EPISODE_COUNT" | trackma >"$TRACKMA_LOGFILE" 2>&1
+			# update watch history
+			new_hist_content="$(sed -E "s,($(sanitize_ext_regex "$ANIME_TITLE_TRACKMA"))////.*,\1////$NEW_EPISODE_COUNT,g" "$WATCH_HISTORY_FILE" | sed -E '/^\s*$/d')"
+			printf "%s\n" "$new_hist_content" >"$WATCH_HISTORY_FILE"
 		else
 			if [ -z "$NEW_STATUS" ]; then
 				NEW_STATUS=$(printf "%b" "$menuitem\n$TRACKMA_STATUS_MENU_ENTRIES" | $FZF -i --prompt="Choose the new status: " --border-label "╢ ♣  UPDATE EPISODE STATUS (Select the NEW status) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
