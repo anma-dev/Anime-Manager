@@ -7,6 +7,8 @@
 3. Create a new branch for your changes
 4. Push your changes to your branch and start a pull request
 
+Make sure to check [the wiki](https://github.com/anma-dev/Anime-Manager/wiki/Debugging)
+
 Make sure you have all appropriate dependencies installed 
 (clone patched webtorrent-cli in lib folder)
 
