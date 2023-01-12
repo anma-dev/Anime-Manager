@@ -49,9 +49,7 @@ Ensure all dependencies binaries are available through your `$PATH`.
 
 The script has an automatic install mode for dependencies that supports macOS and Ubuntu. Automatic install respects your existing installation. AM needs testers to extend to other platforms.
 
-Just clone the repo and give exec permissions to anime-manager and put anime-manager in path.
-
-Run the script to accept the terms and begin automatic installation of dependencies if your platform is supported.
+Just clone the repo and give exec permissions to anime-manager and put anime-manager in path. Make sure the lib and utils folders are next to the main script.
 
 ### Usage
 Run with
