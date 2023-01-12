@@ -33,7 +33,7 @@ Python 3+
 
 | Dependency | Description |
 | - | - |
-| [animdl](https://github.com/justfoolingaround/animdl) | Scrapping and streaming video links. |
+| [animdl](https://github.com/justfoolingaround/animdl) | Scraping and streaming video links. |
 | [bat](https://github.com/sharkdp/bat) | Pretty print anime synopses |
 | [fzf](https://github.com/junegunn/fzf/) | User menus.  Get a recent version that supports border label and border label coloring. <br/>Some repos provide older versions of fzf. |
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
