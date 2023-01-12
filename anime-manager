@@ -717,7 +717,7 @@ play_episode() {
 				$FZF -i --prompt "Choose a file: " --border-label "╢ ♣  🗃️  FILE SELECTION: $(trim "$play_episode_ANIME_TITLE") ▶ $play_episode_ANIME_EPISODE ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" --header-first --preview "printf \"\n%s\n\n%b\" {}" --preview-window "50,hidden,wrap" --preview-label ' Expanded view ' --bind "ctrl-l:toggle-preview" | cut -d " " -f1)
 		fi
 
-		[ "$FILE_INDEX" = "◀" ] && FILE_LIST="" && FILE_INDEX="" && return
+		[ "$FILE_INDEX" = "◀" ] && FILE_INDEX="$NYAAPY_FILE_SEL_CODE" && return
 
 		if [ "$FILE_INDEX" != "$NYAA_SEARCH_ERROR_CODE" ]; then
 			# run completely detached from terminal for availability
