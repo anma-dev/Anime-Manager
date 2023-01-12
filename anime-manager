@@ -1359,7 +1359,9 @@ while true; do
 
 		fi
 		if [ "$PROMPT" = "$update_episodes" ]; then
-			printf "      How many episodes of this anime have you watched so far❔\n" && line_to_remove
+			echo && line_to_remove
+			pastel paint "$MSG_INFO_COLOR" "      How many episodes of this anime have you watched so far❔" && line_to_remove
+			printf "%s" "         👉 " && line_to_remove
 			read -r NEW_EPISODE_COUNT # TODO: -n4
 			NEW_EPISODE_COUNT="$(printf "%s" "$NEW_EPISODE_COUNT" | sed -E 's/[^0-9]//g')"
 			clear_lines
