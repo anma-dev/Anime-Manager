@@ -398,8 +398,6 @@ mkdir -p "$CONFIG_PATH"
 check_setup() {
     # initial checks
     if [ ! -f "$CHECKPOINTFILE" ]; then
-        install_dependencies
-        check_trackma_config
         printf "%s" "
 READ FIRST --
 
@@ -418,8 +416,8 @@ Do you agree with this? [yes/no]: "
             esac
         done
         printf "%s\n" "$answer" >"$CHECKPOINTFILE"
-        tput clear
     fi
+    install_dependencies
 }
 
 # Create a safe temporary filename in a posix-compliant way
@@ -1043,8 +1041,9 @@ menu_title=$MAINMENU_TITLE
 menu_help_text=$MAIN_MENU_HELPTEXT
 
 main() {
-    spawn_trackma
     check_setup
+    spawn_trackma
+    check_trackma_config
     USERNAME="$(get_account_name)"
     TRACKER_SERVICE="$(get_remote_tracker)"
     WATCH_HISTORY_FILE="${CONFIG_PATH}/$(printf "%s" "$USERNAME" | sed -E 's/[^a-zA-Z0-9]//g')-watch-history"
