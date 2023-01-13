@@ -63,7 +63,7 @@ clear_modifiers() {
     random_anime=0
     random_airing=0
     prompt=""
-    list_airing=0
+    sort_airing=0
     sort_score=0
     anime_title=""
     anime_title_trackma=""
@@ -533,7 +533,12 @@ get_watching_shows() {
 # accepts a trackma entry and returns the cleaned show title
 # to use with raw trackma entries only
 get_show_title_function_code='get_show_title() {
-    printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
+    if [ -n "$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p")" ]; then
+        # raw entry
+        printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
+    else
+        printf "%s" "$1"
+    fi
 }'
 eval "$get_show_title_function_code"
 
@@ -593,19 +598,16 @@ connectivity_check() {
 
 # get shows info from Trackma
 get_show_info_function_code='get_show_info() {
-    if [ -n "$(printf "%s" "$1" | sed -En "/[[:digit:]]+[[:space:]]+\/[[:space:]]+[[:digit:]]+[[:space:]]+[[:digit:]]/p")" ]; then
-        # raw entry
+
         get_show_info_show_title="$(get_show_title "$1")"
-    else
-        get_show_info_show_title="$1"
-    fi
+
     get_show_info_status="$(get_trackma_status_code "$2")"
     if [ "$1" = "$TO_MAIN_MENU" ]; then
         printf "%s\n" "Go back to the main menu"
     elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
         printf "%s\n" "Switch to another list"
     else
-        get_show_info_info="$(printf "filter %s\ninfo \"%s\"" "$get_show_info_status" "$get_show_info_show_title" | trackma_query | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
+        get_show_info_info="$(printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$get_show_info_show_title" | trackma_query | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
         printf "\n%b" "$get_show_info_info"
     fi
 }'
@@ -675,7 +677,7 @@ close_trackma() {
     3>&-:
 }
 
-trackma_query() {
+trackma_query_function_code='trackma_query() {
     echo >"$GLOBAL_TRACKMA_TMPFILE"
     while read -r query </dev/stdin; do
         printf "%s\n" "$query" >"$GLOBAL_TRACKMA_FIFO"
@@ -683,7 +685,8 @@ trackma_query() {
     # wait for prompt as signal for operation finished
     while ! grep ">>" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     cat "$GLOBAL_TRACKMA_TMPFILE"
-}
+}'
+eval "$trackma_query_function_code"
 
 # attempts to play a series episode
 play_episode() {
@@ -961,6 +964,7 @@ else
 fi
 
 export BACK_MSG
+export TO_MAIN_MENU
 export SWITCH_STATUS_MSG_MENU_ENTRY
 export TRACKMA_ENTRY_REGEX
 export TRACKMA_LOGFILE
@@ -1229,15 +1233,13 @@ main() {
                         player_source="self_magnet"
                     fi
                 fi
-
+                show_info="$(get_show_info "$anime_title_trackma" "$status")"
                 if [ -z "$show_type" ]; then
-                    show_info="$(get_show_info "$anime_title_trackma" "$status")"
                     if printf "%s" "$show_info" | grep "Type: " >/dev/null 2>&1; then
                         show_type="$(printf "%b" "$show_info" | grep "Type: " | awk -F": " '{print $2}')"
                     fi
                 fi
                 if [ -z "$show_synonyms" ]; then
-                    show_info="$(get_show_info "$anime_title_trackma" "$status")"
                     if printf "%s" "$show_info" | grep "Synonyms: " >/dev/null 2>&1; then
                         show_synonyms="$(printf "%b" "$show_info" | grep "Synonyms: " | awk -F": " '{print $2}')"
                         show_synonyms="$anime_title_trackma, $anime_title_en, $(printf "%s" "$show_synonyms" | sed "s/[]'[]//g")"
@@ -1475,7 +1477,7 @@ main() {
             clear_modifiers
             ;;
         "$LIST_AIRING")
-            list_airing=1
+            sort_airing=1
             prompt=$LIST
             ;;
         "$LIST_BY_SCORE")
@@ -1483,7 +1485,15 @@ main() {
             prompt=$LIST
             ;;
         "$LIST")
-            status=$(printf "%s\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$TO_MAIN_MENU" | $FZF -i --prompt="Choose a status: " --border-label " ♣  LIST$([ "$sort_score" -eq 1 ] && printf ' BY SCORE' || [ "$list_airing" -eq 1 ] && printf ' AIRING SHOWS' || printf " SHOWS") (Status select) ♣  " --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
+            status=$(printf "%s\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$TO_MAIN_MENU" | $FZF -i --prompt="Choose a status: " --border-label " ♣  LIST$(
+                if [ "$sort_score" -eq 1 ]; then
+                    printf ' BY SCORE 🌟'
+                elif [ "$sort_airing" -eq 1 ]; then
+                    printf ' AIRING SHOWS 📣'
+                else
+                    printf " SHOWS"
+                fi
+            ) (Status select) ♣  " --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
             [ "$status" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
 
             status=$(get_trackma_status_code "$status")
@@ -1499,21 +1509,37 @@ main() {
             # remove character sequences and add an emoji next to airing shows
             msg=$(printf "%s\n" "$msg" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 
-            if [ "$list_airing" -eq 1 ]; then
+            if [ "$sort_airing" -eq 1 ]; then
                 # filter airing show per user request
                 msg=$(printf "%s" "$msg" | sed -n "/📣/p")
             fi
 
             if [ ! "$msg" ]; then
                 msg="This list has no items... "
-                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "$sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$([ "$sort_score" -eq 1 ] && printf ' BY SCORE 🌟' || [ "$list_airing" -eq 1 ] && printf ' AIRING SHOWS 📣' || printf " SHOWS") ($status list) ♣  " --header "⇅ Navigation - [Enter] Go back" --prompt "")
+                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE;$trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
+                    if [ "$sort_score" -eq 1 ]; then
+                        printf ' BY SCORE 🌟'
+                    elif [ "$sort_airing" -eq 1 ]; then
+                        printf ' AIRING SHOWS 📣'
+                    else
+                        printf " SHOWS"
+                    fi
+                ) ($status list) ♣  " --header "⇅ Navigation - [Enter] Go back" --prompt "")
                 [ "$sel" = "$TO_MAIN_MENU" ] && prompt="$TO_MAIN_MENU" && continue
                 continue
             fi
 
             export status
             while true; do
-                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "$sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$([ "$sort_score" -eq 1 ] && printf ' BY SCORE 🌟' || [ "$list_airing" -eq 1 ] && printf ' AIRING SHOWS 📣' || printf " SHOWS") ($status list) ♣  " --header "⇅ Navigation - [Ctrl-L] toggle info - [ESC] Exit - [Enter] Play ▸" --prompt "Choose an anime: ")
+                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE;$trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
+                    if [ "$sort_score" -eq 1 ]; then
+                        printf ' BY SCORE 🌟'
+                    elif [ "$sort_airing" -eq 1 ]; then
+                        printf ' AIRING SHOWS 📣'
+                    else
+                        printf " SHOWS"
+                    fi
+                ) ($status list) ♣  " --header "⇅ Navigation - [Ctrl-L] Toggle info - [ESC] Exit - [Enter] Play ▸" --prompt "Choose an anime: ")
                 [ "$sel" = "$TO_MAIN_MENU" ] && clear_modifiers && break
                 [ "$sel" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
                 anime_title_trackma=$(get_show_title "$sel")
