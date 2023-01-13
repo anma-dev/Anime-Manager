@@ -64,7 +64,7 @@ query_template_batch_1 = f"\"{args.title}\" \"~\""
 query_template_batch_2 = f"\"{args.title}\" batch"
 query_last_resort = f"\"{args.title}\""
 match_res = []
-req_delay = 1
+req_delay = 1.5
 
 
 def search_nyaa(query: str, category: str, subcategory: str, filters: str):
