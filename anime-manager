@@ -499,7 +499,7 @@ eval "$get_trackma_status_code_function_code"
 set_ep_as_watched() {
     anime_title_trackma="$1"
     anime_ep="$2"
-    trackma update "$anime_title_trackma" "$anime_ep" >"$TRACKMA_LOGFILE" 2>&1
+    printf "update %s\n" "$trackma_index" | trackma_query >/dev/null 2>&1
     # we check if theres actually something to save
     # save other shows and replace the new updated registry for this show
     preserved_history=$(awk "!/^$(sanitize_ext_regex "$anime_title_trackma").*$/" "$WATCH_HISTORY_FILE")
