@@ -149,7 +149,7 @@ check_trackma_config() {
     fi
 
     if ! is_trackma_init; then
-        printf "LINK YOUR ACCOUNT TO TRACKMA\nNo account was found. Next steps:\n- 1. Open a new Terminal window or tab.\n- 2. Run 'trackma account' and follow the instructions to add and select your account.\n- 3. Come back to this prompt and press [Enter].\n(waiting...): "
+        printf "\n─ Anime Manager Setup ─ \nThe script detected that no account is configured in Trackma.\n\nNext steps:\n- 1. Open a new Terminal window or tab.\n- 2. Run 'trackma account' and follow the instructions to add and select your account.\n- 3. Restart Anime Manager.\n\nIf you don't have an account yet feel free to open one in the supported websites:\n・https://myanimelist.net\n・https://anilist.co\n・https://kitsu.io\n・https://shikimori.org\n"
         exit
     fi
 }
