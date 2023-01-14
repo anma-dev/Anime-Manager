@@ -34,12 +34,12 @@ Python 3+
 | Dependency | Description |
 | - | - |
 | [animdl](https://github.com/justfoolingaround/animdl) | Scraping and streaming video links. |
+| [anitopy](https://github.com/igorcmoura/anitopy/) | Parsing filenames |
 | [bat](https://github.com/sharkdp/bat) | Pretty print anime synopses |
 | [fzf](https://github.com/junegunn/fzf/) | User menus.  Get a recent version that supports border label and border label coloring. <br/>Some repos provide older versions of fzf. |
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
 | [Node.js](https://nodejs.org/en/) | Runs the Webtorrent process |
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scrapping magnet links from nyaa.si |
-| [anitopy](https://github.com/igorcmoura/anitopy/) | Parsing filenames |
 | [pastel](https://github.com/sharkdp/pastel) | Text with pretty colors |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
@@ -92,12 +92,12 @@ For guaranteed serious discussion use the Github issues tracker.
 ### Similar projects
 You should also check these projects:
 - [adl](https://github.com/RaitaroH/adl)
-- [animdl](https://github.com/justfoolingaround/animdl)
 - [ani-cli](https://github.com/pystardust/ani-cli)
-- [trackma](https://github.com/z411/trackma)
-- [MALSync](https://github.com/MALSync/MALSync)
-- [jerry](https://github.com/justchokingaround/jerry)
+- [animdl](https://github.com/justfoolingaround/animdl)
 - [eztrackma](https://github.com/justchokingaround/trackma-wrapper)
+- [jerry](https://github.com/justchokingaround/jerry)
+- [MALSync](https://github.com/MALSync/MALSync)
+- [trackma](https://github.com/z411/trackma)
 
 ---
 
