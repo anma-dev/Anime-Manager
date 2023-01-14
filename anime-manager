@@ -743,6 +743,8 @@ play_episode() {
             debug_match_info=$EP_DATA
         fi
 
+        [ "$file_index" -eq "-1" ] && play_status="$PLAY_STATUS_FILE_SEL"
+
         if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
             if [ "$file_list" = "None" ]; then
                 pastel paint $MSG_WARN_COLOR "      🚫 No matching files, please select another source" && line_to_remove
