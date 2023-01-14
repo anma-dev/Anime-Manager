@@ -1188,15 +1188,15 @@ main() {
                     $FZF -i --prompt "Choose an option: " --border-label "╢ ♣  PLAY OPTIONS ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first | cut -d " " -f1)
                 [ "$selected_play_option" = "◂" ] && clear_modifiers && continue
                 if [ "$selected_play_option" = "🔄" ]; then
-                    printf "filter %s\nstatus '%s' %s" "$(get_trackma_status_code "$status")" "$trackma_index" "$(get_trackma_status_code "$new_status")" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                    printf "filter %s\nstatus '%s' %s\n" "$(get_trackma_status_code "$status")" "$trackma_index" "$(get_trackma_status_code "$new_status")" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                     if [ $reset_episodes -eq 1 ]; then
-                        printf "filter %s\nupdate '%s' %s" "$(get_trackma_status_code "$status")" "$trackma_index" "0" | trackma_query >>"$TRACKMA_LOGFILE"
+                        printf "filter %s\nupdate '%s' %s\n" "$(get_trackma_status_code "$status")" "$trackma_index" "0" | trackma_query >>"$TRACKMA_LOGFILE"
                         anime_ep="1"
                         last_watched_ep="0"
                     fi
                     status=$new_status
                     # update series index after changing lists
-                    trackma_index="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                    trackma_index="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\"'\"'/g")" | trackma_query | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                 fi
             fi
 
@@ -1364,14 +1364,14 @@ main() {
             status=$(printf "%b\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$TO_SUBMENU" | $FZF -i --prompt="Choose a status: " --border-label "╢ ♣  DELETE SERIES (Status select) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)
             [ "$status" = "$TO_SUBMENU" ] && prompt="$TO_SUBMENU" && continue
             status=$(get_trackma_status_code "$status")
-            FULL_LIST=$(printf "filter %s\nls" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
+            FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
             [ -z "$FULL_LIST" ] && FULL_LIST="No entries found in this list..."
             FULL_LIST="$FULL_LIST\n$TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
             trackma_show_index=$(printf "%b" "$FULL_LIST" |
                 $FZF -i --prompt="Choose a series to DELETE: " --border-label "╢ ♣  DELETE SERIES ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" --header-first | cut -d" " -f1)
             [ "$trackma_show_index" = "🐇" ] && prompt="$TO_SUBMENU" && continue
             [ "$trackma_show_index" = "🔄" ] && continue
-            printf "filter %s\ndelete %s\ny" "$status" "$trackma_show_index" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+            printf "filter %s\ndelete %s\ny\n" "$status" "$trackma_show_index" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
             ;;
         "$UPDATE_EPISODES" | "$UPDATE_STATUS")
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
@@ -1386,7 +1386,7 @@ main() {
 
                 status=$(get_trackma_status_code "$status")
 
-                res="$(printf "filter %s\nls" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sort -r)"
+                res="$(printf "filter %s\nls\n" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sort -r)"
                 if [ -z "$res" ]; then
                     res="This list has no items..."
                     choice="$(printf "%b" "$res\n$menuitem" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  UPDATE EPISODE ($status list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)"
@@ -1407,7 +1407,7 @@ main() {
                 NEW_EPISODE_COUNT="$(printf "%s" "$NEW_EPISODE_COUNT" | sed -E 's/[^0-9]//g')"
                 clear_lines
                 [ -z "$NEW_EPISODE_COUNT" ] && clear_modifiers && continue
-                printf "filter %s\nupdate '%s' %s" "$status" "$trackma_show_index" "$NEW_EPISODE_COUNT" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                printf "filter %s\nupdate '%s' %s\n" "$status" "$trackma_show_index" "$NEW_EPISODE_COUNT" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                 # update watch history
                 new_hist_content="$(sed -E "s,($(sanitize_ext_regex "$anime_title_trackma"))////.*,\1////$NEW_EPISODE_COUNT,g" "$WATCH_HISTORY_FILE" | sed -E '/^\s*$/d')"
                 printf "%s\n" "$new_hist_content" >"$WATCH_HISTORY_FILE"
@@ -1418,7 +1418,7 @@ main() {
                     new_status="$(get_trackma_status_code "$new_status")"
                 fi
                 [ -n "$trackma_show_index" ] && TRACKMA_ID="$trackma_show_index" || TRACKMA_ID="$anime_title_trackma"
-                printf "filter %s\nstatus '%s' %s" "$status" "$TRACKMA_ID" "$new_status" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                printf "filter %s\nstatus '%s' %s\n" "$status" "$TRACKMA_ID" "$new_status" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
             fi
             clear_modifiers
             ;;
@@ -1430,7 +1430,7 @@ main() {
             [ "$status" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && clear_modifiers && continue
 
             while true; do
-                full_info="$(printf "filter %s\nls" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
+                full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
                 # remove character sequences and add an emoji next to airing shows
                 full_info=$(printf '%s\n' "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
                 full_info="$full_info\n$TO_MAIN_MENU"
@@ -1443,7 +1443,7 @@ main() {
                 clear_lines
                 [ "$SCORE" -lt 0 ] && SCORE=0
                 [ "$SCORE" -gt 10 ] && SCORE=10
-                printf "filter %s\nscore %s %s" "$status" "$trackma_show_index" "$SCORE" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                printf "filter %s\nscore %s %s\n" "$status" "$trackma_show_index" "$SCORE" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                 clear_modifiers
                 break
             done
@@ -1454,7 +1454,7 @@ main() {
             [ "$status" = "$TO_SUBMENU" ] && prompt=$TO_SUBMENU && continue
 
             while true; do
-                full_info="$(printf "filter %s\nls" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
+                full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
                 full_info=$(printf '%s\n' "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
                 full_info="$full_info\n$TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                 trackma_show_index="$(printf "%b" "$full_info" | $FZF -i --prompt="Choose an anime: " --border-label "╢ ♣  SET ALTERNATIVE NAME ($status list) ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first)"
@@ -1464,7 +1464,7 @@ main() {
                 printf "%b" "
                  ℹ  What is the altname❔ "
                 read -r NEWNAME
-                printf "altname %s '%s'" "$trackma_show_index" "$NEWNAME" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                printf "altname %s '%s'\n" "$trackma_show_index" "$NEWNAME" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
             done
             clear_modifiers
             ;;
