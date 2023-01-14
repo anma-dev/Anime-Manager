@@ -1,5 +1,5 @@
 # Anime Manager
-[![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg) [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg)
+[![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg)
 
 AM is a powerful open source (POSIX-compliant) script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
 
@@ -79,6 +79,16 @@ Issues and suggestions are welcome! I give free support and development for issu
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Discord](https://discord.gg/hqt7WSDP8J) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 
 For guaranteed serious discussion use the Github issues tracker.
+
+### Similar projects
+You should also check these projects:
+- [adl](https://github.com/RaitaroH/adl)
+- [animdl](https://github.com/justfoolingaround/animdl)
+- [ani-cli](https://github.com/pystardust/ani-cli)
+- [trackma](https://github.com/z411/trackma)
+- [MALSync](https://github.com/MALSync/MALSync)
+- [jerry](https://github.com/justchokingaround/jerry)
+- [eztrackma](https://github.com/justchokingaround/trackma-wrapper)
 
 ---
 
