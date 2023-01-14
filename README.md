@@ -3,10 +3,7 @@
 
 AM is a powerful open source (POSIX-compliant) script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
 
-<img src="https://user-images.githubusercontent.com/121255032/212490696-8464044e-3402-48cb-8844-2835d86d8f47.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490703-5fe79ab2-347e-4ecc-bff5-8d021cd67fc8.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490758-22e6191b-8eb7-4ef7-9a23-862a769b5af0.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490717-40b20df0-c3f0-479f-a313-b5ca31d52f43.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490721-4b9fb71d-7291-4f2e-9b3e-6ecfb4434bba.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490727-571414ad-6817-45c3-bd57-0afbcf183448.png" width="30%"></img> 
-
-https://user-images.githubusercontent.com/121255032/210994787-c6f273fd-66b1-484b-a787-be1092bcb79a.mp4
-
+<img src="https://user-images.githubusercontent.com/121255032/212490696-8464044e-3402-48cb-8844-2835d86d8f47.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490703-5fe79ab2-347e-4ecc-bff5-8d021cd67fc8.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490758-22e6191b-8eb7-4ef7-9a23-862a769b5af0.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490717-40b20df0-c3f0-479f-a313-b5ca31d52f43.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490721-4b9fb71d-7291-4f2e-9b3e-6ecfb4434bba.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490727-571414ad-6817-45c3-bd57-0afbcf183448.png" width="30%"></img>
 
 You can use your existing anime list service (those [trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your lists as you watch anime by streaming or torrenting, all from one utility for added convenience!
 
