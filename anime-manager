@@ -1039,7 +1039,6 @@ menu_title=$MAINMENU_TITLE
 menu_help_text=$MAIN_MENU_HELPTEXT
 
 main() {
-    tput clear
     # common fzf args
     if [ "$MINIMAL" -eq 1 ]; then
         FZF="fzf -0 --height 50 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top  --layout=reverse --info inline --no-separator"
