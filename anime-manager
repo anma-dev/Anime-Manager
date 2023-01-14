@@ -331,7 +331,7 @@ sanitize_ext_regex_function_code='sanitize_ext_regex() {
     printf "%s" "$1" |
         sed "s,$(printf "\033")\\[[0-9;]*[a-zA-Z],," |
         sed "s,$(printf "\033")\\[[0-9;]*[a-zA-Z],,g" |
-        sed "s/[]\/\$*.^+()[-]/\\\&/g" |
+        sed "s/[]\/\$*.^+()\"['"'"'-]/\\\&/g" |
         sed "s/ $//"
 }'
 eval "$sanitize_ext_regex_function_code"
@@ -510,9 +510,10 @@ set_show_status() {
     prompt="$UPDATE_STATUS"
 }
 
-filter_trackma_list() {
+filter_trackma_list_function_code='filter_trackma_list() {
     printf "%b" "$1" | sed -En "s/$TRACKMA_LIST_REGEX/\1/p"
-}
+}'
+eval "$filter_trackma_list_function_code"
 
 # get all the shows the user has set as watching in their lists
 # for presenting in unified way
@@ -540,13 +541,14 @@ get_show_title_function_code='get_show_title() {
 }'
 eval "$get_show_title_function_code"
 
-# gets the status of a show
-get_entry_index() {
+# gets the index of an entry
+# "$("$play_episode_anime_title" | sed "s/'/'\"'\"'/g")"
+get_entry_index_function_code='get_entry_index() {
     echo >"$GLOBAL_TRACKMA_TMPFILE"
     res_title=""
     anime_title="$1"
     status="$2"
-    res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(sanitize_ext_regex "$anime_title")" | trackma_query)"
+    res="$(printf "filter %s\nsearch '"'"'%s'"'"'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'"'"'/'"'"'\"'"'"'\"'"'"'/g")" | trackma_query)"
     res="$(filter_trackma_list "$res" | head -n1)"
     entry_index="$(printf "%s" "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
     if [ -z "$entry_index" ]; then
@@ -554,7 +556,8 @@ get_entry_index() {
         exit 1
     fi
     printf "%s" "$entry_index"
-}
+}'
+eval "$get_entry_index_function_code"
 
 # gets the status of a show
 get_show_status() {
@@ -566,7 +569,7 @@ get_show_status() {
         anime_title="$1"
         while read -r trackma_code; do
             # trackma search uses regex so we need to sanitize it
-            res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(sanitize_ext_regex "$anime_title")" | trackma_query)"
+            res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query)"
             res="$(filter_trackma_list "$res" | head -n1)"
             [ -n "$res" ] && res_title="$(get_show_title "$res")"
             if [ -n "$res_title" ] && [ "$res_title" = "$anime_title" ]; then
@@ -596,16 +599,15 @@ connectivity_check() {
 
 # get shows info from Trackma
 get_show_info_function_code='get_show_info() {
-
-        get_show_info_show_title="$(get_show_title "$1")"
-
+    get_show_info_show_title="$(get_show_title "$1")"
     get_show_info_status="$(get_trackma_status_code "$2")"
     if [ "$1" = "$TO_MAIN_MENU" ]; then
         printf "%s\n" "Go back to the main menu"
     elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
         printf "%s\n" "Switch to another list"
     else
-        get_show_info_info="$(printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$get_show_info_show_title" | trackma_query | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
+        trackma_index="$(get_entry_index "$get_show_info_show_title" "$get_show_info_status")"
+        get_show_info_info="$(printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$trackma_index" | trackma_query | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
         printf "\n%b" "$get_show_info_info"
     fi
 }'
@@ -632,7 +634,7 @@ get_show_entry() {
     play_episode_anime_title="$1"
     status="$(get_show_status "$play_episode_anime_title")"
     # trackma search uses regex so we need to sanitize it
-    res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(sanitize_ext_regex "$play_episode_anime_title")" | trackma_query)"
+    res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query)"
     get_show_entry_list="$(filter_trackma_list "$res" | head -n1)"
     # we assume we should find a result
     [ -z "$get_show_entry_list" ] &&
@@ -759,20 +761,24 @@ play_episode() {
 
         if [ "$file_index" != "$NYAA_SEARCH_ERROR_CODE" ]; then
             # run completely detached from terminal for availability
+            torrent_pid_file="$(get_temp_filename)"
             set +m
-            (nohup node "$WEBTORRENT_CLI" download "$magnet_link" --select "$file_index" --out "$TORRENT_DOWNLOAD_DIR" --"$MEDIA_PLAYER" >"$WEBTORRENT_LOGFILE" 2>&1 &) &
-            webtorrentpid=$!
+            (
+                nohup node "$WEBTORRENT_CLI" download "$magnet_link" --select "$file_index" --out "$TORRENT_DOWNLOAD_DIR" --"$MEDIA_PLAYER" >"$WEBTORRENT_LOGFILE" 2>&1 &
+                echo $! >"$torrent_pid_file"
+            ) &
             set -m
             # printf "%s" "$EP_DATA" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
             # remove from job queue to avoid info messages if we have to end the process with kill
             echo && line_to_remove
             pastel paint $MSG_INFO_COLOR "      🚀 Torrent is playing soon (hold my beer...)" && line_to_remove
-            play_episode_torrent_status=$(check_torrent_health $webtorrentpid)
+            play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
             if [ "$play_episode_torrent_status" -eq $TORRENT_STATUS_ERRORED ]; then
                 pastel paint $MSG_WARN_COLOR "      🚫 Unable to play torrent" && line_to_remove
                 magnet_link=""
                 play_status=$PLAY_STATUS_ERRORED
             else
+                rm "$torrent_pid_file"
                 play_status=$PLAY_STATUS_OKPLAYING
             fi
         else
@@ -1184,13 +1190,13 @@ main() {
                 if [ "$selected_play_option" = "🔄" ]; then
                     printf "filter %s\nstatus '%s' %s" "$(get_trackma_status_code "$status")" "$trackma_index" "$(get_trackma_status_code "$new_status")" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                     if [ $reset_episodes -eq 1 ]; then
-                        printf "filter %s\nupdate '%s' %s" "$(get_trackma_status_code "$status")" "$anime_title_trackma" "0" | trackma_query >>"$TRACKMA_LOGFILE"
+                        printf "filter %s\nupdate '%s' %s" "$(get_trackma_status_code "$status")" "$trackma_index" "0" | trackma_query >>"$TRACKMA_LOGFILE"
                         anime_ep="1"
                         last_watched_ep="0"
                     fi
                     status=$new_status
                     # update series index after changing lists
-                    trackma_index="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(sanitize_ext_regex "$anime_title_trackma")" | trackma_query | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                    trackma_index="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                 fi
             fi
 
@@ -1516,7 +1522,7 @@ main() {
 
             if [ ! "$msg" ]; then
                 msg="This list has no items... "
-                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE;$trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
+                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "TRACKMA_LIST_REGEX=$TRACKMA_LIST_REGEX; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
                     if [ "$sort_score" -eq 1 ]; then
                         printf ' BY SCORE 🌟'
                     elif [ "$sort_airing" -eq 1 ]; then
@@ -1531,7 +1537,7 @@ main() {
 
             export status
             while true; do
-                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE;$trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
+                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
                     if [ "$sort_score" -eq 1 ]; then
                         printf ' BY SCORE 🌟'
                     elif [ "$sort_airing" -eq 1 ]; then
