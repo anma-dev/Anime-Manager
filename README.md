@@ -60,25 +60,34 @@ We offer few options because the script is meant to be interacted with through t
 
 #### Arguments
 
-#### `-d`, `--debug`
-Enable debug mode.
+#### `--minimal`
+Minimalistic interface. It doesn't print the logo, the menu fills the screen and is reversed. Dimmer colors.
 #### `--monochrome-logo`
 Print the monochromatic logo instead of the orange one, for terminals that do not support 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md), for example.
 
 Currently, there is no holiday seasonal greeting for the monochromatic logo.
-#### `--minimal`
-Minimalistic interface. It doesn't print the logo, the menu fills the screen and is reversed. Dimmer colors.
+
 #### `-v`, `--version`
 Print the version number and exit.
 
+#### `-d`, `--debug`
+Enable debug mode.
+
+### Windows
+The script probably works with some versions of WSL but no thorough testing was done to this date.
+
 ### Support
- [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/anma-dev)
  
 Issues and suggestions are welcome! I give free support and development for issues and features that personally interest me so I don't promise that I will implement "X" feature.
 
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Discord](https://discord.gg/hqt7WSDP8J) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 
 For guaranteed serious discussion use the Github issues tracker.
+
+### Say thanks
+ It's not expected but you can send a small thank you note to the dev to let them know this project was helpful to you by clicking the badge below.
+
+  [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/anma-dev)
 
 ### Similar projects
 You should also check these projects:
