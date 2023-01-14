@@ -1,6 +1,9 @@
-# ~ anime-manager
+# Anime Manager
+[![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg) [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg)
 
-anime-manager is a powerful open source (POSIX-compliant) script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
+AM is a powerful open source (POSIX-compliant) script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
+
+<img src="https://user-images.githubusercontent.com/121255032/212490696-8464044e-3402-48cb-8844-2835d86d8f47.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490703-5fe79ab2-347e-4ecc-bff5-8d021cd67fc8.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490758-22e6191b-8eb7-4ef7-9a23-862a769b5af0.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490717-40b20df0-c3f0-479f-a313-b5ca31d52f43.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490721-4b9fb71d-7291-4f2e-9b3e-6ecfb4434bba.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490727-571414ad-6817-45c3-bd57-0afbcf183448.png" width="30%"></img> 
 
 https://user-images.githubusercontent.com/121255032/210994787-c6f273fd-66b1-484b-a787-be1092bcb79a.mp4
 
@@ -61,18 +64,18 @@ We offer few options because the script is meant to be interacted with through t
 #### Arguments
 
 #### `-d`, `--debug`
-Don't print the logo and enable debug mode.
+Enable debug mode.
 #### `--monochrome-logo`
 Print the monochromatic logo instead of the orange one, for terminals that do not support 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md), for example.
 
 Currently, there is no holiday seasonal greeting for the monochromatic logo.
-#### `--small-logo`
-Don't print the big, orange logo, print the small yellow one instead.
-The default big logo includes some fun greetings for holiday seasons. Recommended!
+#### `--minimal`
+Minimalistic interface. It doesn't print the logo, the menu fills the screen and is reversed. Dimmer colors.
 #### `-v`, `--version`
 Print the version number and exit.
 
 ### Support
+ [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/anma-dev)
 Issues and suggestions are welcome! I give free support and development for issues and features that personally interest me so I don't promise that I will implement "X" feature.
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Discord](https://discord.gg/hqt7WSDP8J) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 

@@ -42,11 +42,11 @@ OSTYPE="$(uname -s 2>/dev/null)"
 parse_args() {
     # defaults
     DEBUG=0
-    SMALL_LOGO=0
+    MINIMAL=0
     MONOCHROME_LOGO=0
     while true; do
         case "${1-}" in
-        --small-logo) SMALL_LOGO=1 ;;
+        --minimal) MINIMAL=1 ;;
         --monochrome-logo) MONOCHROME_LOGO=1 ;;
         -d | --DEBUG) DEBUG=1 && set -x ;;
         -v | --version) printf "%s\n" "$VERSION" && exit ;;
@@ -671,8 +671,6 @@ close_trackma() {
     printf "%s" "      ⚙️  Closing background processes, please wait..."
     printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
     while ! grep "Bye!" "$GLOBAL_TRACKMA_TMPFILE"; do :; done
-    unset GLOBAL_TRACKMA_TMPFILE
-    unset GLOBAL_TRACKMA_FIFO
     rm "$GLOBAL_TRACKMA_FIFO" "$GLOBAL_TRACKMA_TMPFILE"
     3>&-:
 }
@@ -913,15 +911,11 @@ paint_logo() {
     # [ $DATE_MONTH -eq 12 ] && [ $DATE_DAY -eq 31 ] && LOGO_B64=$LOGO_NEWYEAR_B64
 
     if [ $DEBUG -eq 0 ]; then
-        if [ $SMALL_LOGO = 0 ]; then
-            printf "%b\n" "$(
-                base64 -d <<EOF | gunzip
+        printf "%b\n" "$(
+            base64 -d <<EOF | gunzip
 $LOGO_B64
 EOF
-            )"
-        else
-            printf "%s\n" "      ♣️  ── ANIME MANGER ── ♣️"
-        fi
+        )"
     fi
     pastel paint $TITLE_COLOR "      🍿 Play and Track Anime Series from Your Terminal"
     pastel paint $MSG_HELP_COLOR "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
@@ -974,10 +968,8 @@ export TRACKMA_ENTRY_REGEX
 export TRACKMA_LOGFILE
 
 # fzf colors
-export FZF_DEFAULT_OPTS='--color=fg:#d0d0d0,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00,bg+:#262626,hl+:#5fd7ff --color=info:#d0d0d0,prompt:#ffbf00,pointer:#af5fff --color=marker:#87ff00,spinner:#af5fff,header:#d7005f --color=label:#ffbf00'
+export FZF_DEFAULT_OPTS='--color=fg:#ffffff,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00,bg+:#262626,hl+:#5fd7ff --color=info:#ffffff,prompt:#ffbf00,pointer:#af5fff --color=marker:#87ff00,spinner:#af5fff,header:#d7005f --color=label:#ffbf00'
 
-# common fzf args
-FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 50% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1"
 # regex for extracting trackma results
 # gets the whole series list
 TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
@@ -1047,6 +1039,13 @@ menu_title=$MAINMENU_TITLE
 menu_help_text=$MAIN_MENU_HELPTEXT
 
 main() {
+    tput clear
+    # common fzf args
+    if [ "$MINIMAL" -eq 1 ]; then
+        FZF="fzf -0 --height 50 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top  --layout=reverse --info inline --no-separator"
+    else
+        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1"
+    fi
     check_setup
     spawn_trackma
     check_trackma_config
@@ -1060,7 +1059,7 @@ main() {
     else
         TRACKMA_STATUS_MENU_ENTRIES="$(printf "%b" "Watching\nCompleted\nOn Hold\nDropped\nPlan to Watch" | sort -r)"
     fi
-    paint_logo
+    [ "$MINIMAL" -eq 0 ] && paint_logo
     while true; do
         [ -z "$prompt" ] &&
             clear_modifiers &&
