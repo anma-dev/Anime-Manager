@@ -385,10 +385,10 @@ PLAY_STATUS_OKPLAYING=1
 PLAY_STATUS_ERRORED=2
 PLAY_STATUS_EXITED=3
 # PLAY_STATUS_OFFLINE=4
+PLAY_STATUS_FILE_SEL=5
 play_status=$PLAY_STATUS_WAITING
 # nyaapy scraper status codes
 NYAA_SEARCH_ERROR_CODE="-2"
-NYAAPY_FILE_SEL_CODE="-1"
 
 mkdir -p "$TMP_PATH"
 mkdir -p "$TORRENT_DOWNLOAD_DIR"
@@ -743,7 +743,7 @@ play_episode() {
             debug_match_info=$EP_DATA
         fi
 
-        if [ "$file_index" = "$NYAAPY_FILE_SEL_CODE" ]; then
+        if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
             if [ "$file_list" = "None" ]; then
                 pastel paint $MSG_WARN_COLOR "      🚫 No matching files, please select another source" && line_to_remove
                 magnet_link=""
@@ -755,7 +755,7 @@ play_episode() {
                 $FZF -i --prompt "Choose a file: " --border-label "╢ ♣  🗃️  FILE SELECTION: $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" --header-first --preview "printf \"\n%s\n\n%b\" {}" --preview-window "50,hidden,wrap" --preview-label ' Expanded view ' --bind "ctrl-l:toggle-preview" | cut -d " " -f1)
         fi
 
-        [ "$file_index" = "◀" ] && file_index="$NYAAPY_FILE_SEL_CODE" && return
+        [ "$file_index" = "◀" ] && play_status="$PLAY_STATUS_OKPLAYING" && return
 
         if [ "$file_index" != "$NYAA_SEARCH_ERROR_CODE" ]; then
             # run completely detached from terminal for availability
@@ -1325,8 +1325,9 @@ main() {
                 elif [ "$opt" = "🔎" ]; then
                     [ "$player_source" = "streaming" ] && animdl_playthrough=0
                     [ "$player_source" = "torrenting" ] && nyaa_search_res="" && magnet_link=""
+                    file_list=""
                 elif [ "$opt" = "🙈" ]; then
-                    file_index="$NYAAPY_FILE_SEL_CODE"
+                    play_status="$PLAY_STATUS_FILE_SEL"
                 fi
             done
             set +u nounset
