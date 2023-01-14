@@ -75,9 +75,10 @@ Print the version number and exit.
  [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/anma-dev)
  
 Issues and suggestions are welcome! I give free support and development for issues and features that personally interest me so I don't promise that I will implement "X" feature.
+
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Discord](https://discord.gg/hqt7WSDP8J) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 
-The Discord server is more of a fun chill place than technical support but use whatever floats your boat. For guaranteed serious discussion use the Github issues tracker.
+For guaranteed serious discussion use the Github issues tracker.
 
 ---
 
