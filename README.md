@@ -74,7 +74,7 @@ Print the version number and exit.
 Enable debug mode.
 
 ### Windows
-The script probably works with some versions of WSL but no thorough testing was done to this date.
+The script probably works with some versions of WSL but we haven't tested it yet.
 
 ### Support
  
