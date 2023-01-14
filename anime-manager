@@ -1522,7 +1522,7 @@ main() {
 
             if [ ! "$msg" ]; then
                 msg="This list has no items... "
-                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview "TRACKMA_LIST_REGEX=$TRACKMA_LIST_REGEX; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml" --preview-label ' Info ' --border-label " ♣  LIST$(
+                sel=$(printf "%s\n%s\n%s" "$msg" "$TO_MAIN_MENU" "$SWITCH_STATUS_MSG_MENU_ENTRY" | $FZF -i --border-label " ♣  LIST$(
                     if [ "$sort_score" -eq 1 ]; then
                         printf ' BY SCORE 🌟'
                     elif [ "$sort_airing" -eq 1 ]; then
