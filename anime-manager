@@ -46,12 +46,14 @@ parser_definition() {
     flag MINIMAL --minimal init:="0" -- "Minimalistic interface"
     flag MONOCHROME_LOGO --monochrome-logo  init:="0" -- "Print the monochromatic logo instead of the big orange one. 
                               Suitable for terminals that do not support 24-bit colors."
-    flag DEBUG --debug init:="0" -- "Start debug mode"
+    flag DEBUG -d --debug init:="0" -- "Start debug mode"
     disp :usage -h --help
-    disp VERSION --version init:="0" VERSION
+    disp VERSION -v --version init:="0" VERSION
 }
 
 eval "$(utils/getoptions parser_definition) exit 1"
+
+[ "$DEBUG" -eq 1 ] && set -x
 
 # cleanly go to the main loop
 # a 'modifier' for us is a flow control variable
