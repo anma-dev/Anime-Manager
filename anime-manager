@@ -311,7 +311,7 @@ install_dependencies() {
                     beautifulsoup4==4.6.0 \
                     lxml \
                     wheel \
-                    Trackma
+                    Trackma==0.8.5
             fi
         fi
         echo
