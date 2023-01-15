@@ -269,7 +269,7 @@ install_dependencies() {
                     beautifulsoup4==4.6.0 \
                     lxml \
                     dbus-python
-                pip3 install Trackma
+                pip3 install Trackma==0.8.5
             fi
         elif [ "$OSTYPE" = "Darwin" ]; then
             log "🍏 Installing macOS dependencies."
