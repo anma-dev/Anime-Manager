@@ -7,7 +7,7 @@ Anime Manager is a powerful open source script that lets you watch (streaming + 
 <img src="https://user-images.githubusercontent.com/121255032/212490696-8464044e-3402-48cb-8844-2835d86d8f47.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490703-5fe79ab2-347e-4ecc-bff5-8d021cd67fc8.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490758-22e6191b-8eb7-4ef7-9a23-862a769b5af0.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490717-40b20df0-c3f0-479f-a313-b5ca31d52f43.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490721-4b9fb71d-7291-4f2e-9b3e-6ecfb4434bba.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490727-571414ad-6817-45c3-bd57-0afbcf183448.png" width="30%"></img>
 
 You can use your existing anime list service (those [trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your progress as you watch, all from one utility for added convenience!
-
+# Features
 - 🔄 **Set series as completed or (re)watching as you go.**
 - ✅ **Set the current episode as watched and play the next one**
 - ↔️ **Move series between lists**
@@ -30,7 +30,7 @@ It integrates the following functionality and tools:
 
 AM starts empty by default, with no account configured. You will have to configure Trackma with an account separately for AM to work properly. The script will walk you through that.
 
-### Usage
+# Usage
 
 ````
 Usage: anime-manager [options]...
@@ -48,7 +48,7 @@ Options:
 ````
 The big orange logo requires that your terminal app supports 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md).
 
-### Dependencies
+# Dependencies
 Python 3+
 
 | Dependency | Description |
@@ -65,27 +65,28 @@ Python 3+
 
 Ensure all dependencies binaries are available through your `$PATH`.
 
-### Installation
+# Installation
 
+## Linux and macOS
 The script has an automatic install mode for dependencies that supports macOS and Ubuntu. Automatic install respects your existing installation.
 
 Clone the repo and give executable permissions to `anime-manager` and everything under `utils/` folder, and put anime-manager in your `PATH`. Make sure the `lib` and `utils` folders are right next to the main script. We will provide more information once the first release is published.
 
-### Windows
+## Windows
 The script probably works with some versions of WSL but we haven't tested it yet. AM needs testers to expand to other platforms.
 
-### Support
+# Support
  
 Issues and suggestions are welcome! For guaranteed serious discussion use the Github issues tracker.
 
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Discord](https://discord.gg/hqt7WSDP8J) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 
-### Say thanks
+# Say thanks
  It's not expected but you can send a small thank you note to the dev to let them know this project was helpful to you by clicking the badge below.
 
   [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/anma-dev)
 
-### Similar projects
+# Similar projects
 You should also check these projects:
 - [adl](https://github.com/RaitaroH/adl)
 - [ani-cli](https://github.com/pystardust/ani-cli)
