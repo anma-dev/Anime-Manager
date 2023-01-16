@@ -59,7 +59,7 @@ Python 3+
 | [fzf](https://github.com/junegunn/fzf/) | User menus.  Get a recent version that supports border label and border label coloring. <br/>Some repos provide older versions of fzf. |
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
 | [Node.js](https://nodejs.org/en/) | Runs the Webtorrent process |
-| [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scrapping magnet links from nyaa.si |
+| [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scraping magnet links from nyaa.si |
 | [pastel](https://github.com/sharkdp/pastel) | Text with pretty colors |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
