@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2016
+# shellcheck disable=SC2016,SC2034
 set -o errexit
 set -o nounset
 
