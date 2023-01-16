@@ -143,7 +143,7 @@ select_account() {
             close_trackma
             break
         elif [ "$account_choice" = "No account was found" ]; then
-            break
+            exit
         else
             acc_id="$(printf "%s" "$TRACKMA_ACCOUNTS" | grep "$(printf "%s" "$account_choice" | sed "s/^👤 //g")" | cut -d ":" -f1)"
             [ -z "$acc_id" ] && exit
