@@ -687,6 +687,7 @@ media_player_menu() {
         while true; do
             read -r key # TODO: -n1
             if [ "$key" = "" ]; then
+                line_to_remove
                 clear_lines
                 break
             fi
