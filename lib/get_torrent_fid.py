@@ -1,7 +1,4 @@
-import sys
-import os
 import argparse
-import logging
 import traceback
 import re
 import json
@@ -10,6 +7,7 @@ from shlex import split
 import anitopy
 import csv
 from contextlib import suppress
+from Logger import Logger
 
 help_msg = "Looks up a file in a magnet link and returns its index."
 parser = argparse.ArgumentParser(description=help_msg)
@@ -29,21 +27,9 @@ args = parser.parse_args()
 args.episode = float(args.episode)
 args.title = args.title.split(", ")
 
-logfile = os.path.expanduser("~/.config/anime-manager/get_torrent_fid.log")
-f = open(logfile, "a")
-logger = logging.getLogger('get_torrent_fid')
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(
-    '%(asctime)s | %(name)s | %(levelname)s | %(message)s')
-file_handler = logging.FileHandler(logfile)
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-if args.debug:
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG)
-    stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler)
+logger = Logger(file="get_torrent_fid.log",
+                debug=args.debug,
+                log_name="get_torrent_fid").log
 
 sniffer = csv.Sniffer()
 valid_delim = ' _.&+,|'
@@ -72,7 +58,9 @@ def normalize_title(title: str):
 
 
 try:
-    command = split(f"node lib/webtorrent-cli/bin/cmd.js download {args.magnet_link} -s -q")
+    command = split(
+        f"node lib/webtorrent-cli/bin/cmd.js download {args.magnet_link} -s -q"
+    )
     magnet_content = subprocess.run(command,
                                     stdout=subprocess.PIPE,
                                     shell=False,

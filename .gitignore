@@ -1,3 +1,4 @@
 .DS_Store
 lib/webtorrent-cli
 .vscode
+**__pycache__**

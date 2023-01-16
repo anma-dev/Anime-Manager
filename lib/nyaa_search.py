@@ -1,12 +1,10 @@
-import sys
-import os
 import argparse
-import logging
 import traceback
 import re
 import json
 from time import sleep
 from NyaaPy.nyaa import Nyaa
+from Logger import Logger
 
 help_msg = "Queries nyaa.si and returns the results."
 parser = argparse.ArgumentParser(description=help_msg)
@@ -24,23 +22,9 @@ parser.add_argument("--show-type",
 
 args = parser.parse_args()
 
-logfile = os.path.expanduser("~/.config/anime-manager/nyaa_search.log")
-f = open(logfile, "a")
-logger = logging.getLogger('nyaa_search')
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(
-    '%(asctime)s | %(name)s | %(levelname)s | %(message)s')
-file_handler = logging.FileHandler(logfile)
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-if args.debug:
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setLevel(logging.DEBUG)
-    stdout_handler.setFormatter(formatter)
-    logger.addHandler(stdout_handler)
-
-# globals
+logger = Logger(file="nyaa_search.log",
+                debug=args.debug,
+                log_name="nyaa_search").log
 nyaa = Nyaa()
 # categories and subcategories
 cat_anime = 1
