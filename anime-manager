@@ -1574,11 +1574,11 @@ account_menu() {
 
 incognito_menu() {
     INCOGNITO_MENU_HELPTEXT="
-👤  Exit Incognito Mode and go to account selection menu.
+👤  Turn Incognito Mode off.
 ───
-💡  Stream with animdl. You will need to type a search query and animdl will take care of the rest. This option uses streaming for playing content.
+💡  Stream with animdl. You will need to type a search query and episode number. This option uses streaming for playing content.
 ───
-😺  Search nyaa.si. You will need to type a search query and select a search result from nyaa.si to torrent it. This option uses torrenting for playing content.
+😺  Search nyaa.si. You will need to type a search query, type and episode number and select a search result from nyaa.si to torrent it. This option uses torrenting for playing content.
 "
     INCOGNITO_MENU_ENTRIES="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_STREAMING\n$EXIT_INCOGNITO_MODE"
     MAINMENU_TITLE="MAIN MENU"
