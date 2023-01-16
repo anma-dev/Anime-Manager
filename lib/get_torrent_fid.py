@@ -6,7 +6,7 @@ import traceback
 import re
 import json
 import subprocess
-from shlex import quote
+from shlex import split
 import anitopy
 import csv
 from contextlib import suppress
@@ -72,17 +72,16 @@ def normalize_title(title: str):
 
 
 try:
-    command = f"node lib/webtorrent-cli/bin/cmd.js download {quote(args.magnet_link)} -s -q"
+    command = split(f"node lib/webtorrent-cli/bin/cmd.js download {args.magnet_link} -s -q")
     magnet_content = subprocess.run(command,
                                     stdout=subprocess.PIPE,
-                                    shell=True,
-                                    timeout=webtorrent_timeout)
+                                    shell=False,
+                                    timeout=webtorrent_timeout,
+                                    check=True)
     result = magnet_content.stdout.decode("utf-8").splitlines()
     result = [x for x in result if len(x) != 0]
     del result[0]
     del result[-3:]
-    # print(result)
-    # exit()
     if len(result) == 0:
         raise AssertionError("Magnet link has no content.")
     for filename in result:
