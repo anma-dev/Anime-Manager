@@ -129,7 +129,11 @@ log() {
 select_account() {
     # account selection
     TRACKMA_ACCOUNTS="$(sed -nE "/[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
-    TRACKMA_ACCOUNTS_MENU_ENTRIES="$(printf "%s" "$TRACKMA_ACCOUNTS" | sed "s/^[0-9]: /👤 /g")"
+    if [ -n "$TRACKMA_ACCOUNTS" ]; then
+        TRACKMA_ACCOUNTS_MENU_ENTRIES="$(printf "%s" "$TRACKMA_ACCOUNTS" | sed "s/^[0-9]: /👤 /g")"
+    else
+        TRACKMA_ACCOUNTS_MENU_ENTRIES="No account was found"
+    fi
     TRACKMA_ACCOUNTS_MENU_ENTRIES="🕵️  Incognito Mode\n$TRACKMA_ACCOUNTS_MENU_ENTRIES"
     while [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ] && [ "$INCOGNITO_MODE" -eq 0 ]; do
         account_choice=$(printf "%b" "$TRACKMA_ACCOUNTS_MENU_ENTRIES" | $FZF -i --prompt="Select an option: " --border-label "╢ ♣  ACCOUNT SELECTION ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first --tac --no-sort)
@@ -137,6 +141,8 @@ select_account() {
         if [ "$(printf "%s" "$account_choice" | cut -d " " -f1)" = "🕵️" ]; then
             INCOGNITO_MODE=1
             close_trackma
+            break
+        elif [ "$account_choice" = "No account was found" ]; then
             break
         else
             acc_id="$(printf "%s" "$TRACKMA_ACCOUNTS" | grep "$(printf "%s" "$account_choice" | sed "s/^👤 //g")" | cut -d ":" -f1)"
