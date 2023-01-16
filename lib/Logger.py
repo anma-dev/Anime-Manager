@@ -1,4 +1,4 @@
-from os import path, mkdir
+from os import path, makedirs
 import sys
 import logging
 
@@ -16,7 +16,7 @@ class Logger:
                  debug=False,
                  log_name='default'):
         if not path.isdir(config_dir):
-            mkdir(config_dir)
+            makedirs(config_dir)
         logfile = f"{config_dir}/{file}"
         f = open(logfile, "a")
         self.log = logging.getLogger(log_name)
