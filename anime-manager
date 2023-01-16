@@ -1727,10 +1727,10 @@ main() {
             check_trackma_config
         fi
         if [ "$INCOGNITO_MODE" -eq 0 ]; then
-            print_account
+            [ "$MINIMAL" -eq 0 ] && print_account
             account_menu
         else
-            print_incognito_msg
+            [ "$MINIMAL" -eq 0 ] && print_incognito_msg
             incognito_menu
         fi
     done
