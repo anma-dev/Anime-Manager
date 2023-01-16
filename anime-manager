@@ -44,7 +44,9 @@ parser_definition() {
     setup REST help:usage -- "Usage: anime-manager [options]..." ''
     msg -- 'Options:'
     flag MINIMAL --minimal init:="0" -- "Minimalistic interface"
-    flag MONOCHROME_LOGO --monochrome-logo  init:="0" -- "Print the monochromatic logo instead of the big orange one. 
+    flag INCOGNITO_MODE -i --incognito init:="0" -- "Browse with Incognito Mode. No account is used or synced 
+                               with the remote service."
+    flag MONOCHROME_LOGO --monochrome-logo init:="0" -- "Print the monochromatic logo instead of the big orange one. 
                               Suitable for terminals that do not support 24-bit colors."
     flag DEBUG -d --debug init:="0" -- "Start debug mode"
     disp :usage -h --help
@@ -104,7 +106,7 @@ on_exit() {
     fi
     close_trackma
     # cleanup, save disk space
-    [ $DEBUG -eq 0 ] &&
+    [ "$DEBUG" -eq 0 ] &&
         reset_logs &&
         rm -rf "$TORRENT_DOWNLOAD_DIR"
     clear_modifiers
@@ -118,12 +120,27 @@ log() {
     printf "%b\n" "$1"
 }
 
-# returns true if the user has initialized an account
-is_trackma_init() {
-    if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
-        false
-    else
-        true
+select_account() {
+    # account selection
+    TRACKMA_ACCOUNTS="$(sed -nE "/[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
+    TRACKMA_ACCOUNTS_MENU_ENTRIES="$(printf "%s" "$TRACKMA_ACCOUNTS" | sed "s/^[0-9]: /👤 /g")"
+    TRACKMA_ACCOUNTS_MENU_ENTRIES="🕵️  Incognito Mode\n$TRACKMA_ACCOUNTS_MENU_ENTRIES"
+    while [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ] && [ "$INCOGNITO_MODE" -eq 0 ]; do
+        account_choice=$(printf "%b" "$TRACKMA_ACCOUNTS_MENU_ENTRIES" | $FZF -i --prompt="Select an option: " --border-label "╢ ♣  ACCOUNT SELECTION ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first --tac --no-sort)
+        #
+        if [ "$(printf "%s" "$account_choice" | cut -d " " -f1)" = "🕵️" ]; then
+            INCOGNITO_MODE=1
+            close_trackma
+            break
+        else
+            acc_id="$(printf "%s" "$TRACKMA_ACCOUNTS" | grep "$(printf "%s" "$account_choice" | sed "s/^👤 //g")" | cut -d ":" -f1)"
+            [ -z "$acc_id" ] && exit
+            printf "r%s\n" "$acc_id" | trackma_query >/dev/null 2>&1
+        fi
+    done
+    if [ "$INCOGNITO_MODE" -eq 0 ]; then
+        USERNAME="$(get_account_name)"
+        TRACKER_SERVICE="$(get_remote_tracker)"
     fi
 }
 
@@ -145,11 +162,7 @@ check_trackma_config() {
 "
         exit
     fi
-
-    if ! is_trackma_init; then
-        printf "\n─ Anime Manager Setup ─ \nThe script detected that no account is configured in Trackma.\n\nNext steps:\n- 1. Open a new Terminal window or tab.\n- 2. Run 'trackma account' and follow the instructions to add and select your account.\n- 3. Restart Anime Manager.\n\nIf you don't have an account yet feel free to open one in the supported websites:\n・https://myanimelist.net\n・https://anilist.co\n・https://kitsu.io\n・https://shikimori.org\n"
-        exit
-    fi
+    select_account
 }
 
 # trim long show titles
@@ -346,6 +359,8 @@ MSG_ERR_COLOR="red"
 MSG_HELP_COLOR="deepskyblue"
 TITLE_COLOR="yellow"
 SUBTITLE_COLOR="lightblue"
+INCOGNITO_MODE_BGCOLOR="indigo"
+INCOGNITO_MODE_FGCOLOR="white"
 
 DATE_MONTH=$(date "+%m")
 DATE_DAY=$(date "+%d")
@@ -649,6 +664,96 @@ torrent_is_playing() {
     fi
 }
 
+# the menu that shows up when the media player opens
+media_player_menu() {
+    # block until the play status is set up
+    while [ "$play_status" -eq "$PLAY_STATUS_WAITING" ]; do
+        sleep 1
+    done
+    if [ "$play_status" -eq "$PLAY_STATUS_ERRORED" ]; then
+        # fatal error, go back to mainmenu
+        echo && line_to_remove
+        if [ "$player_source" = "streaming" ]; then
+            pastel paint $MSG_ERR_COLOR "      💥 Unable to play the episode via streaming." && line_to_remove
+        else
+            pastel paint $MSG_ERR_COLOR "      💥 Unable to stream the episode via torrenting." && line_to_remove
+        fi
+        printf "%s\n" "      [Enter]  Source selection ▶" && line_to_remove
+        # recovery menu loop
+        while true; do
+            read -r key # TODO: -n1
+            if [ "$key" = "" ]; then
+                player_source=""
+                nyaa_search_res=""
+                # dont clear modifiers let the user select another source
+                clear_lines
+                exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE"
+            fi
+        done
+        printf "%s" "$PLAYER_MENU_SOURCE_SELECT_CODE" # select next player source
+    elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
+        # the user decided to go to main menu
+        clear_lines
+        clear_modifiers
+        exit_code="$PLAYER_MENU_END_CODE"
+    fi
+    clear_lines
+    series_menu_title=$(trim "$anime_title")
+    playing_menu=""
+    if [ "$INCOGNITO_MODE" -eq 0 ]; then
+        # trackma account entries
+        if [ "$last_show_episode" != "?" ] && [ "$anime_ep" -eq "$last_show_episode" ]; then
+            playing_menu="🏁 Set as Watched + Move to Completed list"
+            [ "$show_type" != "movie" ] && series_menu_title="🏁 END! ─ $series_menu_title"
+        else
+            playing_menu="⏭️  Set as Watched + Play next\n✅ Set as Watched"
+        fi
+    fi
+    # player reset entries
+    if [ "$player_source" = "torrenting" ]; then
+        playing_menu="$playing_menu\n🔎 Select another search result\n💡 Switch to streaming\n🙈 Unexpected? Select another file ▸"
+    elif [ "$player_source" = "streaming" ]; then
+        playing_menu="$playing_menu\n🔎 Select another search result\n😺 Switch to torrenting"
+    fi
+    opt=$(printf "%b" "$playing_menu\n$TO_MAIN_MENU" |
+        $FZF -i --prompt="Choose an action: " --border-label "╢ 📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" | tr '[:lower:]' '[:upper:]') ─ ${series_menu_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ Episode %s" "$anime_ep") ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first --preview "printf \"%s\" '$debug_match_info' | jq | bat -p --language=json" --bind "ctrl-l:toggle-preview" --preview-label "STREAM DEBUG" --preview-window "50,hidden,wrap")
+    opt=$(printf "%s" "$opt" | cut -d " " -f1)
+    [ "$opt" = "◂" ] && prompt="$TO_MAIN_MENU" && clear_modifiers && exit_code="$PLAYER_MENU_END_CODE"
+    if [ "$opt" = "✅" ]; then
+        set_ep_as_watched
+        clear_modifiers
+        exit_code="$PLAYER_MENU_END_CODE"
+    elif [ "$opt" = "⏭️" ]; then
+        set_ep_as_watched
+        if [ "$player_source" = "torrenting" ]; then
+            nyaa_search_res="" # will query nyaa again
+            magnet_link=""
+            file_list=""
+        elif [ "$player_source" = "streaming" ]; then
+            animdl_playthrough=1
+        fi
+        play_method_menu_opt=""
+        anime_ep=$((anime_ep + 1))
+    elif [ "$opt" = "🏁" ]; then
+        set_ep_as_watched
+        set_show_status "$trackma_show_index" "Completed"
+        exit_code="$PLAYER_MENU_END_CODE"
+    elif [ "$opt" = "💡" ]; then
+        player_source="streaming"
+        magnet_link=""
+        nyaa_search_res=""
+    elif [ "$opt" = "😺" ]; then
+        player_source="torrenting"
+    elif [ "$opt" = "🔎" ]; then
+        [ "$player_source" = "streaming" ] && animdl_playthrough=0
+        [ "$player_source" = "torrenting" ] && nyaa_search_res="" && magnet_link=""
+        file_list=""
+    elif [ "$opt" = "🙈" ]; then
+        play_status="$PLAY_STATUS_FILE_SEL"
+    fi
+    exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE"
+}
+
 # global long-running trackma subprocess
 spawn_trackma() {
     if [ "$DEBUG" -eq 1 ]; then
@@ -660,16 +765,16 @@ spawn_trackma() {
     mkfifo -m 600 "$GLOBAL_TRACKMA_FIFO"
     trackma <"$GLOBAL_TRACKMA_FIFO" >"$GLOBAL_TRACKMA_TMPFILE" 2>"$TRACKMA_LOGFILE" &
     exec 3>"$GLOBAL_TRACKMA_FIFO"
-    printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
+    # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
     while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
-    clear_lines
+    # clear_lines
 }
 
 close_trackma() {
-    printf "%s" "      ⚙️  Closing background processes, please wait..."
+    # printf "%s" "      ⚙️  Closing background processes, please wait..." && line_to_remove
     printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
-    while ! grep "Bye!" "$GLOBAL_TRACKMA_TMPFILE"; do :; done
-    rm "$GLOBAL_TRACKMA_FIFO" "$GLOBAL_TRACKMA_TMPFILE"
+    rm "$GLOBAL_TRACKMA_FIFO"
+    rm "$GLOBAL_TRACKMA_TMPFILE"
     3>&-:
 }
 
@@ -796,7 +901,7 @@ play_episode() {
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
                 # TODO: can't stream with iina
                 set +m
-                nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" --log-file "$ANIMDL_LOGFILE" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                 animdl_pid=$!
                 set -m
                 exec 4>"$play_episode_stream_fifo_write"
@@ -903,6 +1008,11 @@ EOF
 }
 
 paint_logo() {
+    LOGO_MONOCHROME="H4sIAEdnvWMAA+Pi4lIAg/DUnOT83FSFknwF0sGjOSugxjya1vFoWgMYdSBzWoCciWDWRLhwC7oyhccNDbhlsZiIXaYByURkNchObAEjqLaJYATiNEDUw4Ub4DIYTkSXxWEiFhk0TyOpaYA7sQFmRgMWTgOaMJoMxIlYZInkoNiAYheYU2agZ6BnyAUAdHKfkjoCAAA="
+    LOGO_DEFAULT_B64="H4sIAEFjvWMAA73WO24bMRAG4F5XcMMTBHzvLuYgKVIG7mKkCVKrcKFWTaocIOdyLpJ/tPIuZ4aSFoHkQpbxYTgkxeHj6UsaKVIs5fTxL7un/xEnJDxK8gD5bOTZyDcjX418FxIhL0aejTgjP4yIzPhPtfpQyQ8T/yiJpqLuJqaiHidh+EBJjxJvKupuYirqgWJq7CRvv/8Y221o10qY6h3l7ddBWDjZfqPZtu5W1DjYbFfs1ZjrRB03ZpNxuvZm0eNNnWypM7ZO3DDZfCdzm6L62aTpypvl735LlO4zd/J7O9Oz9eIOxtymKJWt1ot2MOY2Rels8aK9GnOdqMOtbKVThWc7GHObonS2TsVdNNeJOtwnW+7Ub+7U6hWzbXdC9L16PzE1mjs1mju7oGuBgm6bBoqyB0gyUSNlfT7hBVSMFaqmbaFB9RBp1L80bDItEwWzJIxB5fMUomkMTHp8seJX0BnjgLIxkUAzlRlF3zHjjDBxfOCabvjGMRgYZUZ8myOSUc06jEyq5zDh6WXm4vGqND2fUUSGihe7yXlC2Teqppi4TLHqmruI5kcLgdFpGntxoxk4vieNeGNFU1R+oqT21Ew6rlIKeuAX0ZSfT4xOk9lZ77gOHAWFB1uSZcroZzxYdIICJbk2acV9g9NIqXZtzYddibHItVrt9aoFmgoluQ9ggW3XSqTU7gG/ScaJcrOOOJU3SaUc2hHlcbFjawPleMHWtgPhWZWbZWbJlJOOCrOt2SqNvmOIE+u+2NoDTtNRR80m1jfnvhU21wpmL6ogp8WOtwyzH4TFxfateba110ADZiUq44LVQZs/m2sFM53aIzNNVAubM9LkYktUxMsbf7fZQNVTEbW0mLsaVRc7NlZGKqLicG++2761wrb2kM/SRsEwXlFdKfUt6rawQKWpONzM2G5F1DQMm6mIWzPx8nFLZQMVUV+4mFHWpalCljK3XKIitm5WLdnS3OtqWHoMcNAWuO3SAy5ulInKhncO5iCqC++DpMfLxsvTZIMU3SeOuoyFbWfPhvGKmsN7AT+KagvzHLf2kHBzcZ8/Wxk5v18En8qtPrXCRdPE4K5MMgYSOSYsgoeA58z/APGbmLr7FAAA"
+    LOGO_XMAS_B64="H4sIALYVt2MAA8XXPW4UQRAF4NynWC6A+r9nVGcgBgkngMiwkAAhk22wAQFCckLqu8EFOAKvZtbWdvWb8RpYO7DX+lRb1d1T3dM+v/SvX8ZBgoScpx93cXZ+LG6OQn8ifG4wVeBbhu8YvmH4nuGFxcAKBTLOCT8x7Aqxr+Ovx8T0UOgeCAPrz5Mga9rHRV9PhL+vv++sRxas+Iyh3UoTfjgGnfbtF4a2+oQvGNrdPeEri9q3Hxk+YdhVT9NCfbtmbo9WnoH18wnQjwX488dXztt7MU3SFfQ81vPMq7xjbAsOdYq94mwzr0UvZLZTWcoc6Zj3vBDd5SZbbSm2jjTzGtvME/7aHheb+CgSL5foaqxHd7lZR0+4EEsyr/JRBQvv/sL3yjrb9ShsC5XACwaeeZVpElsw80bPvNH/gruCvKMz3ytr/G+ZE98re7ZJJj5jaEfBkVwt/guSkTrabetMk3QFeWws4smxGqsEzpElGSR1BWOWQh4RuLIUQQYWHWTsM0fxdC5wOhknPrDk8LgQn0j+UNGP3WhUy0I0W4CQcFwx1xdGn13fnuSkx93S9ysT8MlWRp2tjB9mt9n9iNsriQ8ON3qWf3I7Gl/w/xSJxnU1ZNLOi54ksBWevasKZR3m/ezdGsCHFe/y4LNfedxWoX20GyWyrbvoRaJneSbvqkIDi46z2zmpR/K8b7zJgz7FFTiana3qVEm0l5ht9rjo4yDRPL4bNLlxCNSZd4YxvrrMTUEvY5Y4tO8BoFfcHINBonnwjuMwSnJ3I142M7YjVS6S7H5Nw128NVwlhbZgFVxJkz0LlZMkexQqe8JFBjfz1jCi2265RROLd8CwyLZVUtrzxmDmsViNYscc78tYJttBKex5Y9CRWC8VE7evtGUuVbnJ7KRg2vbwV87Kh7Fx3GOb94AP54ffJUq2/07dzU3uKsVJbs+kWzSx5ZavWsYls+cseZBsu1Q5K28YmtgkOEuybd0lhgWSBOwltx2NCwn2crbdD8a2zdlm1oetKXrGxO3tAPcObJjcNrpinlPY2NSnCDhP4jwOy6FPEtBfXpNsDDqSAicwZmhbVxkztP0f8GKqXWZgJrE4lhMaxCySMqZiexrXJ30G3TjATqObghEvZY39bHDQcu4Q8VP0608Nai+2kbgWxC4SOA3KHyIuRU4L/QEhaktX3RcAAA=="
+    LOGO_HALLOWEEN_B64="H4sIADEPt2MAA8XXO24UQRAG4NynWC6A+j09qgtwAwJIAJHxChCPbCUcECE5IeUg3AYuwBH4a2ZtbVf/PV4DNoG91qfaqu6e6p724w/+6aNYJUjIeflxL88en4q7k9DfEj40mCbgc4YvGD5j+JrhS4uBFQpknAu+ZdgVYl/HX/8T012huyMMrD9vBVnT3i3++vblk3E/keAFHzB8wvDNSRiBHxl21SOrHln1SDayqyO0+2vB9wztRuaoffuK4T2GdpoL/vp28Z25PVp5BtbPt4B+LsAfXz9z3t+IaZKuoOexnmfe5HPGtmCdltgLzjbzVvQgs53KKHOkYz7wILrLTXbVKHaaaeYttpkX/Lk/LTbxUSReLtHV2I7ucrOOXnAQSzJv8kkFC+/+wvfKNtv1KGwLlcALBp55k2kSWzDzRs+80f+Au4K8ozPfK1v8d5kT3ysHtkkWPmNoR8GRXC3+CZKROtpt20yTdAV5bCziybEaJwmcI0tSJXUFY5ZCHhF4YimCVBYdZO4zR/F0LnA6GSc+sOTwOIhPJH+Y0I/daFTLIJotQEg4rpjrC6PPrm9PctLjbun7lQn4ZCujzlbG19Vtdj/j9krig8ONnuVf3I7GF/w/RaJxVw2ZtPPQkwS2wqt3VaGsw7xfvVsDeN3wLg8++5XHbRXaR7tZItu6Qy8SPcuzeFcVGlh0XN3OST2S533pTR70Ka7A0exsVadKor3EbLPHoc9Vonl8l2hy4xCYVj43jPFNY24KepmzxNq+B4BecXcKBonmwTuOdZbkrke8bFZsR6pcJNn9mup1vDc8SQptwUlwJU32LFROkuxRqOwJF6lu5b1hRLfdcoUmFu+AOmTbKikdeGcw81isRrFjjjdlLJPtoBQOvDPoSKyXCRO3r7Qxl0m5yeykYNr28FfOysexcT5gm/eIj+eH3yVKtv9OXc9N7kmKk9yeSVdoYssVX7SMS2bPWXKVbLtUOSvvGJrYJDhLsm3dEcMCSQL2ktuOxoUEeznb7gdj2+ZsM+vD1hQ9Y+L2doB7BzZMbhtdMa8pbGzqUwScJ3Edh+XQJwnoL69JdgYdSYETGDO0rauMGdr+D3gxTV1mYCaxOJYTGsQskjKmYnsa1yd9Bt04wE6jm4IRL2WNfWewajl3jPgp+vX7BrUX20hcC2IXCVwG5Y8RlyKnhc5+AyB6tXLeFwAA"
+
     # print the logos
     [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME || LOGO_B64=$LOGO_DEFAULT_B64
     # special dates
@@ -910,7 +1020,7 @@ paint_logo() {
     [ "$DATE_MONTH" -eq 12 ] && [ "$DATE_DAY" -eq 24 ] || [ "$DATE_DAY" -eq 25 ] && LOGO_B64=$LOGO_XMAS_B64
     # [ $DATE_MONTH -eq 12 ] && [ $DATE_DAY -eq 31 ] && LOGO_B64=$LOGO_NEWYEAR_B64
 
-    if [ $DEBUG -eq 0 ]; then
+    if [ "$DEBUG" -eq 0 ]; then
         printf "%b\n" "$(
             base64 -d <<EOF | gunzip
 $LOGO_B64
@@ -919,7 +1029,18 @@ EOF
     fi
     pastel paint $TITLE_COLOR "      🍿 Play and Track Anime Series from Your Terminal"
     pastel paint $MSG_HELP_COLOR "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
+
+}
+
+print_account() {
+    clear_lines
     pastel paint $SUBTITLE_COLOR "      👤 Account ─ ${USERNAME} │"
+}
+
+print_incognito_msg() {
+    clear_lines
+    printf "      "
+    pastel paint -b -o "$INCOGNITO_MODE_BGCOLOR" "$INCOGNITO_MODE_FGCOLOR" "🕵  INCOGNITO MODE "
 }
 
 check_torrent_health() {
@@ -949,65 +1070,10 @@ check_torrent_health() {
     fi
 }
 
-LOGO_MONOCHROME="H4sIAEdnvWMAA+Pi4lIAg/DUnOT83FSFknwF0sGjOSugxjya1vFoWgMYdSBzWoCciWDWRLhwC7oyhccNDbhlsZiIXaYByURkNchObAEjqLaJYATiNEDUw4Ub4DIYTkSXxWEiFhk0TyOpaYA7sQFmRgMWTgOaMJoMxIlYZInkoNiAYheYU2agZ6BnyAUAdHKfkjoCAAA="
-LOGO_DEFAULT_B64="H4sIAEFjvWMAA73WO24bMRAG4F5XcMMTBHzvLuYgKVIG7mKkCVKrcKFWTaocIOdyLpJ/tPIuZ4aSFoHkQpbxYTgkxeHj6UsaKVIs5fTxL7un/xEnJDxK8gD5bOTZyDcjX418FxIhL0aejTgjP4yIzPhPtfpQyQ8T/yiJpqLuJqaiHidh+EBJjxJvKupuYirqgWJq7CRvv/8Y221o10qY6h3l7ddBWDjZfqPZtu5W1DjYbFfs1ZjrRB03ZpNxuvZm0eNNnWypM7ZO3DDZfCdzm6L62aTpypvl735LlO4zd/J7O9Oz9eIOxtymKJWt1ot2MOY2Rels8aK9GnOdqMOtbKVThWc7GHObonS2TsVdNNeJOtwnW+7Ub+7U6hWzbXdC9L16PzE1mjs1mju7oGuBgm6bBoqyB0gyUSNlfT7hBVSMFaqmbaFB9RBp1L80bDItEwWzJIxB5fMUomkMTHp8seJX0BnjgLIxkUAzlRlF3zHjjDBxfOCabvjGMRgYZUZ8myOSUc06jEyq5zDh6WXm4vGqND2fUUSGihe7yXlC2Teqppi4TLHqmruI5kcLgdFpGntxoxk4vieNeGNFU1R+oqT21Ew6rlIKeuAX0ZSfT4xOk9lZ77gOHAWFB1uSZcroZzxYdIICJbk2acV9g9NIqXZtzYddibHItVrt9aoFmgoluQ9ggW3XSqTU7gG/ScaJcrOOOJU3SaUc2hHlcbFjawPleMHWtgPhWZWbZWbJlJOOCrOt2SqNvmOIE+u+2NoDTtNRR80m1jfnvhU21wpmL6ogp8WOtwyzH4TFxfateba110ADZiUq44LVQZs/m2sFM53aIzNNVAubM9LkYktUxMsbf7fZQNVTEbW0mLsaVRc7NlZGKqLicG++2761wrb2kM/SRsEwXlFdKfUt6rawQKWpONzM2G5F1DQMm6mIWzPx8nFLZQMVUV+4mFHWpalCljK3XKIitm5WLdnS3OtqWHoMcNAWuO3SAy5ulInKhncO5iCqC++DpMfLxsvTZIMU3SeOuoyFbWfPhvGKmsN7AT+KagvzHLf2kHBzcZ8/Wxk5v18En8qtPrXCRdPE4K5MMgYSOSYsgoeA58z/APGbmLr7FAAA"
-LOGO_XMAS_B64="H4sIALYVt2MAA8XXPW4UQRAF4NynWC6A+r9nVGcgBgkngMiwkAAhk22wAQFCckLqu8EFOAKvZtbWdvWb8RpYO7DX+lRb1d1T3dM+v/SvX8ZBgoScpx93cXZ+LG6OQn8ifG4wVeBbhu8YvmH4nuGFxcAKBTLOCT8x7Aqxr+Ovx8T0UOgeCAPrz5Mga9rHRV9PhL+vv++sRxas+Iyh3UoTfjgGnfbtF4a2+oQvGNrdPeEri9q3Hxk+YdhVT9NCfbtmbo9WnoH18wnQjwX488dXztt7MU3SFfQ81vPMq7xjbAsOdYq94mwzr0UvZLZTWcoc6Zj3vBDd5SZbbSm2jjTzGtvME/7aHheb+CgSL5foaqxHd7lZR0+4EEsyr/JRBQvv/sL3yjrb9ShsC5XACwaeeZVpElsw80bPvNH/gruCvKMz3ytr/G+ZE98re7ZJJj5jaEfBkVwt/guSkTrabetMk3QFeWws4smxGqsEzpElGSR1BWOWQh4RuLIUQQYWHWTsM0fxdC5wOhknPrDk8LgQn0j+UNGP3WhUy0I0W4CQcFwx1xdGn13fnuSkx93S9ysT8MlWRp2tjB9mt9n9iNsriQ8ON3qWf3I7Gl/w/xSJxnU1ZNLOi54ksBWevasKZR3m/ezdGsCHFe/y4LNfedxWoX20GyWyrbvoRaJneSbvqkIDi46z2zmpR/K8b7zJgz7FFTiana3qVEm0l5ht9rjo4yDRPL4bNLlxCNSZd4YxvrrMTUEvY5Y4tO8BoFfcHINBonnwjuMwSnJ3I142M7YjVS6S7H5Nw128NVwlhbZgFVxJkz0LlZMkexQqe8JFBjfz1jCi2265RROLd8CwyLZVUtrzxmDmsViNYscc78tYJttBKex5Y9CRWC8VE7evtGUuVbnJ7KRg2vbwV87Kh7Fx3GOb94AP54ffJUq2/07dzU3uKsVJbs+kWzSx5ZavWsYls+cseZBsu1Q5K28YmtgkOEuybd0lhgWSBOwltx2NCwn2crbdD8a2zdlm1oetKXrGxO3tAPcObJjcNrpinlPY2NSnCDhP4jwOy6FPEtBfXpNsDDqSAicwZmhbVxkztP0f8GKqXWZgJrE4lhMaxCySMqZiexrXJ30G3TjATqObghEvZY39bHDQcu4Q8VP0608Nai+2kbgWxC4SOA3KHyIuRU4L/QEhaktX3RcAAA=="
-LOGO_HALLOWEEN_B64="H4sIADEPt2MAA8XXO24UQRAG4NynWC6A+j09qgtwAwJIAJHxChCPbCUcECE5IeUg3AYuwBH4a2ZtbVf/PV4DNoG91qfaqu6e6p724w/+6aNYJUjIeflxL88en4q7k9DfEj40mCbgc4YvGD5j+JrhS4uBFQpknAu+ZdgVYl/HX/8T012huyMMrD9vBVnT3i3++vblk3E/keAFHzB8wvDNSRiBHxl21SOrHln1SDayqyO0+2vB9wztRuaoffuK4T2GdpoL/vp28Z25PVp5BtbPt4B+LsAfXz9z3t+IaZKuoOexnmfe5HPGtmCdltgLzjbzVvQgs53KKHOkYz7wILrLTXbVKHaaaeYttpkX/Lk/LTbxUSReLtHV2I7ucrOOXnAQSzJv8kkFC+/+wvfKNtv1KGwLlcALBp55k2kSWzDzRs+80f+Au4K8ozPfK1v8d5kT3ysHtkkWPmNoR8GRXC3+CZKROtpt20yTdAV5bCziybEaJwmcI0tSJXUFY5ZCHhF4YimCVBYdZO4zR/F0LnA6GSc+sOTwOIhPJH+Y0I/daFTLIJotQEg4rpjrC6PPrm9PctLjbun7lQn4ZCujzlbG19Vtdj/j9krig8ONnuVf3I7GF/w/RaJxVw2ZtPPQkwS2wqt3VaGsw7xfvVsDeN3wLg8++5XHbRXaR7tZItu6Qy8SPcuzeFcVGlh0XN3OST2S533pTR70Ka7A0exsVadKor3EbLPHoc9Vonl8l2hy4xCYVj43jPFNY24KepmzxNq+B4BecXcKBonmwTuOdZbkrke8bFZsR6pcJNn9mup1vDc8SQptwUlwJU32LFROkuxRqOwJF6lu5b1hRLfdcoUmFu+AOmTbKikdeGcw81isRrFjjjdlLJPtoBQOvDPoSKyXCRO3r7Qxl0m5yeykYNr28FfOysexcT5gm/eIj+eH3yVKtv9OXc9N7kmKk9yeSVdoYssVX7SMS2bPWXKVbLtUOSvvGJrYJDhLsm3dEcMCSQL2ktuOxoUEeznb7gdj2+ZsM+vD1hQ9Y+L2doB7BzZMbhtdMa8pbGzqUwScJ3Edh+XQJwnoL69JdgYdSYETGDO0rauMGdr+D3gxTV1mYCaxOJYTGsQskjKmYnsa1yd9Bt04wE6jm4IRL2WNfWewajl3jPgp+vX7BrUX20hcC2IXCVwG5Y8RlyKnhc5+AyB6tXLeFwAA"
-SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
-
-if [ "$OSTYPE" = "Darwin" ]; then
-    MEDIA_PLAYER="iina"
-else
-    MEDIA_PLAYER="mpv"
-fi
-
-export BACK_MSG
-export TO_MAIN_MENU
-export SWITCH_STATUS_MSG_MENU_ENTRY
-export TRACKMA_ENTRY_REGEX
-export TRACKMA_LOGFILE
-
-# fzf colors
-export FZF_DEFAULT_OPTS='--color=fg:#ffffff,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00,bg+:#262626,hl+:#5fd7ff --color=info:#ffffff,prompt:#ffbf00,pointer:#af5fff --color=marker:#87ff00,spinner:#af5fff,header:#d7005f --color=label:#ffbf00'
-
-# regex for extracting trackma results
-# gets the whole series list
-TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
-# gets the multiple parts of an entry, by matching groups
-#	1- list index
-#	2- series title
-#	3- unused
-#	4- last watched ep
-#	5- end episode
-#	6- series score
-# Caveat: removing possesive quantifier makes the \2 match to end
-# with a residual dot, we will have to remove it with sed.
-# We also have no way of making a distinction between series that
-# actually end with a dot from a residual dot.
-TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
-
-# mainmenu entries
-WATCH_HISTORY="👁️  Watch History"
-WATCH="📺 Watch"
-WATCH_RANDOM="🔀 Watch Random"
-ADD_SHOW="🧩 Add Series"
-LIST="📙 Lists"
-UPDATE_STATUS="🔄 Update Series Status"
-SCORE_SHOW="👍 Score Series"
-TO_SUBMENU="🐇 SUBMENU ▸"
-# submenu entries
-DELETE_SERIES="Delete Series 🗑️"
-WATCH_RAND_AIRING="Watch Random Series (Currently Airing 📣)"
-LIST_AIRING="List Series (Currently Airing 📣)"
-UPDATE_EPISODES="Update Series Episodes 🔄"
-SET_ALTNAME="Set Alternative Name 📝"
-PULL="Pull Lists from Remote ↓"
-PUSH="Push Local Lists to Remote ↑"
-LIST_BY_SCORE="List Series (Sort by Rating 🌟)"
-TO_MAIN_MENU="◂ MAINMENU"
-
-MAIN_MENU_HELPTEXT="
+account_menu() {
+    MAIN_MENU_HELPTEXT="
 🐇  Follow the white rabbit for more menu options
+👤  Select another account or switch to Incognito Mode.
 👍  Rate a series or change a series score. It syncs immediately with the tracking service
 🔄  Update the status of a series. It syncs immediately with the tracking service
 📙  Browse all your lists. It can also play series
@@ -1017,7 +1083,7 @@ MAIN_MENU_HELPTEXT="
 👁️  Your watching history with series titles and episode count
 "
 
-SUB_MENU_HELPTEXT="
+    SUB_MENU_HELPTEXT="
 🌟  Display your lists in descending order by score
 ↑  Upload your local progress to your tracking service.
 ↓  Download your remote progress and update your local lists.
@@ -1027,29 +1093,14 @@ SUB_MENU_HELPTEXT="
 📣  Start watching a random series episodes that is also currently airing
 🗑️  Delete a series from your lists. You will lose all your progress on that series
 "
-
-# prepare the menus
-prompt=""
-MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$TO_SUBMENU"
-SUBMENU_ENTRIES="$DELETE_SERIES\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
-MAINMENU_TITLE="MAIN MENU"
-SUBMENU_TITLE="SUB 🐰 MENU"
-menu_entries=$MAINMENU_ENTRIES
-menu_title=$MAINMENU_TITLE
-menu_help_text=$MAIN_MENU_HELPTEXT
-
-main() {
-    # common fzf args
-    if [ "$MINIMAL" -eq 1 ]; then
-        FZF="fzf -0 --height 50 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top  --layout=reverse --info inline --no-separator"
-    else
-        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1"
-    fi
-    check_setup
-    spawn_trackma
-    check_trackma_config
-    USERNAME="$(get_account_name)"
-    TRACKER_SERVICE="$(get_remote_tracker)"
+    prompt=""
+    MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$TO_SUBMENU"
+    SUBMENU_ENTRIES="$DELETE_SERIES\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
+    MAINMENU_TITLE="MAIN MENU"
+    SUBMENU_TITLE="SUB 🐰 MENU"
+    menu_entries=$MAINMENU_ENTRIES
+    menu_title=$MAINMENU_TITLE
+    menu_help_text=$MAIN_MENU_HELPTEXT
     WATCH_HISTORY_FILE="${CONFIG_PATH}/$(printf "%s" "$USERNAME" | sed -E 's/[^a-zA-Z0-9]//g')-watch-history"
     [ ! -f "$WATCH_HISTORY_FILE" ] && touch "$WATCH_HISTORY_FILE"
     if [ "$TRACKER_SERVICE" = "anilist" ]; then
@@ -1058,7 +1109,6 @@ main() {
     else
         TRACKMA_STATUS_MENU_ENTRIES="$(printf "%b" "Watching\nCompleted\nOn Hold\nDropped\nPlan to Watch" | sort -r)"
     fi
-    [ "$MINIMAL" -eq 0 ] && paint_logo
     while true; do
         [ -z "$prompt" ] &&
             clear_modifiers &&
@@ -1215,7 +1265,6 @@ main() {
             player_source=""
             while true; do
                 if [ -z "$player_source" ]; then
-                    PLAY_METHOD_MENU="😺 Search nyaa.si (torrenting)\n🧲 Paste a magnet link (torrenting)\n💡 Stream with animdl (streaming)\n$TO_MAIN_MENU"
                     if [ "$random_anime" -eq 1 ]; then
                         menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title_trackma") ▶ $anime_ep"
                     elif [ "$random_airing" -eq 1 ]; then
@@ -1251,87 +1300,11 @@ main() {
 
                 # finally, play the show and hope for the best
                 play_episode "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
-
-                # block until the play status is set up
-                while [ "$play_status" -eq "$PLAY_STATUS_WAITING" ]; do
-                    sleep 1
-                done
-                if [ "$play_status" -eq "$PLAY_STATUS_ERRORED" ]; then
-                    # fatal error, go back to mainmenu
-                    echo && line_to_remove
-                    if [ "$player_source" = "streaming" ]; then
-                        pastel paint $MSG_ERR_COLOR "      💥 Unable to play the episode via streaming." && line_to_remove
-                    else
-                        pastel paint $MSG_ERR_COLOR "      💥 Unable to stream the episode via torrenting." && line_to_remove
-                    fi
-                    printf "%s\n" "      [Enter]  Source selection ▶" && line_to_remove
-                    # recovery menu loop
-                    while true; do
-                        read -r key # TODO: -n1
-                        if [ "$key" = "" ]; then
-                            player_source=""
-                            nyaa_search_res=""
-                            # dont clear modifiers let the user select another source
-                            clear_lines
-                            break # to player loop
-                        fi
-                    done
+                media_player_menu
+                if [ "$exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ]; then
                     continue
-                elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
-                    clear_lines
-                    clear_modifiers
+                elif [ "$exit_code" = "$PLAYER_MENU_END_CODE" ]; then
                     break
-                fi
-                clear_lines
-                series_menu_title=$(trim "$anime_title_trackma")
-                # configure the menu entries
-                if [ "$last_show_episode" != "?" ] && [ "$anime_ep" -eq "$last_show_episode" ]; then
-                    playing_menu="🏁 Set as Watched + Move to Completed list"
-                    [ "$show_type" != "movie" ] && series_menu_title="🏁 END! ─ $series_menu_title"
-                else
-                    playing_menu="⏭️  Set as Watched + Play next\n✅ Set as Watched"
-                fi
-                # player reset options
-                if [ "$player_source" = "torrenting" ]; then
-                    playing_menu="$playing_menu\n🔎 Select another search result\n💡 Switch to streaming\n🙈 Unexpected? Select another file ▸"
-                elif [ "$player_source" = "streaming" ]; then
-                    playing_menu="$playing_menu\n🔎 Select another search result\n😺 Switch to torrenting"
-                fi
-                opt=$(printf "%b" "$playing_menu\n$TO_MAIN_MENU" |
-                    $FZF -i --prompt="Choose an action: " --border-label "╢ 📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" | tr '[:lower:]' '[:upper:]') ─ ${series_menu_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ Episode %s" "$anime_ep") ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first --preview "printf \"%s\" '$debug_match_info' | jq | bat -p --language=json" --bind "ctrl-l:toggle-preview" --preview-label "STREAM DEBUG" --preview-window "50,hidden,wrap")
-                opt=$(printf "%s" "$opt" | cut -d " " -f1)
-                [ "$opt" = "◂" ] && prompt="$TO_MAIN_MENU" && clear_modifiers && break
-                if [ "$opt" = "✅" ]; then
-                    set_ep_as_watched
-                    clear_modifiers
-                    break
-                elif [ "$opt" = "⏭️" ]; then
-                    set_ep_as_watched
-                    if [ "$player_source" = "torrenting" ]; then
-                        nyaa_search_res="" # will query nyaa again
-                        magnet_link=""
-                        file_list=""
-                    elif [ "$player_source" = "streaming" ]; then
-                        animdl_playthrough=1
-                    fi
-                    play_method_menu_opt=""
-                    anime_ep=$((anime_ep + 1))
-                elif [ "$opt" = "🏁" ]; then
-                    set_ep_as_watched
-                    set_show_status "$trackma_show_index" "Completed"
-                    break
-                elif [ "$opt" = "💡" ]; then
-                    player_source="streaming"
-                    magnet_link=""
-                    nyaa_search_res=""
-                elif [ "$opt" = "😺" ]; then
-                    player_source="torrenting"
-                elif [ "$opt" = "🔎" ]; then
-                    [ "$player_source" = "streaming" ] && animdl_playthrough=0
-                    [ "$player_source" = "torrenting" ] && nyaa_search_res="" && magnet_link=""
-                    file_list=""
-                elif [ "$opt" = "🙈" ]; then
-                    play_status="$PLAY_STATUS_FILE_SEL"
                 fi
             done
             set +u nounset
@@ -1566,6 +1539,166 @@ main() {
             done
             ;;
         esac
+    done
+}
+
+incognito_menu() {
+    INCOGNITO_MENU_HELPTEXT="
+👤  Exit Incognito Mode and go to account selection menu.
+───
+💡  Stream with animdl. You will need to type a search query and animdl will take care of the rest. This option uses streaming for playing content.
+───
+😺  Search nyaa.si. You will need to type a search query and select a search result from nyaa.si to torrent it. This option uses torrenting for playing content.
+"
+    INCOGNITO_MENU_ENTRIES="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_STREAMING\n$EXIT_INCOGNITO_MODE"
+    MAINMENU_TITLE="MAIN MENU"
+    menu_entries=$INCOGNITO_MENU_ENTRIES
+    menu_title=$MAINMENU_TITLE
+    menu_help_text=$INCOGNITO_MENU_HELPTEXT
+    prompt=""
+    while true; do
+        [ -z "$prompt" ] &&
+            clear_modifiers &&
+            prompt=$(printf "%b" "$menu_entries" | $FZF -i --prompt="Choose an action: " --border-label "╢ ♣  $menu_title ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" --header-first --preview "printf \"%s\n\" \"$menu_help_text\"" --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview-label " Help ")
+        case $prompt in
+        "$PLAY_METHOD_TORRENTING")
+            player_source="torrenting"
+            incognito_play_msg_emoji="😺"
+            prompt="PLAY"
+            ;;
+        "$PLAY_METHOD_STREAMING")
+            player_source="streaming"
+            incognito_play_msg_emoji="💡"
+            prompt="PLAY"
+            ;;
+        "PLAY")
+            echo && line_to_remove
+            printf "      %s What anime do you want to watch❔\n" "$incognito_play_msg_emoji" && line_to_remove
+            printf "         👉 " && line_to_remove
+            read -r anime_title
+            clear_lines
+            [ -z "$anime_title" ] && clear_modifiers && continue
+            anime_title="$(printf "%s" "$anime_title" | sed -E 's/[^a-zA-Z0-9 ]//g' | sed "s/[[:space:]]*$//g" | sed "s/^[[:space:]]*//g")"
+            echo && line_to_remove
+            printf "      %s What episode❔ (you can leave this blank)\n" "$incognito_play_msg_emoji" && line_to_remove
+            printf "         👉 " && line_to_remove
+            read -r anime_ep
+            clear_lines
+            anime_ep="$(printf "%s" "$anime_ep" | sed -E 's/[^0-9]//g')"
+            if [ -z "$anime_ep" ]; then
+                anime_ep=1
+                show_type="movie"
+            else
+                show_type="tv"
+            fi
+            last_show_episode=0
+            while true; do
+                play_episode "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
+                clear_lines
+                media_player_menu
+                if [ "$exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ]; then
+                    play_status="$PLAY_STATUS_FILE_SEL"
+                    continue
+                elif [ "$exit_code" = "$PLAYER_MENU_END_CODE" ]; then
+                    break
+                fi
+            done
+            ;;
+        "$EXIT_INCOGNITO_MODE")
+            INCOGNITO_MODE=0
+            line_to_remove # remove incognito label
+            clear_lines    # remove incognito label
+            spawn_trackma
+            select_account
+            break
+            ;;
+        esac
+    done
+}
+
+if [ "$OSTYPE" = "Darwin" ]; then
+    MEDIA_PLAYER="iina"
+else
+    MEDIA_PLAYER="mpv"
+fi
+
+export BACK_MSG
+export TO_MAIN_MENU
+export SWITCH_STATUS_MSG_MENU_ENTRY
+export TRACKMA_ENTRY_REGEX
+export TRACKMA_LOGFILE
+
+# fzf colors
+export FZF_DEFAULT_OPTS='--color=fg:#ffffff,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00,bg+:#262626,hl+:#5fd7ff --color=info:#ffffff,prompt:#ffbf00,pointer:#af5fff --color=marker:#87ff00,spinner:#af5fff,header:#d7005f --color=label:#ffbf00'
+
+# regex for extracting trackma results
+# gets the whole series list
+TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
+# gets the multiple parts of an entry, by matching groups
+#	1- list index
+#	2- series title
+#	3- unused
+#	4- last watched ep
+#	5- end episode
+#	6- series score
+# Caveat: removing possesive quantifier makes the \2 match to end
+# with a residual dot, we will have to remove it with sed.
+# We also have no way of making a distinction between series that
+# actually end with a dot from a residual dot.
+TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
+
+# mainmenu entries
+WATCH_HISTORY="👁️  Watch History"
+WATCH="📺 Watch"
+WATCH_RANDOM="🔀 Watch Random"
+ADD_SHOW="🧩 Add Series"
+LIST="📙 Lists"
+UPDATE_STATUS="🔄 Update Series Status"
+SCORE_SHOW="👍 Score Series"
+SWITCH_ACCOUNTS="👤 Switch Accounts"
+EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
+TO_SUBMENU="🐇 SUBMENU ▸"
+# submenu entries
+DELETE_SERIES="Delete Series 🗑️"
+WATCH_RAND_AIRING="Watch Random Series (Currently Airing 📣)"
+LIST_AIRING="List Series (Currently Airing 📣)"
+UPDATE_EPISODES="Update Series Episodes 🔄"
+SET_ALTNAME="Set Alternative Name 📝"
+PULL="Pull Lists from Remote ↓"
+PUSH="Push Local Lists to Remote ↑"
+LIST_BY_SCORE="List Series (Sort by Rating 🌟)"
+TO_MAIN_MENU="◂ MAINMENU"
+SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
+# used in account_menu, incognito_menu
+PLAY_METHOD_TORRENTING="😺 Search nyaa.si (torrenting)"
+PLAY_METHOD_STREAMING="💡 Stream with animdl (streaming)"
+PLAY_METHOD_MAGNET="🧲 Paste a magnet link (torrenting)"
+PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING\n$TO_MAIN_MENU"
+# used in media_player_menu
+PLAYER_MENU_SOURCE_SELECT_CODE=0
+PLAYER_MENU_END_CODE=1
+
+main() {
+    # common fzf args
+    if [ "$MINIMAL" -eq 1 ]; then
+        FZF="fzf -0 --height 50 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top  --layout=reverse --info inline --no-separator"
+    else
+        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1"
+        paint_logo
+    fi
+    check_setup
+    while true; do
+        if [ "$INCOGNITO_MODE" -eq 0 ]; then
+            spawn_trackma
+            check_trackma_config
+        fi
+        if [ "$INCOGNITO_MODE" -eq 0 ]; then
+            print_account
+            account_menu
+        else
+            print_incognito_msg
+            incognito_menu
+        fi
     done
 }
 main
