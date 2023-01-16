@@ -939,7 +939,7 @@ play_episode() {
                     pastel paint $MSG_WARN_COLOR "      🚫 No results found ($d_provider), next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
-                    echo "" >"$ANIMDL_LOGFILE"
+                    echo >"$ANIMDL_LOGFILE"
                     continue
                 fi
                 clear_lines
@@ -1085,7 +1085,7 @@ check_torrent_health() {
 account_menu() {
     MAIN_MENU_HELPTEXT="
 🐇  Follow the white rabbit for more menu options
-👤  Select another account or switch to Incognito Mode.
+🕵️  Switch Incognito Mode on. Browse without syncing your progress with any account.
 👍  Rate a series or change a series score. It syncs immediately with the tracking service
 🔄  Update the status of a series. It syncs immediately with the tracking service
 📙  Browse all your lists. It can also play series
@@ -1104,10 +1104,11 @@ account_menu() {
 📣  Display your lists by showing only those shows currently airing
 📣  Start watching a random series episodes that is also currently airing
 🗑️  Delete a series from your lists. You will lose all your progress on that series
+👤  Switch between your various accounts you have connected to Trackma
 "
     prompt=""
-    MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$TO_SUBMENU"
-    SUBMENU_ENTRIES="$DELETE_SERIES\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
+    MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
+    SUBMENU_ENTRIES="$SWITCH_ACCOUNTS\n$DELETE_SERIES\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
     MAINMENU_TITLE="MAIN MENU"
     SUBMENU_TITLE="SUB 🐰 MENU"
     menu_entries=$MAINMENU_ENTRIES
@@ -1126,6 +1127,19 @@ account_menu() {
             clear_modifiers &&
             prompt=$(printf "%b" "$menu_entries" | $FZF -i --prompt="Choose an action: " --border-label "╢ ♣  $menu_title ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" --header-first --preview "printf \"%s\n\" \"$menu_help_text\"" --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview-label "Help")
         case $prompt in
+        "$SWITCH_ACCOUNTS")
+            line_to_remove # remove account label
+            clear_lines    # remove account label
+            printf "account\n" | trackma_query >/dev/null 2>&1
+            break
+        ;;
+        "$ENTER_INCOGNITO_MODE")
+            INCOGNITO_MODE=1
+            line_to_remove # remove account label
+            clear_lines    # remove account label
+            close_trackma
+            break
+            ;;
         "$TO_MAIN_MENU")
             menu_entries=$MAINMENU_ENTRIES
             menu_title=$MAINMENU_TITLE
@@ -1672,10 +1686,11 @@ ADD_SHOW="🧩 Add Series"
 LIST="📙 Lists"
 UPDATE_STATUS="🔄 Update Series Status"
 SCORE_SHOW="👍 Score Series"
-SWITCH_ACCOUNTS="👤 Switch Accounts"
 EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
+ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
 TO_SUBMENU="🐇 SUBMENU ▸"
 # submenu entries
+SWITCH_ACCOUNTS="Switch Accounts 👤"
 DELETE_SERIES="Delete Series 🗑️"
 WATCH_RAND_AIRING="Watch Random Series (Currently Airing 📣)"
 LIST_AIRING="List Series (Currently Airing 📣)"
