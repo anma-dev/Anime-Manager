@@ -687,15 +687,15 @@ media_player_menu() {
         while true; do
             read -r key # TODO: -n1
             if [ "$key" = "" ]; then
-                player_source=""
-                nyaa_search_res=""
-                # dont clear modifiers let the user select another source
                 clear_lines
-                media_player_exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE" # select next player source
-                return
+                break
             fi
         done
-        media_player_exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE" # select next player source
+        player_source="torrenting"
+        nyaa_search_res=""
+        file_list=""
+        magnet_link=""
+        media_player_exit_code="$PLAYER_MENU_END_CODE"
         return
     elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
         # the user decided to go to main menu
@@ -1336,7 +1336,7 @@ account_menu() {
                         continue
                     elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
                         # exit player go to main menu
-                        break
+                        break 2
                     fi
                 done
             done
@@ -1634,7 +1634,7 @@ incognito_menu() {
                     continue
                 elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
                     # exit player go to main menu
-                    break
+                    break 2
                 fi
             done
             ;;
