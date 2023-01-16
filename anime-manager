@@ -1092,25 +1092,41 @@ check_torrent_health() {
 account_menu() {
     MAIN_MENU_HELPTEXT="
 🐇  Follow the white rabbit for more menu options
+───
 🕵️  Switch Incognito Mode on. Browse without syncing your progress with any account.
+───
 👍  Rate a series or change a series score. It syncs immediately with the tracking service
+───
 🔄  Update the status of a series. It syncs immediately with the tracking service
+───
 📙  Browse all your lists. It can also play series
+───
 🧩  Add a new series to your watching list
+───
 🔀  Select one random series from your currently watching lists (watching, rewatching) and open it for streaming
+───
 📺  Opens a list with all your currently watching series (watching, rewatching) and lets you pick one for streaming
+───
 👁️  Your watching history with series titles and episode count
 "
 
     SUB_MENU_HELPTEXT="
 🌟  Display your lists in descending order by score
+───
 ↑  Upload your local progress to your tracking service.
+───
 ↓  Download your remote progress and update your local lists.
+───
 📝  Set the alternative name for a series
+───
 🔄  Update your progress on a series
+───
 📣  Display your lists by showing only those shows currently airing
+───
 📣  Start watching a random series episodes that is also currently airing
+───
 🗑️  Delete a series from your lists. You will lose all your progress on that series
+───
 👤  Switch between your various accounts you have connected to Trackma
 "
     prompt=""
@@ -1132,7 +1148,7 @@ account_menu() {
     while true; do
         [ -z "$prompt" ] &&
             clear_modifiers &&
-            prompt=$(printf "%b" "$menu_entries" | $FZF -i --prompt="Choose an action: " --border-label "╢ ♣  $menu_title ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" --header-first --preview "printf \"%s\n\" \"$menu_help_text\"" --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview-label "Help")
+            prompt=$(printf "%b" "$menu_entries" | $FZF -i --prompt="Choose an action: " --border-label "╢ ♣  $menu_title ♣  ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" --header-first --preview "printf \"%s\n\" \"$menu_help_text\"" --bind "ctrl-l:toggle-preview" --preview-window "50,hidden,wrap" --preview-label " Help ")
         case $prompt in
         "$SWITCH_ACCOUNTS")
             line_to_remove # remove account label
