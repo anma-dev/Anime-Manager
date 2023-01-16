@@ -236,8 +236,9 @@ install_dependencies() {
         # begin installation
         if [ "$OSTYPE" = "Linux" ] && grep "Ubuntu" /etc/os-release >/dev/null 2>&1; then
             log "🐧 Installing Ubuntu dependencies."
-            sudo -v
-            [ $? -ne 0 ] && log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
+            if ! sudo -v; then
+                log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
+            fi
             sudo apt update
             sudo apt -y install build-essential procps curl file git python3-setuptools python3-pip bat jq
             # avoid batcat
@@ -606,8 +607,7 @@ EOF
 
 # checks internet connection
 connectivity_check() {
-    printf "%b" "GET https://ubuntu.com HTTP/1.0\n\n" | nc ubuntu.com 443 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
+    if printf "%b" "GET https://ubuntu.com HTTP/1.0\n\n" | nc ubuntu.com 443 >/dev/null 2>&1; then
         true
     else
         false
@@ -1135,7 +1135,7 @@ account_menu() {
             printf "account\n" | trackma_query >/dev/null 2>&1
             # select_account
             break
-        ;;
+            ;;
         "$ENTER_INCOGNITO_MODE")
             INCOGNITO_MODE=1
             line_to_remove # remove account label
