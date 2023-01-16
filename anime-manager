@@ -105,7 +105,7 @@ on_exit() {
         tput clear
         printf "%s\n" "ERROR on line $onexit_parent_lineno - $onexit_message - exit code $onexit_exit_code"
     fi
-    close_trackma
+    [ "$INCOGNITO_MODE" -eq 0 ] && close_trackma
     # cleanup, save disk space
     [ "$DEBUG" -eq 0 ] &&
         reset_logs &&
@@ -688,15 +688,18 @@ media_player_menu() {
                 nyaa_search_res=""
                 # dont clear modifiers let the user select another source
                 clear_lines
-                exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE"
+                media_player_exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE" # select next player source
+                return
             fi
         done
-        printf "%s" "$PLAYER_MENU_SOURCE_SELECT_CODE" # select next player source
+        media_player_exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE" # select next player source
+        return
     elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
         # the user decided to go to main menu
         clear_lines
         clear_modifiers
-        exit_code="$PLAYER_MENU_END_CODE"
+        media_player_exit_code="$PLAYER_MENU_END_CODE"
+        return
     fi
     clear_lines
     series_menu_title=$(trim "$anime_title")
@@ -719,11 +722,14 @@ media_player_menu() {
     opt=$(printf "%b" "$playing_menu\n$TO_MAIN_MENU" |
         $FZF -i --prompt="Choose an action: " --border-label "╢ 📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" | tr '[:lower:]' '[:upper:]') ─ ${series_menu_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ Episode %s" "$anime_ep") ╟" --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" --header-first --preview "printf \"%s\" '$debug_match_info' | jq | bat -p --language=json" --bind "ctrl-l:toggle-preview" --preview-label "STREAM DEBUG" --preview-window "50,hidden,wrap")
     opt=$(printf "%s" "$opt" | cut -d " " -f1)
-    [ "$opt" = "◂" ] && prompt="$TO_MAIN_MENU" && clear_modifiers && exit_code="$PLAYER_MENU_END_CODE"
-    if [ "$opt" = "✅" ]; then
+    if [ "$opt" = "◂" ]; then
+        prompt="$TO_MAIN_MENU"
+        clear_modifiers
+        media_player_exit_code="$PLAYER_MENU_END_CODE"
+    elif [ "$opt" = "✅" ]; then
         set_ep_as_watched
         clear_modifiers
-        exit_code="$PLAYER_MENU_END_CODE"
+        media_player_exit_code="$PLAYER_MENU_END_CODE"
     elif [ "$opt" = "⏭️" ]; then
         set_ep_as_watched
         if [ "$player_source" = "torrenting" ]; then
@@ -738,21 +744,26 @@ media_player_menu() {
     elif [ "$opt" = "🏁" ]; then
         set_ep_as_watched
         set_show_status "$trackma_show_index" "Completed"
-        exit_code="$PLAYER_MENU_END_CODE"
+        media_player_exit_code="$PLAYER_MENU_END_CODE"
     elif [ "$opt" = "💡" ]; then
         player_source="streaming"
         magnet_link=""
-        nyaa_search_res=""
+        nyaa_search_res="" # will query nyaa again
     elif [ "$opt" = "😺" ]; then
         player_source="torrenting"
+        file_list=""
+        magnet_link=""
+        nyaa_search_res="" # will query nyaa again
+        media_player_exit_code="$PLAYER_MENU_SELECT_SEARCH_RES"
     elif [ "$opt" = "🔎" ]; then
         [ "$player_source" = "streaming" ] && animdl_playthrough=0
         [ "$player_source" = "torrenting" ] && nyaa_search_res="" && magnet_link=""
         file_list=""
+        media_player_exit_code="$PLAYER_MENU_SELECT_SEARCH_RES"
     elif [ "$opt" = "🙈" ]; then
         play_status="$PLAY_STATUS_FILE_SEL"
+        media_player_exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE"
     fi
-    exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE"
 }
 
 # global long-running trackma subprocess
@@ -847,7 +858,7 @@ play_episode() {
             debug_match_info=$EP_DATA
         fi
 
-        [ "$file_index" -eq "-1" ] && play_status="$PLAY_STATUS_FILE_SEL"
+        [ "$file_index" = "-1" ] && play_status="$PLAY_STATUS_FILE_SEL"
 
         if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
             if [ "$file_list" = "None" ]; then
@@ -870,7 +881,7 @@ play_episode() {
             (
                 nohup node "$WEBTORRENT_CLI" download "$magnet_link" --select "$file_index" --out "$TORRENT_DOWNLOAD_DIR" --"$MEDIA_PLAYER" >"$WEBTORRENT_LOGFILE" 2>&1 &
                 echo $! >"$torrent_pid_file"
-            ) &
+            )
             set -m
             # printf "%s" "$EP_DATA" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
             # remove from job queue to avoid info messages if we have to end the process with kill
@@ -1298,15 +1309,19 @@ account_menu() {
                         show_synonyms="$anime_title_trackma, $anime_title_en, $(printf "%s" "$show_synonyms" | sed "s/[]'[]//g")"
                     fi
                 fi
-
-                # finally, play the show and hope for the best
-                play_episode "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
-                media_player_menu
-                if [ "$exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ]; then
-                    continue
-                elif [ "$exit_code" = "$PLAYER_MENU_END_CODE" ]; then
-                    break
-                fi
+                # finally, play the content and hope for the best
+                while true; do
+                    play_episode "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+                    clear_lines
+                    media_player_exit_code=""
+                    media_player_menu
+                    if [ "$media_player_exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ] || [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES" ]; then
+                        continue
+                    elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
+                        # exit player go to main menu
+                        break
+                    fi
+                done
             done
             set +u nounset
             if ps "$animdl_pid" >/dev/null 2>&1; then
@@ -1596,11 +1611,12 @@ incognito_menu() {
             while true; do
                 play_episode "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
                 clear_lines
+                media_player_exit_code=""
                 media_player_menu
-                if [ "$exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ]; then
-                    play_status="$PLAY_STATUS_FILE_SEL"
+                if [ "$media_player_exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ] || [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES" ]; then
                     continue
-                elif [ "$exit_code" = "$PLAYER_MENU_END_CODE" ]; then
+                elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
+                    # exit player go to main menu
                     break
                 fi
             done
@@ -1678,6 +1694,7 @@ PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STR
 # used in media_player_menu
 PLAYER_MENU_SOURCE_SELECT_CODE=0
 PLAYER_MENU_END_CODE=1
+PLAYER_MENU_SELECT_SEARCH_RES=2
 
 main() {
     # common fzf args
