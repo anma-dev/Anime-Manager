@@ -52,7 +52,7 @@ parser_definition() {
                               Suitable for terminals that do not support 24-bit colors."
     flag DEBUG -d --debug init:="0" -- "Start debug mode"
     disp :usage -h --help
-    disp VERSION -v --version init:="0" VERSION
+    disp VERSION -v --version init:="0"
 }
 
 eval "$(utils/getoptions parser_definition) exit 1"
