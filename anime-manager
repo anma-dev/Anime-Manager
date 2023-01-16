@@ -44,9 +44,10 @@ OSTYPE="$(uname -s 2>/dev/null)"
 parser_definition() {
     setup REST help:usage -- "Usage: anime-manager [options]..." ''
     msg -- 'Options:'
-    flag MINIMAL --minimal init:="0" -- "Minimalistic interface"
-    flag INCOGNITO_MODE -i --incognito init:="0" -- "Browse with Incognito Mode. No account is used or synced 
-                               with the remote service."
+    flag MINIMAL --minimal init:="0" -- "Minimalistic interface. It doesn't print the logo, the menu  
+                              fills the screen and is reversed. Dimmer colors."
+    flag INCOGNITO_MODE -i --incognito init:="0" -- "Switch Incognito Mode on. Your activity will not be synced 
+                              with the remote anime list tracking service."
     flag MONOCHROME_LOGO --monochrome-logo init:="0" -- "Print the monochromatic logo instead of the big orange one. 
                               Suitable for terminals that do not support 24-bit colors."
     flag DEBUG -d --debug init:="0" -- "Start debug mode"

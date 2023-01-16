@@ -1,24 +1,25 @@
 # Anime Manager
 [![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg)
 
-AM is a powerful open source (POSIX-compliant) script that lets you watch (stream + torrenting) and synchronize your anime lists from your terminal.
+AM is a powerful open source script that lets you watch (streaming + torrenting) and synchronize your progress from your terminal.
 
 <img src="https://user-images.githubusercontent.com/121255032/212490696-8464044e-3402-48cb-8844-2835d86d8f47.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490703-5fe79ab2-347e-4ecc-bff5-8d021cd67fc8.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490758-22e6191b-8eb7-4ef7-9a23-862a769b5af0.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490717-40b20df0-c3f0-479f-a313-b5ca31d52f43.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490721-4b9fb71d-7291-4f2e-9b3e-6ecfb4434bba.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/212490727-571414ad-6817-45c3-bd57-0afbcf183448.png" width="30%"></img>
 
-You can use your existing anime list service (those [trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your lists as you watch anime by streaming or torrenting, all from one utility for added convenience!
+You can use your existing anime list service (those [trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your progress as you watch, all from one utility for added convenience!
 
-- 🔄 Set series as completed or (re)watching as you go.
-- ✅ Set the current episode as watched and play the next one
-- ↔️ Move series between lists
-- 📣 Filter series by score or airing status
-- 🔀 Play a random episode
-- 👁️ Watch history for quick access
-- 👍 Rate your series
+- 🔄 **Set series as completed or (re)watching as you go.**
+- ✅ **Set the current episode as watched and play the next one**
+- ↔️ **Move series between lists**
+- 📣 **Filter series by score or airing status**
+- 🔀 **Play a random episode**
+- 👁️ **Watch history for quick access**
+- 👍 **Rate your series**
 
-and even more...
-- 💡 Switch between torrenting and streaming as you play
-- 👉 Select a new torrenting or streaming source as you play
-- 🗃️ Pick from matching files for batch torrents
+and even MORE...
+- 💡 **Switch between torrenting and streaming as you play**
+- 👉 **Select a new torrenting or streaming source as you play**
+- 🗃️ **Pick from matching files for batch torrents**
+- 🕵️ **Incognito Mode**
 
 It integrates the following functionality and tools:
 - List sync ([trackma](https://github.com/z411/trackma))
@@ -27,6 +28,24 @@ It integrates the following functionality and tools:
 - Beautiful menus ([fzf](https://github.com/junegunn/fzf/))
 
 AM starts empty by default, with no account configured. You will have to configure Trackma with an account separately for AM to work properly. The script will walk you through that.
+
+### Usage
+
+````
+Usage: anime-manager [options]...
+
+Options:
+      --minimal               Minimalistic interface. It doesn't print the logo, the menu
+                              fills the screen and is reversed. Dimmer colors.
+  -i, --incognito             Switch Incognito Mode on. Your activity will not be synced
+                              with the remote anime list tracking service.
+      --monochrome-logo       Print the monochromatic logo instead of the big orange one.
+                              Suitable for terminals that do not support 24-bit colors.
+  -d, --debug                 Start debug mode
+  -h, --help
+  -v, --version
+````
+The big orange logo requires that your terminal app supports 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md).
 
 ### Dependencies
 Python 3+
@@ -47,42 +66,18 @@ Ensure all dependencies binaries are available through your `$PATH`.
 
 ### Installation
 
-The script has an automatic install mode for dependencies that supports macOS and Ubuntu. Automatic install respects your existing installation. AM needs testers to extend to other platforms.
+The script has an automatic install mode for dependencies that supports macOS and Ubuntu. Automatic install respects your existing installation.
 
-Just clone the repo and give exec permissions to anime-manager and put anime-manager in path. Make sure the lib and utils folders are next to the main script.
-
-### Usage
-Run with
-
-`$ anime-manager <arguments>`
-
-We offer few options because the script is meant to be interacted with through the menus for most of the functionality.
-
-#### Arguments
-
-#### `--minimal`
-Minimalistic interface. It doesn't print the logo, the menu fills the screen and is reversed. Dimmer colors.
-#### `--monochrome-logo`
-Print the monochromatic logo instead of the orange one, for terminals that do not support 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md), for example.
-
-Currently, there is no holiday seasonal greeting for the monochromatic logo.
-
-#### `-v`, `--version`
-Print the version number and exit.
-
-#### `-d`, `--debug`
-Enable debug mode.
+Clone the repo and give executable permissions to `anime-manager` and everything under `utils/` folder, and put anime-manager in your `PATH`. Make sure the `lib` and `utils` folders are right next to the main script. We will provide more information once the first release is published.
 
 ### Windows
-The script probably works with some versions of WSL but we haven't tested it yet.
+The script probably works with some versions of WSL but we haven't tested it yet. AM needs testers to expand to other platforms.
 
 ### Support
  
-Issues and suggestions are welcome! I give free support and development for issues and features that personally interest me so I don't promise that I will implement "X" feature.
+Issues and suggestions are welcome! For guaranteed serious discussion use the Github issues tracker.
 
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Discord](https://discord.gg/hqt7WSDP8J) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
-
-For guaranteed serious discussion use the Github issues tracker.
 
 ### Say thanks
  It's not expected but you can send a small thank you note to the dev to let them know this project was helpful to you by clicking the badge below.
