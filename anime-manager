@@ -58,6 +58,10 @@ parser_definition() {
 eval "$(utils/getoptions parser_definition) exit 1"
 
 [ "$DEBUG" -eq 1 ] && set -x
+if [ $MONOCHROME_LOGO -eq 1 ] && [ $MINIMAL -eq 1 ]; then
+    printf "Error: Incompatible options --monochrome-logo, --minimal\nPlease use one or the other."
+    exit
+fi
 
 # cleanly go to the main loop
 # a 'modifier' for us is a flow control variable
