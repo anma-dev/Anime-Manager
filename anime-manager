@@ -448,12 +448,14 @@ get_temp_filename() {
 
 # get the account in use in Trackma
 get_account_name() {
+    while ! grep "using account" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     sed -En "s/.*using account (.*)\(.*/\1/p" "$GLOBAL_TRACKMA_TMPFILE" # | sed "s/ $//g"
 }
 
 # gets the remote tracking service (mal, anilist, etc) used in trackma
 # this is necessary because the lists differ between services
 get_remote_tracker() {
+    while ! grep "using account" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     sed -En "s/.*using account (.*)\((.*)\).*/\2/p" "$GLOBAL_TRACKMA_TMPFILE"
 }
 
@@ -786,7 +788,7 @@ close_trackma() {
     # printf "%s" "      ⚙️  Closing background processes, please wait..." && line_to_remove
     printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
     rm "$GLOBAL_TRACKMA_FIFO"
-    rm "$GLOBAL_TRACKMA_TMPFILE"
+    echo >"$GLOBAL_TRACKMA_TMPFILE"
     3>&-:
 }
 
@@ -796,7 +798,6 @@ trackma_query_function_code='trackma_query() {
         printf "%s\n" "$query" >"$GLOBAL_TRACKMA_FIFO"
     done
     # wait for prompt as signal for operation finished
-    while ! grep ">>" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     cat "$GLOBAL_TRACKMA_TMPFILE"
 }'
 eval "$trackma_query_function_code"
@@ -1131,6 +1132,7 @@ account_menu() {
             line_to_remove # remove account label
             clear_lines    # remove account label
             printf "account\n" | trackma_query >/dev/null 2>&1
+            # select_account
             break
         ;;
         "$ENTER_INCOGNITO_MODE")
@@ -1639,8 +1641,6 @@ incognito_menu() {
             INCOGNITO_MODE=0
             line_to_remove # remove incognito label
             clear_lines    # remove incognito label
-            spawn_trackma
-            select_account
             break
             ;;
         esac
