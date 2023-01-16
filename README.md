@@ -36,7 +36,7 @@ AM starts empty by default, with no account configured. You will have to configu
 Usage: anime-manager [options]...
 
 Options:
-      --minimal               Minimalistic interface. It doesn't print the logo, the menu
+      --minimal               Minimalistic interface. It does not print the logo, the menu
                               fills the screen and is reversed. Dimmer colors.
   -i, --incognito             Switch Incognito Mode on. Your activity will not be synced
                               with the remote anime list tracking service.
