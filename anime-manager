@@ -1107,43 +1107,43 @@ check_torrent_health() {
 
 account_menu() {
     MAIN_MENU_HELPTEXT="
-🐇  Follow the white rabbit for more menu options
+🐇  Follow the white rabbit for more menu options.
 ───
-🕵️  Switch Incognito Mode on. Browse without syncing your progress with any account.
+🕵️  Switch Incognito Mode on. Browse and watch without syncing your progress with any account.
 ───
-👍  Rate a series or change a series score. It syncs immediately with the tracking service
+👍  Score a series or change a series score.
 ───
-🔄  Update the status of a series. It syncs immediately with the tracking service
+🔄  Update the status of your anime.
 ───
-📙  Browse all your lists. It can also play series
+📙  Browse all your lists. It can also play anime.
 ───
-🧩  Add a new series to your watching list
+🧩  Add a new anime to your Plan to Watch list.
 ───
-🔀  Select one random series from your currently watching lists (watching, rewatching) and open it for streaming
+🔀  Select one random anime from your watching lists (watching, rewatching) and play it.
 ───
-📺  Opens a list with all your currently watching series (watching, rewatching) and lets you pick one for streaming
+📺  Open your watching lists (watching, rewatching) for playing an anime.
 ───
-👁️  Your watching history with series titles and episode count
+👁️  Your watching history with anime and episode count.
 "
 
     SUB_MENU_HELPTEXT="
-🌟  Display your lists in descending order by score
+🌟  Display your lists in descending order by score.
 ───
 ↑  Upload your local progress to your tracking service.
 ───
 ↓  Download your remote progress and update your local lists.
 ───
-📝  Set the alternative name for a series
+📝  Set the alternative name for an anime.
 ───
-🔄  Update your progress on a series
+🔄  Update your watching progress on an anime.
 ───
-📣  Display your lists by showing only those shows currently airing
+📣  Display your lists by showing currently airing anime only.
 ───
-📣  Start watching a random series episodes that is also currently airing
+📣  Play one random, currently airing anime from your watching lists (watching, rewatching).
 ───
-🗑️  Delete a series from your lists. You will lose all your progress on that series
+🗑️  Delete an anime from your lists. You will lose all your progress on that anime.
 ───
-👤  Switch between your various accounts you have connected to Trackma
+👤  Switch between the various accounts connected to Trackma.
 "
     prompt=""
     MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
@@ -1614,7 +1614,7 @@ account_menu() {
 
 incognito_menu() {
     INCOGNITO_MENU_HELPTEXT="
-👤  Turn Incognito Mode off.
+👤  Switch Incognito Mode off.
 ───
 💡  Stream with animdl. You will need to type a search query and episode number. This option uses streaming for playing content.
 ───
