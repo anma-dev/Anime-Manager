@@ -57,7 +57,13 @@ parser_definition() {
 
 eval "$(utils/getoptions parser_definition) exit 1"
 
-[ "$DEBUG" -eq 1 ] && set -x
+if [ "$DEBUG" -eq 1 ]; then
+    set -x
+    export NYAA_DEBUG="$DEBUG"
+else
+    unset NYAA_DEBUG
+fi
+
 if [ "$MONOCHROME_LOGO" -eq 1 ] && [ "$MINIMAL" -eq 1 ]; then
     printf "Error: Incompatible options --monochrome-logo, --minimal\nPlease use one or the other."
     exit
@@ -364,6 +370,10 @@ sanitize_bash() {
     printf "%s" "$1" | LC_ALL=C sed -e 's/[^a-zA-Z0-9,._+@%/-]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
 }
 
+getcwd() {
+    printf "%s" "$(lsof -p "$$" | grep cwd | awk '{print $9}')"
+}
+
 lines_to_remove=0
 # Message color palette for pastel
 MSG_INFO_COLOR="lightyellow"
@@ -385,10 +395,10 @@ player_source="torrenting"
 
 animdl_playthrough=0
 animdl_search_index=1
-NYAA_SEARCH_BIN="lib/nyaa_search.py"
+NYAA_SEARCH_BIN="$(getcwd)/lib/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$CONFIG_PATH/nyaa_search.log"
 NYAA_FID_LOGFILE="$CONFIG_PATH/get_torrent_fid.log"
-GET_TORRENT_FID_BIN="lib/get_torrent_fid.py"
+GET_TORRENT_FID_BIN="$(getcwd)/lib/get_torrent_fid.py"
 WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
 TORRENT_DOWNLOAD_DIR="${TMP_PATH}/webtorrent"
 
@@ -838,7 +848,7 @@ play_episode() {
             if [ -z "$nyaa_search_res" ]; then
                 echo && line_to_remove
                 pastel paint $MSG_INFO_COLOR "      😺 Searching Nyaa. Please wait..." && line_to_remove
-                nyaa_search_res="$(python3 "$NYAA_SEARCH_BIN" --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
+                nyaa_search_res="$($NYAA_SEARCH_BIN --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
                 if [ "$nyaa_search_res" = "-1" ]; then
                     echo && line_to_remove
                     pastel paint $MSG_WARN_COLOR "      🚫 We found no results." && line_to_remove

@@ -1,4 +1,4 @@
-from os import path, makedirs
+from os import path, makedirs, environ
 import sys
 import logging
 
@@ -15,6 +15,10 @@ class Logger:
                  file='nyaa_default.log',
                  debug=False,
                  log_name='default'):
+        # let environment override debug argument value
+        if not debug:
+            if environ.get("NYAA_DEBUG") and int(environ.get("NYAA_DEBUG")) == 1:
+                debug = True
         if not path.isdir(config_dir):
             makedirs(config_dir)
         logfile = f"{config_dir}/{file}"
@@ -28,7 +32,7 @@ class Logger:
         file_handler.setFormatter(formatter)
         self.log.addHandler(file_handler)
         if debug:
-            stdout_handler = logging.StreamHandler(sys.stdout)
+            stdout_handler = logging.StreamHandler(sys.stderr)
             stdout_handler.setLevel(logging.DEBUG)
             stdout_handler.setFormatter(formatter)
             self.log.addHandler(stdout_handler)
