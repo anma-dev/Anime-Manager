@@ -1366,13 +1366,13 @@ account_menu() {
 
             if [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Watching")" ] && [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Rewatching")" ]; then
                 new_status="Watching"
-                menu_play_options="▶️  Play\n🔄 Set series status as watching + Play"
+                menu_play_options="▶️  Play\n🔄 Set status as Watching + Play"
                 if [ "$status" = "$(get_trackma_status_code "Completed")" ]; then
-                    menu_play_options="▶️ Play\n🔄 Set series status as watching + Reset watched episodes + Continue Playing"
+                    menu_play_options="▶️ Play\n🔄 Set status as Watching + Reset watched + Continue Playing"
                     reset_episodes=1
                     if [ "$TRACKER_SERVICE" = "anilist" ]; then
                         new_status="Rewatching"
-                        menu_play_options="▶️ Play\n🔄 Set series status as rewatching + Continue Playing"
+                        menu_play_options="▶️ Play\n🔄 Set status as Rewatching + Continue Playing"
                     fi
                 else
                     reset_episodes=0
