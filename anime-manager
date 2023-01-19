@@ -834,7 +834,8 @@ trackma_query_function_code='trackma_query() {
     while read -r query </dev/stdin; do
         printf "%s\n" "$query" >"$GLOBAL_TRACKMA_FIFO"
     done
-    # wait for prompt as signal for operation finished
+    # wait for various prompts as signal for operation finished
+    while ! sed -En "/>>|\):/p" "$GLOBAL_TRACKMA_TMPFILE"; do :; done
     cat "$GLOBAL_TRACKMA_TMPFILE"
 }'
 eval "$trackma_query_function_code"
