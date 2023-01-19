@@ -1475,7 +1475,11 @@ account_menu() {
             read -r series_title
             series_title="$(printf "%s" "$series_title" | sed -E 's/[^a-zA-Z0-9 ]//g')"
             clear_lines
-            [ -z "$series_title" ] && clear_modifiers && continue
+            if [ -z "$series_title" ]; then
+                line_to_remove && clear_lines
+                clear_modifiers
+                continue
+            fi
             results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$status")" "$series_title" | trackma_query)"
             pastel paint $MSG_INFO_COLOR "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
             while ! grep "Choose" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
