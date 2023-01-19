@@ -825,7 +825,8 @@ close_trackma() {
     printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
     rm "$GLOBAL_TRACKMA_FIFO"
     echo >"$GLOBAL_TRACKMA_TMPFILE"
-    3>&-:
+    # shellcheck disable=2188
+    3>&-
 }
 
 trackma_query_function_code='trackma_query() {
@@ -1025,7 +1026,8 @@ play_episode() {
                 [ -z "$animdl_search_index" ] && exit 1
                 [ "$animdl_search_index" = "$TO_MAIN_MENU" ] && play_status=$PLAY_STATUS_EXITED && animdl_search_index="" && return
                 printf "%b" "$animdl_search_index\n" >&4
-                4>&-:
+                # shellcheck disable=2188
+                4>&-
                 sleep 2 # wait for the stream to start
                 stream_health=15
                 pastel paint $MSG_INFO_COLOR "      Trying to stream with $d_provider (15s timeout)" && line_to_remove
