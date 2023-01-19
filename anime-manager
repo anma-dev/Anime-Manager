@@ -366,6 +366,7 @@ sanitize_ext_regex_function_code='sanitize_ext_regex() {
     printf "%s" "$1" |
         sed "s,$(printf "\033")\\[[0-9;]*[a-zA-Z],," |
         sed "s,$(printf "\033")\\[[0-9;]*[a-zA-Z],,g" |
+        sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" |
         sed "s/[]\/\$*.^+()\"['"'"'-]/\\\&/g" |
         sed "s/ $//"
 }'
@@ -577,7 +578,7 @@ get_watching_shows() {
 get_show_title_function_code='get_show_title() {
     if [ -n "$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p")" ]; then
         # raw entry
-        printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
+        printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
     else
         printf "%s" "$1"
     fi
@@ -614,7 +615,7 @@ get_show_status() {
             # trackma search uses regex so we need to sanitize it
             res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query)"
             res="$(filter_trackma_list "$res" | head -n1)"
-            [ -n "$res" ] && res_title="$(get_show_title "$res")"
+            [ -n "$res" ] && res_title="$(get_show_title "$res")" # TODO: no show title one piece
             if [ -n "$res_title" ] && [ "$res_title" = "$anime_title" ]; then
                 status="$trackma_code"
                 break
@@ -1314,13 +1315,13 @@ account_menu() {
                 fi
 
                 # remove character sequences and add an emoji next to shows currently airing
-                full_info=$(printf '%s\n' "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+                full_info=$(printf '%s\n' "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 
                 if [ "$random_anime" -eq 1 ]; then
                     choice=$(printf "%s" "$full_info" | shuf -n 1)
                 elif [ "$random_airing" -eq 1 ]; then
                     # format and filter airing shows, select one randomly
-                    choice=$(printf "%s" "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed -n "/📣/p" | shuf -n 1)
+                    choice=$(printf "%s" "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -n "/📣/p" | shuf -n 1)
                 else
                     full_info="$(printf "%s" "$full_info" | sort -r --version-sort)"
                     choice=$(
@@ -1501,7 +1502,7 @@ account_menu() {
             )
             [ "$status" = "$TO_SUBMENU" ] && prompt="$TO_SUBMENU" && continue
             status=$(get_trackma_status_code "$status")
-            FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
+            FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
             [ -z "$FULL_LIST" ] && FULL_LIST="No entries found in this list..."
             FULL_LIST="$FULL_LIST\n$TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
             trackma_show_index=$(
@@ -1602,7 +1603,7 @@ account_menu() {
             while true; do
                 full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
                 # remove character sequences and add an emoji next to airing shows
-                full_info=$(printf '%s\n' "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+                full_info=$(printf '%s\n' "$full_info" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
                 full_info="$full_info\n$TO_MAIN_MENU"
                 trackma_show_index="$(
                     printf "%b" "$full_info" |
@@ -1637,7 +1638,7 @@ account_menu() {
 
             while true; do
                 full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
-                full_info=$(printf '%s\n' "$full_info" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+                full_info=$(printf '%s\n' "$full_info"| sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
                 full_info="$full_info\n$TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                 trackma_show_index="$(
                     printf "%b" "$full_info" |
@@ -1719,7 +1720,7 @@ account_menu() {
                 msg="$(filter_trackma_list "$msg" | sort -r --version-sort)"
             fi
             # remove character sequences and add an emoji next to airing shows
-            msg=$(printf "%s\n" "$msg" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+            msg=$(printf "%s\n" "$msg" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g"| sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 
             if [ "$sort_airing" -eq 1 ]; then
                 # filter airing show per user request
