@@ -1,6 +1,6 @@
 <img width="100%" alt="anime-manager-logo" src="https://user-images.githubusercontent.com/121255032/212677776-ec5aba1b-fab0-466c-b037-c30a116558a3.png">
 
-[![Linux](https://svgshare.com/i/Zhy.svg)](https://svgshare.com/i/Zhy.svg)  [![macOS](https://svgshare.com/i/ZjP.svg)](https://svgshare.com/i/ZjP.svg)  [![CodeFactor](https://www.codefactor.io/repository/github/anma-dev/anime-manager/badge/master)](https://www.codefactor.io/repository/github/anma-dev/anime-manager/overview/master)
+[![Linux](https://img.shields.io/badge/os-Linux-blue)](https://img.shields.io/badge/os-Linux-blue)  [![macOS](https://img.shields.io/badge/os-macOS-blue)](https://img.shields.io/badge/os-macOS-blue)  [![CodeFactor](https://www.codefactor.io/repository/github/anma-dev/anime-manager/badge/master)](https://www.codefactor.io/repository/github/anma-dev/anime-manager/overview/master)
 
 Anime Manager is a powerful open source script that lets you watch (streaming + torrenting) anime and synchronize (Trackma) your progress from your terminal.
 
