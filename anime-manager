@@ -227,15 +227,19 @@ auto_compat() {
 
 # get the shell configuration file path
 get_shell_config_file() {
-    get_shell_config_file_shell_config_file=""
-    [ "$SHELL" = "/bin/bash" ] && touch "$HOME/.bash_profile" && get_shell_config_file_shell_config_file="$HOME/.bash_profile"
+    get_shell_config_file_cfg_file=""
+    if [ "$SHELL" = "/bin/bash" ]; then
+        [ "$OSTYPE" = "Linux" ] && touch "$HOME/.bashrc" && get_shell_config_file_cfg_file="$HOME/.bashrc"
+        [ "$OSTYPE" = "Darwin" ] && touch "$HOME/.bash_profile" && get_shell_config_file_cfg_file="$HOME/.bash_profile"
+    fi
     # nvm on macos needs the shell config file
-    [ "$SHELL" = "/bin/zsh" ] && touch "$HOME/.zshrc" && get_shell_config_file_shell_config_file="$HOME/.zshrc"
-    printf "%s" "$get_shell_config_file_shell_config_file"
+    [ "$SHELL" = "/bin/zsh" ] && touch "$HOME/.zshrc" && get_shell_config_file_cfg_file="$HOME/.zshrc"
+    printf "%s" "$get_shell_config_file_cfg_file"
 }
 
 # install dependencies automatically if we can
 install_dependencies() {
+    AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
     shell_cfg="$(get_shell_config_file)"
     install_dep_msg="🎉 Finished the autoinstall!\nRestart your Terminal app to start using Anime Manager."
     # Ubuntu (not WSL) and macOS support
@@ -262,11 +266,11 @@ install_dependencies() {
             fi
             sudo apt update
             sudo apt -y install build-essential procps curl file git python3-setuptools python3-pip bat jq
-            # avoid batcat
-            mkdir -p ~/.local/bin
-            if [ ! -s ~/.local/bin/bat ]; then
-                ln -s /usr/bin/batcat ~/.local/bin/bat
-                printf "%s\n" 'export PATH="$HOME/.local/bin/:$PATH"' >>"$shell_cfg"
+            # make alias for batcat and put it in path
+            if ! command bat; then
+                mkdir -p ~/.local/bin
+                [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat ~/.local/bin/bat
+                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin/:$PATH"' >>"$shell_cfg"
             fi
             if ! command -v fzf; then
                 # require an fzf version with label and label coloring support
@@ -317,7 +321,7 @@ install_dependencies() {
                 NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             fi
             if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg" >/dev/null 2>&1; then
-                printf "%s\n" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
+                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
             fi
             # https://github.com/sharkdp/pastel
             brew install curl jq grep axel openssl@1.1 ffmpeg git bat
@@ -352,12 +356,6 @@ install_dependencies() {
         echo
         log "$install_dep_msg"
         exit
-    fi
-    if ! grep "export LC_CTYPE=en_US.UTF-8" "$shell_cfg" >/dev/null 2>&1; then
-        printf "%s\n" 'export LC_CTYPE=en_US.UTF-8' >"$shell_cfg"
-    fi
-    if ! grep "export LC_ALL=en_US.UTF-8" "$shell_cfg" >/dev/null 2>&1; then
-        printf "%s\n" 'export LC_ALL=en_US.UTF-8' >"$shell_cfg"
     fi
 }
 
@@ -1638,7 +1636,7 @@ account_menu() {
 
             while true; do
                 full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
-                full_info=$(printf '%s\n' "$full_info"| sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+                full_info=$(printf '%s\n' "$full_info" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
                 full_info="$full_info\n$TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                 trackma_show_index="$(
                     printf "%b" "$full_info" |
@@ -1720,7 +1718,7 @@ account_menu() {
                 msg="$(filter_trackma_list "$msg" | sort -r --version-sort)"
             fi
             # remove character sequences and add an emoji next to airing shows
-            msg=$(printf "%s\n" "$msg" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g"| sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+            msg=$(printf "%s\n" "$msg" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
 
             if [ "$sort_airing" -eq 1 ]; then
                 # filter airing show per user request
