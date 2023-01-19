@@ -1849,7 +1849,7 @@ incognito_menu() {
             [ -z "$anime_title" ] && clear_modifiers && continue
             anime_title="$(printf "%s" "$anime_title" | sed -E 's/[^a-zA-Z0-9 ]//g' | sed "s/[[:space:]]*$//g" | sed "s/^[[:space:]]*//g")"
             echo && line_to_remove
-            printf "      %s What episode❔ (you can leave this blank)\n" "$incognito_play_msg_emoji" && line_to_remove
+            printf "      %s Enter an episode number if applicable\n" "$incognito_play_msg_emoji" && line_to_remove
             printf "         👉 " && line_to_remove
             read -r anime_ep
             clear_lines
