@@ -270,7 +270,7 @@ install_dependencies() {
             if ! command -v bat; then
                 mkdir -p ~/.local/bin
                 [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat ~/.local/bin/bat
-                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin/:$PATH"' >>"$shell_cfg"
+                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
             fi
             if ! command -v fzf; then
                 if [ -d ~/.fzf ]; then
@@ -1957,18 +1957,17 @@ PLAYER_MENU_END_CODE=1
 PLAYER_MENU_SELECT_SEARCH_RES_CODE=2
 
 main() {
+    check_setup
     # common fzf args
     PREVIEW_WINDOW_OPTS="right,70%,hidden,wrap"
     MENU_PREVIEW_POS_MODES="down,70%|left,70%|top,70%|"
-
     if [ "$MINIMAL" -eq 1 ]; then
         # initial preview options
         FZF="fzf -0 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top --layout=reverse --info inline --no-separator --bind change:first"
     else
         FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1 --bind change:first"
-        paint_logo
     fi
-    check_setup
+    paint_logo
     while true; do
         if [ "$INCOGNITO_MODE" -eq 0 ]; then
             spawn_trackma
