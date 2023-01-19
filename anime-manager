@@ -267,12 +267,19 @@ install_dependencies() {
             sudo apt update
             sudo apt -y install build-essential procps curl file git python3-setuptools python3-pip bat jq
             # make alias for batcat and put it in path
-            if ! command bat; then
+            if ! command -v bat; then
                 mkdir -p ~/.local/bin
                 [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat ~/.local/bin/bat
                 printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin/:$PATH"' >>"$shell_cfg"
             fi
             if ! command -v fzf; then
+                if [ -d ~/.fzf ]; then
+                    printf "\n\n%s\n\n" "INSTALLATION CONFLICT! Existing ~/.fzf folder found!\nfzf was not installed. Please install it manually."
+                else
+                    # require an fzf version with label and label coloring support
+                    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+                    ~/.fzf/install --all --update-rc
+                fi
                 # require an fzf version with label and label coloring support
                 git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
                 ~/.fzf/install --all --update-rc
