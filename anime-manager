@@ -1126,7 +1126,7 @@ $LOGO_B64
 EOF
         )"
     fi
-    pastel paint $TITLE_COLOR "      🍿 Play and Track Anime Series from Your Terminal"
+    pastel paint $TITLE_COLOR "      🍿 Watch and Track Anime from Your Terminal"
     pastel paint $MSG_HELP_COLOR "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
 
 }
