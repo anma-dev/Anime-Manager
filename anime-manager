@@ -1606,7 +1606,7 @@ account_menu() {
                 status=$(
                     printf "%b" "$TO_MAIN_MENU\n$TRACKMA_STATUS_MENU_ENTRIES" |
                         $FZF -i --prompt="Choose a status: " \
-                            --border-label "╢ ♣  RATE SERIES (Status select) ♣  ╟" \
+                            --border-label "╢ ♣  SCORE ANIME (Status select) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --header-first
                 )
