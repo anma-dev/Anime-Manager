@@ -14,7 +14,7 @@ You can use your existing anime list service (those [trackma supports](https://g
 - 📣 **Filter series by score or airing status**
 - 🔀 **Play a random episode**
 - 👁️ **Watch history for quick access**
-- 👍 **Rate your series**
+- 👍 **Score your anime**
 
 and even MORE...
 - 💡 **Switch between torrenting and streaming as you play**
