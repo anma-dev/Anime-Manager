@@ -1737,7 +1737,7 @@ account_menu() {
                 msg="$(filter_trackma_list "$msg" | sort -r --version-sort)"
             fi
             # remove character sequences and add an emoji next to airing shows
-            msg=$(printf "%s\n" "$msg" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+            msg=$(printf "%s\n" "$msg" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g")
 
             if [ "$sort_airing" -eq 1 ]; then
                 # filter airing show per user request
