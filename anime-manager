@@ -970,7 +970,7 @@ play_episode() {
             # printf "%s" "$EP_DATA" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
             # remove from job queue to avoid info messages if we have to end the process with kill
             echo && line_to_remove
-            pastel paint $MSG_INFO_COLOR "      🚀 Torrent is playing soon (hold my beer...)" && line_to_remove
+            pastel paint $MSG_INFO_COLOR "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
             play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
             if [ "$play_episode_torrent_status" -eq $TORRENT_STATUS_ERRORED ]; then
                 pastel paint $MSG_WARN_COLOR "      🚫 Unable to play torrent" && line_to_remove
@@ -1011,7 +1011,7 @@ play_episode() {
                         else
                             # stream started automatically
                             play_status=$PLAY_STATUS_OKPLAYING
-                            pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
+                            pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (please wait...)" && line_to_remove
                             return
                         fi
                     else
@@ -1062,7 +1062,7 @@ play_episode() {
                     rm "$play_episode_stream_fifo_write"
                     unset stream_tmpfile
                     unset stream_fifo_write
-                    pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (hold my beer...)" && line_to_remove
+                    pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (please wait...)" && line_to_remove
                     play_status=$PLAY_STATUS_OKPLAYING
                     return
                 fi
