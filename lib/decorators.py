@@ -25,8 +25,9 @@ def exp_back_off(c_breaker: CBreaker, sleep_t=1):
     circuit breaker.
     '''
     def sleep_retry_fun(func):
-        if(c_breaker.get_status() == c_breaker.OPEN):
+        if (c_breaker.get_status() == c_breaker.OPEN):
             logger.error("Circuit breaker is open. Discarding request.")
+
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             timeout = 15
@@ -49,7 +50,8 @@ def exp_back_off(c_breaker: CBreaker, sleep_t=1):
                             t_counter += remote_wait_time
                         else:
                             # long-lasting transient fault
-                            logger.error(f"Retry-After value exceeded timeout: {remote_wait_time} seconds.")
+                            logger.error(
+                                f"Retry-After value exceeded timeout: {remote_wait_time} seconds.")
                             c_breaker.open()
                             break
                     else:

@@ -77,10 +77,12 @@ def search_nyaa(query: str, category: str, subcategory: str, filters: str):
             raise requests.exceptions.HTTPError(response=err.response)
         else:
             # service unavailable
-            raise Exception(f"Nyaa.si service is unavailable. Status code: {err.response.status_code}.")
+            raise Exception(
+                f"Nyaa.si service is unavailable. Status code: {err.response.status_code}.")
     except requests.exceptions.RequestException as err:
         logger.error(err)
-        raise Exception(f"Nyaa.si service is unavailable. (Request exception).")
+        raise Exception(
+            f"Nyaa.si service is unavailable. (Request exception).")
     else:
         if (len(query_res) > 0):
             for entry_raw in query_res:
