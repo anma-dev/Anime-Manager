@@ -87,7 +87,7 @@ The script probably works with some versions of WSL but we haven't tested it yet
  
 Issues and suggestions are welcome! For guaranteed serious discussion use the Github issues tracker.
 
-| [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
+| [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com/anma-dev/Anime-Manager/issues) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 
 ## Say thanks
 
