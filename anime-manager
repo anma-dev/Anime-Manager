@@ -915,7 +915,7 @@ play_episode() {
                         --bind "ctrl-f:change-prompt($(printf "\033[104;37m MULTI: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[mM][uU][lL][tT][iI]/p'" \
                         --bind "ctrl-v:change-prompt($(printf "\033[100;90m VHS: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[vV][hH][sS]/p'" \
                         --bind "ctrl-t:change-prompt($(printf "\033[42;37m TRUSTED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/🟢/p'" \
-                        --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[oO][vV][aA]/p'#"
+                        --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[oO][vV][aA]/p'"
             )
             [ "$choice" = "$TO_MAIN_MENU" ] && play_status="$PLAY_STATUS_EXITED" && return
             choice=$(printf "%s" "$choice" | sed "s/🔴 //g" | sed "s/🟢 //g" | sed "s/⚪️ //g")
