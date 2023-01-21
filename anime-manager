@@ -1180,7 +1180,7 @@ account_menu() {
 ───
 🕵️  Switch Incognito Mode on. Browse and watch without syncing your progress with any account.
 ───
-👍  Score a series or change a series score.
+👍  Score an anime or change a anime score.
 ───
 🔄  Update the status of your anime.
 ───
@@ -1285,7 +1285,7 @@ account_menu() {
                 [ "$sel" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
                 anime_title_trackma=$(printf "%s" "$sel" | sed -En "s/^(.*)[[:space:]]+([[:digit:]]+)$/\1/p" | sed "s/[[:space:]]*$//")
                 last_show_episode="$(get_last_show_ep "$anime_title_trackma")"
-                [ -z "$last_show_episode" ] && printf "couldnt get last series episode" && exit 1
+                [ -z "$last_show_episode" ] && printf "Could not get last episode" && exit 1
                 last_watched_ep=$(printf "%s" "$sel" | sed -En "s/^(.*)[[:space:]]+([[:digit:]]+)$/\2/p" | sed "s/[[:space:]]*$//")
                 # only increment if it's not the last episode of the show
                 # if we don't know the last aired apisode just attempt playing the next episode
@@ -1356,7 +1356,7 @@ account_menu() {
 
                 if [ ! "$choice" ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      We couldn't find any series of this type!" && line_to_remove
+                    pastel paint $MSG_WARN_COLOR "      We couldn't find any anime of this type!" && line_to_remove
                     sleep 2
                     clear_lines
                     clear_modifiers
@@ -1369,12 +1369,12 @@ account_menu() {
                 last_watched_ep="$(printf "%s" "$choice" | sed -En "s/.*[[:space:]]+([0-9]*) \/.*/\1/p")"
                 last_show_episode="$(get_last_show_ep "$anime_title_trackma")"
 
-                [ -z "$last_show_episode" ] && printf "Couldn't get last series episode" && exit 1
+                [ -z "$last_show_episode" ] && printf "Couldn't get last episode" && exit 1
                 # if we just don't know what the last episode is we increment anyways and give it a try
                 [ "$last_show_episode" = "?" ] || [ "$last_watched_ep" -lt "$last_show_episode" ] && anime_ep=$((last_watched_ep + 1)) || anime_ep="1"
             fi
 
-            [ -z "$status" ] && printf "Couldn't get series status" && exit 1
+            [ -z "$status" ] && printf "Couldn't get status" && exit 1
 
             if [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Watching")" ] && [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Rewatching")" ]; then
                 new_status="Watching"
@@ -1513,7 +1513,7 @@ account_menu() {
             status=$(
                 printf "%b\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$TO_SUBMENU" |
                     $FZF -i --prompt="Choose a status: " \
-                        --border-label "╢ ♣  DELETE SERIES (Status select) ♣  ╟" \
+                        --border-label "╢ ♣  DELETE ANIME (Status select) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                         --header-first
             )
@@ -1524,8 +1524,8 @@ account_menu() {
             FULL_LIST="$FULL_LIST\n$TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
             trackma_show_index=$(
                 printf "%b" "$FULL_LIST" |
-                    $FZF -i --prompt="Choose a series to DELETE: " \
-                        --border-label "╢ ♣  DELETE SERIES ♣  ╟" \
+                    $FZF -i --prompt="Choose an anime to DELETE: " \
+                        --border-label "╢ ♣  DELETE ANIME ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" \
                         --header-first | cut -d" " -f1
             )
@@ -1544,7 +1544,7 @@ account_menu() {
                 status=$(
                     printf "%s\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$menuitem" |
                         $FZF -i --prompt="Choose a status: " \
-                            --border-label "╢ ♣  UPDATE EPISODE (Select series to update) ♣  ╟" \
+                            --border-label "╢ ♣  UPDATE EPISODE (Select an anime to update) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --header-first
                 )
@@ -1937,27 +1937,27 @@ TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:d
 WATCH_HISTORY="👁️  Watch History"
 WATCH="📺 Watch"
 WATCH_RANDOM="🔀 Watch Random"
-ADD_SHOW="🧩 Add Series"
+ADD_SHOW="🧩 Add Anime"
 LIST="📙 Lists"
-UPDATE_STATUS="🔄 Update Series Status"
-SCORE_SHOW="👍 Score Series"
+UPDATE_STATUS="🔄 Update Anime Status"
+SCORE_SHOW="👍 Score Anime"
 EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
 ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
 TO_SUBMENU="🐇 SUBMENU ▸"
 # submenu entries
 SWITCH_ACCOUNTS="Switch Accounts 👤"
-DELETE_SERIES="Delete Series 🗑️"
-WATCH_RAND_AIRING="Watch Random Series (Currently Airing 📣)"
-LIST_AIRING="List Series (Currently Airing 📣)"
-UPDATE_EPISODES="Update Series Episodes 🔄"
+DELETE_SERIES="Delete Anime 🗑️"
+WATCH_RAND_AIRING="Watch Random Anime (Currently Airing 📣)"
+LIST_AIRING="List Anime (Currently Airing 📣)"
+UPDATE_EPISODES="Update Anime Episodes 🔄"
 SET_ALTNAME="Set Alternative Name 📝"
 PULL="Pull Lists from Remote ↓"
 PUSH="Push Local Lists to Remote ↑"
-LIST_BY_SCORE="List Series (Sort by Rating 🌟)"
+LIST_BY_SCORE="List Anime (Sort by Rating 🌟)"
 TO_MAIN_MENU="◂ MAINMENU"
 SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
 # used in account_menu, incognito_menu
-PLAY_METHOD_TORRENTING="😺 Search nyaa.si (torrenting)"
+PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
 PLAY_METHOD_STREAMING="💡 Stream with animdl (streaming)"
 PLAY_METHOD_MAGNET="🧲 Paste a magnet link (torrenting)"
 PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING\n$TO_MAIN_MENU"
