@@ -9,6 +9,12 @@ import anitopy
 import csv
 from contextlib import suppress
 from Logger import Logger
+import return_codes as codes
+
+'''
+This script is part of Anime Manager.
+https://github.com/anma-dev/Anime-Manage
+'''
 
 help_msg = "Looks up a file in a magnet link and returns its index."
 parser = argparse.ArgumentParser(description=help_msg)
@@ -34,7 +40,7 @@ logger = Logger(file="get_torrent_fid.log",
 
 sniffer = csv.Sniffer()
 valid_delim = ' _.&+,|'
-webtorrent_timeout = 60
+webtorrent_timeout = 20
 match = False
 video_ext = (".webm", ".mkv", ".flv", ".avi", ".mov", ".wmv", ".mp4", ".m4p",
              ".m4v", ".mpg", ".mp2", ".mpeg", ".mpe", ".mpv", ".m2v", ".3gp",
@@ -120,7 +126,7 @@ try:
 
 except Exception as e:
     logger.error(traceback.format_exc())
-    index = -2
+    index = codes.RET_CODE_FATAL_ERROR
     res = f"None////None////{index}"
 else:
     if len(video_res) == 0:
@@ -131,7 +137,7 @@ else:
         ]
         logger.info("\n".join(msg))
         comp_res = '\\n'.join(video_res)
-        index = -1
+        index = codes.RET_CODE_CONTENT_MISMATCH
         res = f"None////None////{index}"
     else:
         # return index from first match

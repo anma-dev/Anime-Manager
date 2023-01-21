@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
+import sys
 import argparse
 import traceback
 import re
 import json
-from time import sleep
 from NyaaPy.nyaa import Nyaa
 from Logger import Logger
+import requests
+import return_codes as codes
+from decorators import exp_back_off
+from circuit_breaker import CBreaker
+c_breaker = CBreaker()
+
+'''
+This script is part of Anime Manager.
+https://github.com/anma-dev/Anime-Manager
+'''
 
 help_msg = "Queries nyaa.si and returns the results."
 parser = argparse.ArgumentParser(description=help_msg)
@@ -39,6 +49,7 @@ no_filter = 0
 no_remakes = 1
 trusted_only = 2
 
+
 episode_format = f"0{args.episode}" if args.episode < 10 else args.episode
 filter_trusted = no_filter
 query_template_default = f"{args.title}"
@@ -48,47 +59,57 @@ allowed_eps = ["movie"]
 query_template_batch_1 = f"\"{args.title}\" \"~\""
 query_template_batch_2 = f"\"{args.title}\" batch"
 query_last_resort = f"\"{args.title}\""
-match_res = []
-req_delay = 1.5
+match_res = []  # aggregated search results from all the queries
 
 
+@exp_back_off(c_breaker=c_breaker)
 def search_nyaa(query: str, category: str, subcategory: str, filters: str):
     global query_res
-    query_res = nyaa.search(keyword=query,
-                            category=category,
-                            subcategory=subcategory,
-                            filters=filters)
-    if (len(query_res) > 0):
-        for entry_raw in query_res:
-            entry = entry_raw.__dict__
-            if (int(entry["seeders"]) == 0):
-                continue
-            else:
-                entry[
-                    "name"] = f"{entry['name']} [S: {entry['seeders']} / L: {entry['leechers']}]"
-
-            if entry["type"] == "default":
-                entry["name"] = f"⚪️ {entry['name']}"
-            elif entry["type"] == "remake":
-                entry["name"] = f"🔴 {entry['name']}"
-            elif entry["type"] == "trusted":
-                entry["name"] = f"🟢 {entry['name']}"
-
-            global parsed_entry
-            # filter out batches that don't contain the episode
-            batch_reg = r"\(?(\d+)\s*\-\s*(\d+)\)?|(\d+)\s*~\s*(\d+)"
-            global batch_interval
-            batch_interval = re.findall(batch_reg, entry["name"],
-                                        re.IGNORECASE)
-            if (batch_interval):
-                filtered = list(filter(None, batch_interval[0]))
-                batch_range_start = int(filtered[0])
-                batch_range_end = int(filtered[1])
-                if (args.episode >= batch_range_start
-                        and args.episode <= batch_range_end):
+    try:
+        query_res = nyaa.search(keyword=query,
+                                category=category,
+                                subcategory=subcategory,
+                                filters=filters)
+    except requests.exceptions.HTTPError as err:
+        logger.error(err)
+        if (err.response.status_code == 429):
+            # transient fault, retry request
+            raise requests.exceptions.HTTPError(response=err.response)
+        else:
+            # service unavailable
+            raise Exception(f"Nyaa.si service is unavailable. Status code: {err.response.status_code}.")
+    except requests.exceptions.RequestException as err:
+        logger.error(err)
+        raise Exception(f"Nyaa.si service is unavailable. (Request exception).")
+    else:
+        if (len(query_res) > 0):
+            for entry_raw in query_res:
+                entry = entry_raw.__dict__
+                if (int(entry["seeders"]) == 0):
+                    continue
+                else:
+                    entry["name"] = f"{entry['name']} [S: {entry['seeders']} / L: {entry['leechers']}]"
+                if entry["type"] == "default":
+                    entry["name"] = f"⚪️ {entry['name']}"
+                elif entry["type"] == "remake":
+                    entry["name"] = f"🔴 {entry['name']}"
+                elif entry["type"] == "trusted":
+                    entry["name"] = f"🟢 {entry['name']}"
+                global parsed_entry
+                # filter out batches that don't contain the episode
+                batch_reg = r"\(?(\d+)\s*\-\s*(\d+)\)?|(\d+)\s*~\s*(\d+)"
+                global batch_interval
+                batch_interval = re.findall(batch_reg, entry["name"],
+                                            re.IGNORECASE)
+                if (batch_interval):
+                    filtered = list(filter(None, batch_interval[0]))
+                    batch_range_start = int(filtered[0])
+                    batch_range_end = int(filtered[1])
+                    if (args.episode >= batch_range_start
+                            and args.episode <= batch_range_end):
+                        match_res.append(entry)
+                else:
                     match_res.append(entry)
-            else:
-                match_res.append(entry)
 
 
 try:
@@ -99,37 +120,36 @@ try:
     """
     search_nyaa(query_template_batch_1, cat_anime, subcat_english_translated,
                 filter_trusted)
-    sleep(req_delay)
     search_nyaa(query_template_batch_2, cat_anime, subcat_english_translated,
                 filter_trusted)
-    sleep(req_delay)
     search_nyaa(query_template_default, cat_anime, subcat_english_translated,
                 filter_trusted)
-    sleep(req_delay)
     if (args.show_type.casefold() in allowed_eps):
         search_nyaa(query_template_ep, cat_anime, subcat_english_translated,
                     filter_trusted)
-
+    # remove duplicates
     match_res = [dict(t) for t in {tuple(d.items()) for d in match_res}]
-except Exception as e:
-    logger.error(traceback.format_exc())
-    print("-2")
-else:
     if (len(match_res) == 0):
         msg = [
             "----------------",
             f"ERROR: No query_res found or no match for file input: ",
-            f"-     args.title: {args.title}",
-            f"-     args.episode: {args.episode}",
+            f"-     title: {args.title}",
+            f"-     episode: {args.episode}",
             f"-     type: {args.show_type}",
             f"-     query 1: {query_template_batch_1}",
             f"-     query 2: {query_template_batch_2}",
             f"-     query 3: {query_template_default}",
-            f"-     query_res: {query_res}"
             "----------------"
         ]
-        logger.error("\n".join(msg))
-        print("-1")
-        exit()
+        "\n".join(msg)
+        raise AssertionError("Nyaa search returned no results.")
+except AssertionError as err:
+    logger.error(err)
+    print(f"{err}////{codes.RET_CODE_NO_RESULTS}")
+except Exception as err:
+    logger.error(traceback.format_exc())
+    logger.error(err)
+    print(f"{err}////{codes.RET_CODE_FATAL_ERROR}")
+else:
     for entry in match_res:
         print(json.dumps(entry, ensure_ascii=False))

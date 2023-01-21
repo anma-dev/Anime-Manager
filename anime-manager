@@ -434,8 +434,10 @@ PLAY_STATUS_EXITED=3
 # PLAY_STATUS_OFFLINE=4
 PLAY_STATUS_FILE_SEL=5
 play_status=$PLAY_STATUS_WAITING
-# nyaapy scraper status codes
-NYAA_SEARCH_ERROR_CODE="-2"
+# nyaa search return codes, corresponds with lib/return_codes.py
+NYAA_SEARCH_CODE_NO_RESULTS="0"
+NYAA_SEARCH_CODE_FATAL_ERROR="2"
+NYAA_FID_CODE_CONTENT_MISMATCH="0"
 
 mkdir -p "$TMP_PATH"
 mkdir -p "$TORRENT_DOWNLOAD_DIR"
@@ -870,16 +872,18 @@ play_episode() {
             # get magnet link and play it with webtorrent-cli
             if [ -z "$nyaa_search_res" ]; then
                 echo && line_to_remove
-                pastel paint $MSG_INFO_COLOR "      😺 Searching Nyaa. Please wait..." && line_to_remove
+                pastel paint $MSG_INFO_COLOR "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_BIN --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
-                if [ "$nyaa_search_res" = "-1" ]; then
+                nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
+                nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res"  | awk -F "////" '{print $2}')
+                if [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      🚫 We found no results." && line_to_remove
+                    pastel paint $MSG_WARN_COLOR "      🚫 $nyaa_search_ret_msg" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     return
-                elif [ "$nyaa_search_res" = "-2" ]; then
+                elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      🚫 We couldn't search nyaa.si" && line_to_remove
+                    pastel paint $MSG_WARN_COLOR "      🚫 $nyaa_search_ret_msg" && line_to_remove
                     pastel paint $MSG_WARN_COLOR "      Please contact development to work this out:" && line_to_remove
                     pastel paint $MSG_WARN_COLOR "      https://github.com/anma-dev/Anime-Manager/issues" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
@@ -919,7 +923,7 @@ play_episode() {
         fi
         if [ -z "$file_list" ]; then
             echo && line_to_remove
-            pastel paint $MSG_INFO_COLOR "      🗃️  Searching for matching file (60s timeout)..." && line_to_remove
+            pastel paint $MSG_INFO_COLOR "      🗃️  Searching for matching file..." && line_to_remove
             play_episode_TORRENT_INFO="$(python3 "$GET_TORRENT_FID_BIN" --title "$play_episode_anime_title, $(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$play_episode_anime_episode" --show-type "$show_type")"
             EP_DATA="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $1}')"
             file_list="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $2}')"
@@ -927,7 +931,7 @@ play_episode() {
             debug_match_info=$EP_DATA
         fi
 
-        [ "$file_index" = "-1" ] && play_status="$PLAY_STATUS_FILE_SEL"
+        [ "$file_index" = "$NYAA_FID_CODE_CONTENT_MISMATCH" ] && play_status="$PLAY_STATUS_FILE_SEL"
 
         if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
             if [ "$file_list" = "None" ]; then
@@ -954,7 +958,7 @@ play_episode() {
 
         [ "$file_index" = "◀" ] && play_status="$PLAY_STATUS_OKPLAYING" && return
 
-        if [ "$file_index" != "$NYAA_SEARCH_ERROR_CODE" ]; then
+        if [ "$file_index" != "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
             # run completely detached from terminal for availability
             torrent_pid_file="$(get_temp_filename)"
             set +m
@@ -1038,7 +1042,7 @@ play_episode() {
                 4>&-
                 sleep 2 # wait for the stream to start
                 stream_health=15
-                pastel paint $MSG_INFO_COLOR "      Trying to stream with $d_provider (15s timeout)" && line_to_remove
+                pastel paint $MSG_INFO_COLOR "      Trying to stream with $d_provider" && line_to_remove
                 while [ $stream_health -gt 0 ]; do
                     if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))

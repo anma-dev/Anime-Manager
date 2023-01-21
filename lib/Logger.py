@@ -22,7 +22,6 @@ class Logger:
         if not path.isdir(config_dir):
             makedirs(config_dir)
         logfile = f"{config_dir}/{file}"
-        f = open(logfile, "a")
         self.log = logging.getLogger(log_name)
         self.log.setLevel(logging.INFO)
         formatter = logging.Formatter(
