@@ -1,8 +1,6 @@
 import functools
 from time import sleep
 import requests
-import sys
-import return_codes as codes
 from Logger import Logger
 from circuit_breaker import CBreaker
 
