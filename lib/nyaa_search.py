@@ -6,6 +6,7 @@ import json
 from NyaaPy.nyaa import Nyaa
 from Logger import Logger
 import requests
+from http import HTTPStatus
 import return_codes as codes
 from decorators import exp_back_off
 from circuit_breaker import CBreaker
@@ -71,7 +72,7 @@ def search_nyaa(query: str, category: str, subcategory: str, filters: str):
                                 filters=filters)
     except requests.exceptions.HTTPError as err:
         logger.error(err)
-        if (err.response.status_code == 429):
+        if (err.response.status_code == HTTPStatus.TOO_MANY_REQUESTS):
             # transient fault, retry request
             raise requests.exceptions.HTTPError(response=err.response)
         else:
