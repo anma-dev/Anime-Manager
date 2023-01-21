@@ -897,8 +897,8 @@ play_episode() {
             choice=$(
                 printf "%b" "{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res" | jq '.name' | sed "s/^\"//g" | sed "s/\"$//g" |
                     $FZF -i --prompt "$PROMPT_TEXT" \
-                        --border-label "╢ ♣  SEARCH RESULTS (nyaa.si): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" \
+                        --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play (torrenting) ▸" \
                         --header-first \
                         --preview "$FZF_PREVIEW_WINDOW_CMD" \
                         --preview-window "$PREVIEW_WINDOW_OPTS" \
@@ -1822,7 +1822,7 @@ incognito_menu() {
 ───
 💡  Stream with animdl. You will need to type a search query and episode number. This option uses streaming for playing content.
 ───
-😺  Search nyaa.si. You will need to type a search query, type and episode number and select a search result from nyaa.si to torrent it. This option uses torrenting for playing content.
+😺  Search Nyaa Torrents. You will need to type a search query, type and episode number and select a search result to play it. This option uses torrenting for playing content.
 "
     INCOGNITO_MENU_ENTRIES="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_STREAMING\n$EXIT_INCOGNITO_MODE"
     MAINMENU_TITLE="MAIN MENU"
