@@ -875,7 +875,7 @@ play_episode() {
                 pastel paint $MSG_INFO_COLOR "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_BIN --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
                 nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
-                nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res"  | awk -F "////" '{print $2}')
+                nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $2}')
                 if [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
                     echo && line_to_remove
                     pastel paint $MSG_WARN_COLOR "      🚫 $nyaa_search_ret_msg" && line_to_remove
@@ -893,6 +893,7 @@ play_episode() {
             clear_lines
             FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'"
             PROMPT_TEXT="Choose a search result: "
+            nyaa_search_res=$(printf "%b" "$nyaa_search_res" | sed 's/'"'"'//g')
             choice=$(
                 printf "%b" "{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res" | jq '.name' | sed "s/^\"//g" | sed "s/\"$//g" |
                     $FZF -i --prompt "$PROMPT_TEXT" \
