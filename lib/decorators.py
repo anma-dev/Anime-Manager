@@ -43,7 +43,8 @@ def exp_back_off(c_breaker: CBreaker, sleep_t=1):
                     if ("retry-after" in err.response.headers):
                         remote_wait_time = int(
                             err.response.headers["retry-after"])
-                        if (remote_wait_time <= timeout):
+                        remain_t = timeout - t_counter
+                        if (remote_wait_time > 0 and remote_wait_time <= remain_t):
                             logger.info(
                                 f"Received Retry-After header. Sleeping for {remote_wait_time} seconds.")
                             sleep(remote_wait_time)
