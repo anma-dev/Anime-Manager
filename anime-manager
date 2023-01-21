@@ -638,9 +638,13 @@ EOF
     fi
 }
 
-# checks internet connection
+# internet connectivity check with random selection of hosts
 connectivity_check() {
-    if printf "%b" "GET https://ubuntu.com HTTP/1.0\n\n" | nc ubuntu.com 443 >/dev/null 2>&1; then
+    urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
+    urls_len=$(printf '%s\n' "$urls" | array_len)
+    rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
+    rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
+    if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc "$rand_url" 443 >/dev/null 2>&1; then
         true
     else
         false
@@ -1178,7 +1182,7 @@ account_menu() {
     MAIN_MENU_HELPTEXT="
 🐇  Follow the white rabbit for more menu options.
 ───
-🕵️  Switch Incognito Mode on. Browse and watch without syncing your progress with any account.
+🕵️  Switch Incognito Mode on. Browse and watch without syncing your activity with any account.
 ───
 👍  Score an anime or change an anime score.
 ───
