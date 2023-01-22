@@ -131,6 +131,9 @@ try:
             continue
         if args.type == "movie":
             video_res.append(filename_og)
+        if args.type == "ova":
+            if "ova" in normalize_title(filename):
+                video_res.append(filename_og)
         else:
             if not extract_episode(filename):
                 for fragment in split_filename(filename):
