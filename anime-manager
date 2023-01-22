@@ -102,7 +102,7 @@ reset_logs() {
     echo >"$ANIMDL_LOGFILE"
     # echo > "$CURRENTLY_PLAYING_LOGFILE"
     echo >"$NYAA_SEARCH_LOGFILE"
-    echo >"$NYAA_FID_LOGFILE"
+    echo >"$NYAA_FE_LOGFILE"
 }
 
 on_exit() {
@@ -408,8 +408,8 @@ animdl_playthrough=0
 animdl_search_index=1
 NYAA_SEARCH_BIN="$(getcwd)/lib/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$CONFIG_PATH/nyaa_search.log"
-NYAA_FID_LOGFILE="$CONFIG_PATH/get_torrent_fid.log"
-GET_TORRENT_FID_BIN="$(getcwd)/lib/get_torrent_fid.py"
+NYAA_FE_LOGFILE="$CONFIG_PATH/file_extractor.log"
+NYAA_FE_BIN="$(getcwd)/lib/file_extractor.py"
 WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
 TORRENT_DOWNLOAD_DIR="${TMP_PATH}/webtorrent"
 
@@ -929,7 +929,7 @@ play_episode() {
         if [ -z "$file_list" ]; then
             echo && line_to_remove
             pastel paint $MSG_INFO_COLOR "      🗃️  Searching for matching file..." && line_to_remove
-            play_episode_TORRENT_INFO="$(python3 "$GET_TORRENT_FID_BIN" --title "$play_episode_anime_title" --synonyms "$(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$play_episode_anime_episode" --type "$show_type")"
+            play_episode_TORRENT_INFO="$(python3 "$NYAA_FE_BIN" --title "$play_episode_anime_title" --synonyms "$(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$play_episode_anime_episode" --type "$show_type")"
             EP_DATA="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $1}')"
             file_list="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $2}')"
             file_index="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $3}')"

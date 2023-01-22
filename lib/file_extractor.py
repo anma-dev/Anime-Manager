@@ -69,6 +69,42 @@ def normalize_title(title: str):
     return title.casefold()
 
 
+def split_filename(f: str):
+    return f.split(" - ")
+
+
+def extract_episode(fragment: str):
+    parsed_title = anitopy.parse(fragment)
+    tmp_delim = valid_delim
+    # try to detect separator
+    while not "episode_number" in parsed_title:
+        if not len(tmp_delim):
+            break
+        # the csv parser complains when it can't find a delimiter
+        with suppress(Exception):
+            dialect = sniffer.sniff(
+                fragment, delimiters=tmp_delim)
+            parsed_title = anitopy.parse(
+                fragment, {'allowed_delimiters': dialect.delimiter})
+        # narrow down the valid delimiters
+        tmp_delim = tmp_delim[1:]
+    if ("episode_number" in parsed_title):
+        if type(parsed_title["episode_number"]) == list:
+            ep_range_start = parseEpisode(
+                parsed_title["episode_number"][0])
+            ep_range_end = parseEpisode(
+                parsed_title["episode_number"][1])
+            if (args.episode >= ep_range_start
+                    and args.episode <= ep_range_end):
+                video_res.append(filename_og)
+                return True
+        elif (args.episode == parseEpisode(
+                parsed_title["episode_number"])):
+            video_res.append(filename_og)
+            return True
+    return False
+
+
 try:
     command = split(
         f"node lib/webtorrent-cli/bin/cmd.js download {args.magnet_link} -s -q"
@@ -93,39 +129,13 @@ try:
             continue
         if not any(normalize_title(x) in normalize_title(filename) for x in all_titles):
             continue
-        parsed_title = anitopy.parse(filename)
-        # print(normalize_title(filename))
         if args.type == "movie":
-            if any(
-                    normalize_title(x) in normalize_title(filename)
-                    for x in args.title):
-                video_res.append(filename_og)
+            video_res.append(filename_og)
         else:
-            if not "episode_number" in parsed_title:
-                tmp_delim = valid_delim
-                # try to detect separator
-                while not "episode_number" in parsed_title and len(
-                        tmp_delim) > 0:
-                    # the csv parser complains when it can't find a delimiter
-                    with suppress(Exception):
-                        dialect = sniffer.sniff(filename, delimiters=tmp_delim)
-                    parsed_title = anitopy.parse(
-                        filename, {'allowed_delimiters': dialect.delimiter})
-                    # narrow down the valid delimiters
-                    tmp_delim = tmp_delim[1:]
-            if ("episode_number" in parsed_title
-                    and "anime_title" in parsed_title):
-                if type(parsed_title["episode_number"]) == list:
-                    ep_range_start = parseEpisode(
-                        parsed_title["episode_number"][0])
-                    ep_range_end = parseEpisode(
-                        parsed_title["episode_number"][1])
-                    if (args.episode >= ep_range_start
-                            and args.episode <= ep_range_end):
-                        video_res.append(filename_og)
-                elif (args.episode == parseEpisode(
-                        parsed_title["episode_number"])):
-                    video_res.append(filename_og)
+            if not extract_episode(filename):
+                for fragment in split_filename(filename):
+                    extract_episode(fragment)
+
 
 except Exception as e:
     logger.error(traceback.format_exc())
