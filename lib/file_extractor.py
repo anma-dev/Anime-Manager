@@ -37,12 +37,18 @@ args.synonyms = args.synonyms.split(", ")
 # generate more title synonyms for better matching
 # replace ampersand symbols with their word
 args.synonyms.append(args.title.replace("&", "and"))
+# reduce title when ampersand is present
+# 'foo & bar with baz' => 'foo & bar'
+match = re.match(
+    "(?:[a-zA-Z0-9]*[^a-zA-Z ]*)*\s&\s(?:[a-zA-Z0-9]*[^a-zA-Z ]*)*", args.title)
+if match:
+    args.synonyms.append(match[0])
 all_titles = [] + args.synonyms
 all_titles.append(args.title)
 
-logger = Logger(file="get_torrent_fid.log",
+logger = Logger(file="file_extractor.log",
                 debug=args.debug,
-                log_name="get_torrent_fid").log
+                log_name="file_extractor").log
 
 sniffer = csv.Sniffer()
 valid_delim = ' _.&+,|'
@@ -65,7 +71,7 @@ def parseEpisode(ep: str):
 
 
 def normalize_title(title: str):
-    title = re.sub("[^a-zA-Z0-9]+", " ", title)
+    title = re.sub("[^a-zA-Z0-9&]+", " ", title)
     return title.casefold()
 
 
@@ -162,3 +168,4 @@ else:
         parsed_title_res = anitopy.parse(video_res[0])
         res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{index}"
 print(res)
+
