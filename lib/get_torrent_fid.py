@@ -24,15 +24,21 @@ parser.add_argument("-d",
                     action='store_true',
                     help="enable debug output")
 parser.add_argument("--magnet-link", type=str, help="magnet link")
-parser.add_argument("--title", type=str, help="show title")
-parser.add_argument("--episode", type=int, help="a series episode number")
-parser.add_argument("--show-type",
+parser.add_argument("--title", type=str, help="anime title")
+parser.add_argument("--synonyms", type=str, help="anime synonyms")
+parser.add_argument("--episode", type=int, help="an episode number")
+parser.add_argument("--type",
                     type=str,
-                    help="show type (tv, ova, movie, etc)")
+                    help="anime type (tv, ova, movie, etc)")
 
 args = parser.parse_args()
 args.episode = float(args.episode)
-args.title = args.title.split(", ")
+args.synonyms = args.synonyms.split(", ")
+# generate more title synonyms for better matching
+# replace ampersand symbols with their word
+args.synonyms.append(args.title.replace("&", "and"))
+all_titles = [] + args.synonyms
+all_titles.append(args.title)
 
 logger = Logger(file="get_torrent_fid.log",
                 debug=args.debug,
@@ -87,8 +93,7 @@ try:
         if (not filename.endswith(video_ext)):
             continue
         parsed_title = anitopy.parse(filename)
-        # print(filename)
-        if args.show_type == "movie":
+        if args.type == "movie":
             if any(
                     normalize_title(x) in normalize_title(filename)
                     for x in args.title):
@@ -121,7 +126,7 @@ try:
                     continue
                 if any(
                         normalize_title(x) in normalize_title(filename)
-                        for x in args.title):
+                        for x in all_titles):
                     video_res.append(filename_og)
 
 except Exception as e:
@@ -133,7 +138,7 @@ else:
         msg = [
             f"No filename match for ",
             f"-     magnet link: {args.magnet_link}",
-            f"-     episode: {args.episode}", f"-     type: {args.show_type}"
+            f"-     episode: {args.episode}", f"-     type: {args.type}"
         ]
         logger.info("\n".join(msg))
         comp_res = '\\n'.join(video_res)
