@@ -65,8 +65,7 @@ def parseEpisode(ep: str):
 
 
 def normalize_title(title: str):
-    reg = rf"[^a-zA-Z0-9-_ \/!='+.$&%\"]"
-    title = re.sub(reg, "", title, re.IGNORECASE)
+    title = re.sub("[^a-zA-Z0-9]+", " ", title)
     return title.casefold()
 
 
@@ -92,7 +91,10 @@ try:
         filename = re.sub(r'^\d+\s*', '', filename)
         if (not filename.endswith(video_ext)):
             continue
+        if not any(normalize_title(x) in normalize_title(filename) for x in all_titles):
+            continue
         parsed_title = anitopy.parse(filename)
+        # print(normalize_title(filename))
         if args.type == "movie":
             if any(
                     normalize_title(x) in normalize_title(filename)
@@ -118,15 +120,11 @@ try:
                         parsed_title["episode_number"][0])
                     ep_range_end = parseEpisode(
                         parsed_title["episode_number"][1])
-                    if (not args.episode >= ep_range_start
-                            and not args.episode <= ep_range_end):
-                        continue
-                elif (not args.episode == parseEpisode(
+                    if (args.episode >= ep_range_start
+                            and args.episode <= ep_range_end):
+                        video_res.append(filename_og)
+                elif (args.episode == parseEpisode(
                         parsed_title["episode_number"])):
-                    continue
-                if any(
-                        normalize_title(x) in normalize_title(filename)
-                        for x in all_titles):
                     video_res.append(filename_og)
 
 except Exception as e:
