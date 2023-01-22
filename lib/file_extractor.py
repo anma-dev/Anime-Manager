@@ -43,6 +43,7 @@ match = re.match(
     "(?:[a-zA-Z0-9]*[^a-zA-Z ]*)*\s&\s(?:[a-zA-Z0-9]*[^a-zA-Z ]*)*", args.title)
 if match:
     args.synonyms.append(match[0])
+    args.synonyms.append(match[0].replace("&", "and"))
 all_titles = [] + args.synonyms
 all_titles.append(args.title)
 
