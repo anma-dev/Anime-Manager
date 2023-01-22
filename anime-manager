@@ -1499,18 +1499,24 @@ account_menu() {
             fi
             results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$status")" "$series_title" | trackma_query)"
             pastel paint $MSG_INFO_COLOR "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
-            while ! grep "Choose" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+            while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
             clear_lines
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
+            [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
             choice="$(
-                printf "%b" "$results" |
+                printf "%b" "$results\n$TO_MAIN_MENU" |
                     $FZF --prompt="Choose the anime to add: " \
                         --border-label "╢ ♣  ADD NEW ANIME ($status list) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Add" \
-                        --header-first | cut -d ':' -f1
+                        --header-first
             )"
-            [ -z "$choice" ] && exit
-            printf "%b\n" "$choice" >"$GLOBAL_TRACKMA_FIFO"
+            [ -z "$results" ] && clear_modifiers && continue
+            if [ "$choice" = "$TO_MAIN_MENU" ]; then
+                printf "\n" > "$GLOBAL_TRACKMA_FIFO"
+                clear_modifiers && continue
+            fi
+            choice_id=$(printf "%s" "$choice" | cut -d ':' -f1)
+            printf "%b\n" "$choice_id" >"$GLOBAL_TRACKMA_FIFO"
             clear_modifiers
             ;;
         "$DELETE_SERIES")
