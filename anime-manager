@@ -215,8 +215,16 @@ clear_lines() {
 
 # check if we can run automatic install for missing dependencies
 auto_compat() {
-    if [ "$OSTYPE" = "Linux" ] && grep "Ubuntu" /etc/os-release >/dev/null 2>&1; then
-        true
+    if [ "$OSTYPE" = "Linux" ]; then
+        distro_id="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
+        case $distro_id in
+        "ubuntu" | "debian")
+            true
+            ;;
+        *)
+            false
+            ;;
+        esac
     elif [ "$OSTYPE" = "Darwin" ]; then
         true
     else
@@ -241,9 +249,9 @@ get_shell_config_file() {
 install_dependencies() {
     AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
     shell_cfg="$(get_shell_config_file)"
-    install_dep_msg="🎉 Finished the autoinstall!\nRestart your Terminal app to start using Anime Manager."
+    install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
     # Ubuntu (not WSL) and macOS support
-    if ! which fzf pastel bat animdl trackma jq node >/dev/null 2>&1 || [ ! -s lib/webtorrent-cli/bin/cmd.js ]; then
+    if ! which fzf bat animdl trackma jq node >/dev/null 2>&1 || [ ! -s lib/webtorrent-cli/bin/cmd.js ]; then
         log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
 
         if auto_compat; then
@@ -259,52 +267,45 @@ install_dependencies() {
             esac
         fi
         # begin installation
-        if [ "$OSTYPE" = "Linux" ] && grep "Ubuntu" /etc/os-release >/dev/null 2>&1; then
-            log "🐧 Installing Ubuntu dependencies."
+        if [ "$OSTYPE" = "Linux" ]; then
+            log "🐧 Installing Linux dependencies."
             if ! sudo -v; then
                 log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
             fi
             sudo apt update
-            sudo apt -y install build-essential procps curl file git python3-setuptools python3-pip bat jq
-            # make alias for batcat and put it in path
-            if ! command -v bat; then
-                mkdir -p ~/.local/bin
-                [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat ~/.local/bin/bat
+            sudo apt -y install build-essential procps curl wget file git python3-setuptools python3-pip bat jq
+            mkdir -p "$HOME/.local/bin"
+            if ! grep '$HOME/.local/bin:$PATH' "$shell_cfg"; then
                 printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
             fi
+            # make alias for batcat and put it in path
+            if ! command -v bat; then
+                [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat "$HOME/.local/bin/bat"
+            fi
             if ! command -v fzf; then
-                if [ -d ~/.fzf ]; then
-                    printf "\n\n%s\n\n" "INSTALLATION CONFLICT! Existing ~/.fzf folder found!\nfzf was not installed. Please install it manually."
+                if [ -d "$HOME/.fzf" ]; then
+                    printf "\n\n%s\n\n" "INSTALLATION CONFLICT! Existing $HOME/.fzf folder found!\nfzf was not installed. Please install it manually."
                 else
                     # require an fzf version with label and label coloring support
-                    git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-                    ~/.fzf/install --all --update-rc
+                    git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
+                    "$HOME/.fzf/install" --all --update-rc
                 fi
-                # require an fzf version with label and label coloring support
-                git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
-                ~/.fzf/install --all --update-rc
             else
                 fzf_version="$(fzf --version)"
                 if [ -z "$(printf "%s" "$fzf_version" | awk -F. '$1 >= 0 && $2 >= 35 {print $0}')" ]; then
                     printf "\n\n%s\n\n" "Please manually update your fzf installation to version >= 0.35.x."
                 fi
             fi
-            [ ! -s lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
-            if ! command -v pastel; then
-                # https://github.com/sharkdp/pastel
-                wget "https://github.com/sharkdp/pastel/releases/download/v0.9.0/pastel_0.9.0_amd64.deb"
-                sudo dpkg -i pastel_0.9.0_amd64.deb
-                rm pastel_0.9.0_amd64.deb
-            fi
+            ./utils/install-webtorrent.sh
             if ! command -v animdl; then
                 # https://github.com/justfoolingaround/animdl
                 pip3 install animdl
             fi
             if ! command -v trackma; then
                 sudo apt install lsof
+                sudo apt -y install python3-pyqt5
                 # https://github.com/z411/trackma
                 pip3 install pillow \
-                    PyQt5 \
                     pydbus \
                     setuptools \
                     wheel \
@@ -330,14 +331,13 @@ install_dependencies() {
             if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg" >/dev/null 2>&1; then
                 printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
             fi
-            # https://github.com/sharkdp/pastel
             brew install curl jq grep axel openssl@1.1 ffmpeg git bat
-            brew install patchelf cmake automake fzf pastel
+            brew install patchelf cmake automake fzf
             if ! command -v animdl; then
                 # https://github.com/justfoolingaround/animdl
                 pip3 install animdl
             fi
-            [ ! -s lib/webtorrent-cli/bin/cmd.js ] && ./utils/install-webtorrent.sh
+            ./utils/install-webtorrent.sh
             if ! command -v trackma; then
                 # https://github.com/z411/trackma
                 # dbus-python module is broken on macOS and cannot be built. This means no trackma mpris support.
@@ -386,19 +386,19 @@ getcwd() {
 }
 
 lines_to_remove=0
-# Message color palette for pastel
-MSG_INFO_COLOR="lightyellow"
-MSG_WARN_COLOR="orange"
-MSG_ERR_COLOR="red"
-MSG_HELP_COLOR="deepskyblue"
-TITLE_COLOR="yellow"
-SUBTITLE_COLOR="lightblue"
-INCOGNITO_MODE_BGCOLOR="indigo"
-INCOGNITO_MODE_FGCOLOR="white"
+# Message color palette
+RESET="\033[0m\n"
+MSG_INFO_COLOR="\033[38;2;255;255;224m" # lightyellow
+MSG_WARN_COLOR="\033[38;2;255;165;0m"   # orange
+MSG_ERR_COLOR="\033[31m"                # red
+MSG_HELP_COLOR="\033[1;34m"             # lightblue, bold
+TITLE_COLOR="\033[33m"                  # yellow
+SUBTITLE_COLOR="\033[1;34m"             # lightblue, bold
+INCOGNITO_MODE_COLORS="\033[37;45m"     # magenta bg, white fg
+OVERWRITE='\r\033[1A\033[0K'
 
 DATE_MONTH=$(date "+%m")
 DATE_DAY=$(date "+%d")
-OVERWRITE='\r\033[1A\033[0K'
 CONFIG_PATH="$HOME/.config/anime-manager"
 TMP_PATH="/tmp/anime-manager"
 CHECKPOINTFILE="$HOME/.config/anime-manager/checkpoint"
@@ -445,6 +445,16 @@ mkdir -p "$CONFIG_PATH"
 [ ! -f "$TRACKMA_LOGFILE" ] && touch "$TRACKMA_LOGFILE"
 
 check_setup() {
+    # use node if already installed
+    if [ -d "$HOME/.config/nvm" ]; then
+        export NVM_DIR="$HOME/.config/nvm"
+        # shellcheck disable=SC1091
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 # This loads nvm
+        # shellcheck disable=SC1091
+        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" >/dev/null 2>&1 # This loads nvm bash_completion
+        export NVM_DIR="$HOME/.nvm"
+        nvm use node >/dev/null 2>&1
+    fi
     # initial checks
     if [ ! -f "$CHECKPOINTFILE" ]; then
         printf "%s" "
@@ -715,9 +725,9 @@ media_player_menu() {
         # fatal error, go back to mainmenu
         echo && line_to_remove
         if [ "$player_source" = "streaming" ]; then
-            pastel paint $MSG_ERR_COLOR "      💥 Unable to play the episode via streaming." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play the episode via streaming." && line_to_remove
         else
-            pastel paint $MSG_ERR_COLOR "      💥 Unable to stream the episode via torrenting." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to stream the episode via torrenting." && line_to_remove
         fi
         printf "%s\n" "      [Enter]  Source selection ▶" && line_to_remove
         # recovery menu loop
@@ -858,8 +868,8 @@ play_episode() {
     reset_logs
     while ! connectivity_check; do
         echo && line_to_remove
-        pastel paint $MSG_WARN_COLOR "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
-        pastel paint $MSG_WARN_COLOR "      Please check your connection and press [Enter]" && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET" "      Please check your connection and press [Enter]" && line_to_remove
         read -r key # TODO: -n1
         [ "$key" = "" ] && clear_lines && continue
     done
@@ -876,20 +886,20 @@ play_episode() {
             # get magnet link and play it with webtorrent-cli
             if [ -z "$nyaa_search_res" ]; then
                 echo && line_to_remove
-                pastel paint $MSG_INFO_COLOR "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_BIN --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
                 nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
                 nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $2}')
                 if [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      🚫 $nyaa_search_ret_msg" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 $nyaa_search_ret_msg" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     return
                 elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      🚫 $nyaa_search_ret_msg" && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      Please contact development to work this out:" && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      https://github.com/anma-dev/Anime-Manager/issues" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 $nyaa_search_ret_msg" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      Please contact development to work this out:" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      https://github.com/anma-dev/Anime-Manager/issues" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     return
                 fi
@@ -928,7 +938,7 @@ play_episode() {
         fi
         if [ -z "$file_list" ]; then
             echo && line_to_remove
-            pastel paint $MSG_INFO_COLOR "      🗃️  Searching for matching file..." && line_to_remove
+            printf "$MSG_INFO_COLOR%s$RESET" "      🗃️  Searching for matching file..." && line_to_remove
             play_episode_TORRENT_INFO="$(python3 "$NYAA_FE_BIN" --title "$play_episode_anime_title" --synonyms "$(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$play_episode_anime_episode" --type "$show_type")"
             EP_DATA="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $1}')"
             file_list="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $2}')"
@@ -940,7 +950,7 @@ play_episode() {
 
         if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
             if [ "$file_list" = "None" ]; then
-                pastel paint $MSG_WARN_COLOR "      🚫 No matching files, please select another source" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 No matching files, please select another source" && line_to_remove
                 magnet_link=""
                 file_list=""
                 play_status=$PLAY_STATUS_ERRORED
@@ -975,10 +985,10 @@ play_episode() {
             # printf "%s" "$EP_DATA" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
             # remove from job queue to avoid info messages if we have to end the process with kill
             echo && line_to_remove
-            pastel paint $MSG_INFO_COLOR "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
+            printf "$MSG_INFO_COLOR%s$RESET" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
             play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
             if [ "$play_episode_torrent_status" -eq $TORRENT_STATUS_ERRORED ]; then
-                pastel paint $MSG_WARN_COLOR "      🚫 Unable to play torrent" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to play torrent" && line_to_remove
                 magnet_link=""
                 play_status=$PLAY_STATUS_ERRORED
             else
@@ -986,7 +996,7 @@ play_episode() {
                 play_status=$PLAY_STATUS_OKPLAYING
             fi
         else
-            pastel paint $MSG_WARN_COLOR "      🚫 Unable to get file index" && line_to_remove
+            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to get file index" && line_to_remove
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
@@ -994,7 +1004,7 @@ play_episode() {
     elif [ "$player_source" = "streaming" ]; then
         stream_providers=$(array "animepahe" "allanime" "zoro" "animeout" "gogoanime" "tenshi")
         echo && line_to_remove
-        pastel paint $MSG_INFO_COLOR "      💡 Streaming (animdl)" && line_to_remove
+        printf "$MSG_INFO_COLOR%s$RESET" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do
             d_provider=$(printf '%s\n' "$provider" | array_element_decode)
             if [ "$animdl_playthrough" -eq 0 ]; then
@@ -1006,7 +1016,7 @@ play_episode() {
                 animdl_pid=$!
                 set -m
                 exec 4>"$play_episode_stream_fifo_write"
-                pastel paint $MSG_INFO_COLOR "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
                 stream_health=10
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
@@ -1016,7 +1026,7 @@ play_episode() {
                         else
                             # stream started automatically
                             play_status=$PLAY_STATUS_OKPLAYING
-                            pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (please wait...)" && line_to_remove
+                            printf "$MSG_INFO_COLOR%s$RESET" "      🚀 The stream is starting (please wait...)" && line_to_remove
                             return
                         fi
                     else
@@ -1025,7 +1035,7 @@ play_episode() {
                     sleep 1
                 done
                 if [ $stream_health -eq 0 ]; then
-                    pastel paint $MSG_WARN_COLOR "      🚫 No results found ($d_provider), next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 No results found ($d_provider), next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     echo >"$ANIMDL_LOGFILE"
@@ -1047,7 +1057,7 @@ play_episode() {
                 4>&-
                 sleep 2 # wait for the stream to start
                 stream_health=15
-                pastel paint $MSG_INFO_COLOR "      Trying to stream with $d_provider" && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET" "      Trying to stream with $d_provider" && line_to_remove
                 while [ $stream_health -gt 0 ]; do
                     if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))
@@ -1058,7 +1068,7 @@ play_episode() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $d_provider, next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to stream with $d_provider, next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     echo "" >"$ANIMDL_LOGFILE"
@@ -1067,7 +1077,7 @@ play_episode() {
                     rm "$play_episode_stream_fifo_write"
                     unset stream_tmpfile
                     unset stream_fifo_write
-                    pastel paint $MSG_INFO_COLOR "      🚀 The stream is starting (please wait...)" && line_to_remove
+                    printf "$MSG_INFO_COLOR%s$RESET" "      🚀 The stream is starting (please wait...)" && line_to_remove
                     play_status=$PLAY_STATUS_OKPLAYING
                     return
                 fi
@@ -1089,7 +1099,7 @@ play_episode() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      🚫 Unable to stream with $d_provider" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to stream with $d_provider" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     continue
@@ -1103,7 +1113,7 @@ $stream_providers
 EOF
     elif [ "$player_source" = "self_magnet" ]; then
         echo && line_to_remove
-        pastel paint $MSG_INFO_COLOR "      🧲 Paste your magnet link and press Enter (silent input): " && line_to_remove
+        printf "$MSG_INFO_COLOR%s$RESET" "      🧲 Paste your magnet link and press Enter (silent input): " && line_to_remove
         stty_orig=$(stty -g)
         stty -echo
         read -r magnet_link
@@ -1135,20 +1145,20 @@ $LOGO_B64
 EOF
         )"
     fi
-    pastel paint $TITLE_COLOR "      🍿 Watch and Track Anime from Your Terminal"
-    pastel paint $MSG_HELP_COLOR "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
+    printf "$TITLE_COLOR%s$RESET" "      🍿 Watch and Track Anime from Your Terminal"
+    printf "$MSG_HELP_COLOR%s$RESET" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
 
 }
 
 print_account() {
     clear_lines
-    pastel paint $SUBTITLE_COLOR "      👤 Account ─ ${USERNAME} │"
+    printf "$SUBTITLE_COLOR%s$RESET" "      👤 Account ─ ${USERNAME} │"
 }
 
 print_incognito_msg() {
     clear_lines
     printf "      "
-    pastel paint -b -o "$INCOGNITO_MODE_BGCOLOR" "$INCOGNITO_MODE_FGCOLOR" "🕵  INCOGNITO MODE "
+    printf "$INCOGNITO_MODE_COLORS%s$RESET" "🕵  INCOGNITO MODE "
 }
 
 check_torrent_health() {
@@ -1360,7 +1370,7 @@ account_menu() {
 
                 if [ ! "$choice" ]; then
                     echo && line_to_remove
-                    pastel paint $MSG_WARN_COLOR "      We couldn't find any anime of this type!" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET" "      We couldn't find any anime of this type!" && line_to_remove
                     sleep 2
                     clear_lines
                     clear_modifiers
@@ -1498,7 +1508,7 @@ account_menu() {
                 continue
             fi
             results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$status")" "$series_title" | trackma_query)"
-            pastel paint $MSG_INFO_COLOR "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
+            printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
             while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
             clear_lines
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
@@ -1512,7 +1522,7 @@ account_menu() {
             )"
             [ -z "$results" ] && clear_modifiers && continue
             if [ "$choice" = "$TO_MAIN_MENU" ]; then
-                printf "\n" > "$GLOBAL_TRACKMA_FIFO"
+                printf "\n" >"$GLOBAL_TRACKMA_FIFO"
                 clear_modifiers && continue
             fi
             choice_id=$(printf "%s" "$choice" | cut -d ':' -f1)
@@ -1588,7 +1598,7 @@ account_menu() {
             fi
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
                 echo && line_to_remove
-                pastel paint "$MSG_INFO_COLOR" "      How many episodes of this anime have you watched so far❔" && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET" "      How many episodes of this anime have you watched so far❔" && line_to_remove
                 printf "%s" "         👉 " && line_to_remove
                 read -r NEW_EPISODE_COUNT # TODO: -n4
                 NEW_EPISODE_COUNT="$(printf "%s" "$NEW_EPISODE_COUNT" | sed -E 's/[^0-9]//g')"
@@ -1870,7 +1880,7 @@ incognito_menu() {
             ;;
         "PLAY")
             echo && line_to_remove
-            printf "      %s What anime do you want to watch❔\n" "$incognito_play_msg_emoji" && line_to_remove
+            printf "$MSG_INFO_COLOR      %s What anime do you want to watch❔$RESET" "$incognito_play_msg_emoji" && line_to_remove
             printf "         👉 " && line_to_remove
             read -r anime_title
             clear_lines

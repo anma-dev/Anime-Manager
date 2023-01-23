@@ -66,7 +66,6 @@ Python 3+
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
 | [webtorrent-cli](https://github.com/anma-dev/webtorrent-cli) | Torrenting magnet links |
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scraping magnet links from nyaa.si |
-| [pastel](https://github.com/sharkdp/pastel) | Text with pretty colors |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
 Ensure all dependencies binaries are available through your `$PATH`.
