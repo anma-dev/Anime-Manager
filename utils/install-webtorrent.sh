@@ -1,6 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2016,SC2034
 
+OSTYPE="$(uname -s 2>/dev/null)"
+if [ "$OSTYPE" = "Darwin" ]; then
+    PLATFORM_NVM_DIR="$HOME/.nvm"
+else
+    PLATFORM_NVM_DIR="$HOME/.config/nvm"
+fi
+
 # enable node before checks
 if [ -d "$HOME/.config/nvm" ]; then
     export NVM_DIR="$HOME/.config/nvm"
@@ -15,12 +22,12 @@ if ! command -v nvm; then
     if ! command -v node; then
         # neither nvm nor node are installed at this point
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
-        export NVM_DIR="$HOME/.config/nvm"
+        export NVM_DIR="$PLATFORM_NVM_DIR"
         # shellcheck disable=SC1091
         [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+        # macOS specific
         # shellcheck disable=SC1091
         [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" # This loads nvm bash_completion
-        export NVM_DIR="$HOME/.nvm"
         if ! grep 'export NVM_DIR="$HOME/.nvm"' "$HOME/.bash_profile"; then
             printf "%b" '
 export NVM_DIR="$HOME/.nvm"

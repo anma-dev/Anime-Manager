@@ -445,16 +445,6 @@ mkdir -p "$CONFIG_PATH"
 [ ! -f "$TRACKMA_LOGFILE" ] && touch "$TRACKMA_LOGFILE"
 
 check_setup() {
-    # use node if already installed
-    if [ -d "$HOME/.config/nvm" ]; then
-        export NVM_DIR="$HOME/.config/nvm"
-        # shellcheck disable=SC1091
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 # This loads nvm
-        # shellcheck disable=SC1091
-        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" >/dev/null 2>&1 # This loads nvm bash_completion
-        export NVM_DIR="$HOME/.nvm"
-        nvm use node >/dev/null 2>&1
-    fi
     # initial checks
     if [ ! -f "$CHECKPOINTFILE" ]; then
         printf "%s" "
@@ -475,6 +465,23 @@ Do you agree with this? [yes/no]: "
             esac
         done
         printf "%s\n" "$answer" >"$CHECKPOINTFILE"
+    fi
+    # use node if nvm is already installed
+    if ! which node >/dev/null 2>&1; then
+        PLATFORM_NVM_DIR=""
+        if [ -d "$HOME/.config/nvm" ]; then
+            PLATFORM_NVM_DIR="$HOME/.config/nvm"
+        elif [ -d "$HOME/.nvm" ]; then
+            PLATFORM_NVM_DIR="$HOME/.nvm"
+        fi
+        if [ -d "$PLATFORM_NVM_DIR" ]; then
+            export NVM_DIR="$PLATFORM_NVM_DIR"
+            # shellcheck disable=SC1091
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 # This loads nvm
+            # shellcheck disable=SC1091
+            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" >/dev/null 2>&1 # This loads nvm bash_completion
+            nvm use node >/dev/null 2>&1
+        fi
     fi
     install_dependencies
 }
