@@ -76,6 +76,11 @@ def normalize_title(title: str):
     return title.casefold()
 
 
+def normalize_fragment(fragment: str):
+    fragment = re.sub("(\d)-(\w)", "\\1 \\2",  fragment)
+    return fragment
+
+
 def split_filename(f: str):
     return f.split(" - ")
 
@@ -134,8 +139,6 @@ try:
         filename = re.sub(r'^\d+\s*', '', filename)
         if (not filename.endswith(video_ext)):
             continue
-        if not any(normalize_title(x) in normalize_title(filename) for x in all_titles):
-            continue
         if args.type == "movie":
             video_res.append(filename_og)
         if args.type == "ova":
@@ -144,7 +147,9 @@ try:
         else:
             if not extract_episode(filename):
                 for fragment in split_filename(filename):
-                    extract_episode(fragment)
+                    if not extract_episode(fragment):
+                        extract_episode(normalize_fragment(fragment))
+                        
 
 
 except Exception as e:
@@ -169,4 +174,3 @@ else:
         parsed_title_res = anitopy.parse(video_res[0])
         res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{index}"
 print(res)
-
