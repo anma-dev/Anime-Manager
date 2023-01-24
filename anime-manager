@@ -1707,7 +1707,7 @@ account_menu() {
             ;;
         "$PULL")
             sel=$(
-                printf "🔄 Overwrite local lists\n%s" "$BACK_TO_SUBMENU" |
+                printf "🔄 Pull remote list data (does not overwrite local changes)\n%s" "$BACK_TO_SUBMENU" |
                     $FZF -i --prompt="Choose an option: " \
                         --border-label "╢ ♣  $PULL ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -1716,6 +1716,22 @@ account_menu() {
             [ "$sel" = "$BACK_TO_SUBMENU" ] && prompt=$TO_MAIN_MENU && continue
             [ "$sel" = "🔄" ] &&
                 printf "retrieve\n" | trackma_query >/dev/null 2>&1
+            while ! sed -En "/>>|\?/p" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+            if grep "There are unqueued changes" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; then
+                pull_choice=$(printf "No, keep local list\nYes, overwrite local list" |
+                    $FZF -i --prompt="There are unqueued changes. Overwrite local list?" \
+                        --border-label "╢ ♣  $PULL ♣  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
+                        --header-first | cut -c1)
+                if [ "$pull_choice" = "N" ]; then
+                    printf "N\n" | trackma_query >/dev/null 2>&1
+                elif [ "$pull_choice" = "Y" ]; then
+                    printf "Y\n" | trackma_query >/dev/null 2>&1
+                else
+                    printf "\n💥 An error occured while pulling from remote.\n"
+                    exit 1
+                fi
+            fi
             clear_modifiers
             ;;
         "$PUSH")
