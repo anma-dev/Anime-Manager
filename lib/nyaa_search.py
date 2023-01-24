@@ -144,7 +144,7 @@ try:
             "----------------"
         ]
         "\n".join(msg)
-        raise AssertionError("Nyaa search returned no results.")
+        raise AssertionError("Search returned no results.")
 except AssertionError as err:
     logger.error(err)
     print(f"{err}////{codes.RET_CODE_NO_RESULTS}")

@@ -734,9 +734,9 @@ media_player_menu() {
         # fatal error, go back to mainmenu
         echo && line_to_remove
         if [ "$player_source" = "streaming" ]; then
-            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play the episode via streaming." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play (streaming)." && line_to_remove
         else
-            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to stream the episode via torrenting." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play (torrenting)." && line_to_remove
         fi
         printf "%s\n" "      [Enter]  Source selection ▶" && line_to_remove
         # recovery menu loop
@@ -958,7 +958,7 @@ play_anime() {
 
         if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
             if [ "$file_list" = "None" ]; then
-                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 No matching files, please select another source" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Could not find any matching files in this magnet" && line_to_remove
                 magnet_link=""
                 file_list=""
                 play_status=$PLAY_STATUS_ERRORED
@@ -996,7 +996,7 @@ play_anime() {
             printf "$MSG_INFO_COLOR%s$RESET" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
             play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
             if [ "$play_episode_torrent_status" -eq $TORRENT_STATUS_ERRORED ]; then
-                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to play torrent" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to play (torrenting)" && line_to_remove
                 magnet_link=""
                 play_status=$PLAY_STATUS_ERRORED
             else
@@ -1004,7 +1004,8 @@ play_anime() {
                 play_status=$PLAY_STATUS_OKPLAYING
             fi
         else
-            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to get file index" && line_to_remove
+            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR: please contact development" && line_to_remove
+            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
