@@ -1358,7 +1358,7 @@ account_menu() {
                 else
                     full_info="$(printf "%s" "$full_info" | sort -r --version-sort)"
                     choice=$(
-                        printf "%s\n%s" "$TO_MAIN_MENU" "$full_info" |
+                        printf "%s\n%s" "$full_info" "$TO_MAIN_MENU" |
                             $FZF -i --prompt "Choose an anime to watch: " \
                                 --border-label "╢ ♣  YOUR $(
                                     if [ "$TRACKER_SERVICE" = "anilist" ]; then
@@ -1652,7 +1652,7 @@ account_menu() {
             # status selection loop
             while true; do
                 status=$(
-                    printf "%b" "$TO_MAIN_MENU\n$TRACKMA_STATUS_MENU_ENTRIES" |
+                    printf "%b" "$TRACKMA_STATUS_MENU_ENTRIES\n$TO_MAIN_MENU" |
                         $FZF -i --prompt="Choose a status: " \
                             --border-label "╢ ♣  SCORE ANIME (Status select) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
