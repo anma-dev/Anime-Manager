@@ -941,9 +941,7 @@ play_episode() {
                         --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[oO][vV][aA]/p'"
             )
             [ "$choice" = "$TO_MAIN_MENU" ] && play_status="$PLAY_STATUS_EXITED" && return
-            choice=$(printf "%s" "$choice" | sed "s/🔴 //g" | sed "s/🟢 //g" | sed "s/⚪️ //g")
-            FILTERED_JSON="$(printf "%s" "$nyaa_search_res" | sed "s/\\\ud83d\\\udd34|\\\u26aa\\\ufe0f|\\\ud83d\\\udfe2//g" | sed -En "/$(sanitize_ext_regex "$choice")/p")"
-            magnet_link="$(printf "%s" "$FILTERED_JSON" | jq --raw-output ".magnet")"
+            magnet_link="$(printf "%s" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
         fi
         if [ -z "$file_list" ]; then
             echo && line_to_remove
