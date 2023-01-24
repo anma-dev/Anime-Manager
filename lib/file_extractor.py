@@ -77,7 +77,7 @@ def normalize_title(title: str):
 
 
 def normalize_fragment(fragment: str):
-    fragment = re.sub("(\d)-(\w)", "\\1 \\2",  fragment)
+    fragment = re.sub("(\d)-(\w)", "\\1 \\2", fragment)
     return fragment
 
 
