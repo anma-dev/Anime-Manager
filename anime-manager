@@ -1769,10 +1769,10 @@ account_menu() {
             if [ "$sort_score" -eq 1 ]; then
                 # sort by score
                 msg="$(printf "filter %s\nsort my_score\nls\n" "$status" | trackma_query)"
-                msg="$(filter_trackma_list "$msg" | sort -r)"
+                msg="$(filter_trackma_list "$msg")"
             else
                 msg="$(printf "filter %s\nls\n" "$status" | trackma_query)"
-                msg="$(filter_trackma_list "$msg" | sort -r --version-sort)"
+                msg="$(filter_trackma_list "$msg")"
             fi
             # remove character sequences and add an emoji next to airing shows
             msg=$(printf "%s\n" "$msg" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g")
