@@ -1674,36 +1674,37 @@ account_menu() {
             done
             ;;
         "$SET_ALTNAME")
-            status=$(
-                printf "$TRACKMA_STATUS_MENU_ENTRIES\n%s" "$BACK_TO_SUBMENU" |
-                    $FZF -i --prompt="Choose a status: " \
-                        --border-label "╢ ♣  SET ALTERNATIVE NAME (Status select) ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                        --header-first
-            )
-
-            [ "$status" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && continue
-
             while true; do
-                full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
-                full_info=$(printf '%s\n' "$full_info" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
-                full_info="$full_info\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
-                trackma_show_index="$(
-                    printf "%b" "$full_info" |
-                        $FZF -i --prompt="Choose an anime: " \
-                            --border-label "╢ ♣  SET ALTERNATIVE NAME ($status list) ♣  ╟" \
+                status=$(
+                    printf "$TRACKMA_STATUS_MENU_ENTRIES\n%s" "$BACK_TO_SUBMENU" |
+                        $FZF -i --prompt="Choose a status: " \
+                            --border-label "╢ ♣  SET ALTERNATIVE NAME (Status select) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --header-first
-                )"
-                [ "$trackma_show_index" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break
-                [ "$trackma_show_index" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
-                trackma_show_index=$(printf "%s" "$trackma_show_index" | cut -d" " -f1)
-                printf "%b" "
-                 ℹ  What is the altname❔ "
-                read -r NEWNAME
-                printf "altname %s '%s'\n" "$trackma_show_index" "$NEWNAME" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                )
+                [ "$status" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && continue
+                while true; do
+                    full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
+                    full_info=$(printf '%s\n' "$full_info" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+                    full_info="$full_info\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
+                    choice="$(
+                        printf "%b" "$full_info" |
+                            $FZF -i --prompt="Choose an anime: " \
+                                --border-label "╢ ♣  SET ALTERNATIVE NAME ($status list) ♣  ╟" \
+                                --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
+                                --header-first
+                    )"
+                    [ "$choice" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break 2
+                    [ "$choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
+                    trackma_show_index=$(printf "%s" "$choice" | cut -d" " -f1)
+                    echo && line_to_remove
+                    printf "%b" "      What is the altname❔ (leave blank to clear it)\n      👉 " && line_to_remove
+                    read -r NEWNAME
+                    line_to_remove # user intro
+                    printf "altname %s '%s'\n" "$trackma_show_index" "$NEWNAME" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                    clear_lines
+                done
             done
-            clear_modifiers
             ;;
         "$PULL")
             sel=$(
