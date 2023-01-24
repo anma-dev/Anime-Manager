@@ -873,7 +873,7 @@ trackma_query_function_code='trackma_query() {
 eval "$trackma_query_function_code"
 
 # attempts to play a series episode
-play_episode() {
+play_anime() {
     reset_logs
     while ! connectivity_check; do
         echo && line_to_remove
@@ -1128,7 +1128,7 @@ EOF
         magnet_link="$(printf "%s" "$magnet_link" | sed "s/;//g" | tr -d '\012')" # newline esc seq in octal
         clear_lines
         player_source="torrenting"
-        play_episode "$anime_title_trackma" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+        play_anime "$anime_title_trackma" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
     fi
 }
 
@@ -1482,7 +1482,7 @@ account_menu() {
                 fi
                 # finally, play the content and hope for the best
                 while true; do
-                    play_episode "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+                    play_anime "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
                     clear_lines
                     media_player_exit_code=""
                     media_player_menu
@@ -1905,7 +1905,7 @@ incognito_menu() {
             fi
             last_show_episode=0
             while true; do
-                play_episode "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
+                play_anime "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
                 clear_lines
                 media_player_exit_code=""
                 media_player_menu
