@@ -1236,7 +1236,7 @@ account_menu() {
 "
     prompt=""
     MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
-    SUBMENU_ENTRIES="$SWITCH_ACCOUNTS\n$DELETE_SERIES\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
+    SUBMENU_ENTRIES="$SWITCH_ACCOUNTS\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
     MAINMENU_TITLE="MAIN MENU"
     SUBMENU_TITLE="SUBMENU"
     menu_entries=$MAINMENU_ENTRIES
@@ -1535,7 +1535,7 @@ account_menu() {
             printf "%b\n" "$choice_id" >"$GLOBAL_TRACKMA_FIFO"
             clear_modifiers
             ;;
-        "$DELETE_SERIES")
+        "$DELETE_ANIME")
             status=$(
                 printf "%b\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$BACK_TO_SUBMENU" |
                     $FZF -i --prompt="Choose a status: " \
@@ -1546,18 +1546,35 @@ account_menu() {
             [ "$status" = "$BACK_TO_SUBMENU" ] && prompt="$BACK_TO_SUBMENU" && continue
             status=$(get_trackma_status_code "$status")
             FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/" | sort -r --version-sort)
-            [ -z "$FULL_LIST" ] && FULL_LIST="No entries found in this list..."
+            [ -z "$FULL_LIST" ] && FULL_LIST="No anime found in this list..."
             FULL_LIST="$FULL_LIST\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
-            trackma_show_index=$(
+            anime_sel=$(
                 printf "%b" "$FULL_LIST" |
                     $FZF -i --prompt="Choose an anime to DELETE: " \
-                        --border-label "╢ ♣  DELETE ANIME ♣  ╟" \
+                        --border-label "╢ ♣  DELETE ANIME ($status list) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" \
+                        --header-first
+            )
+            if [ "$anime_sel" = "$BACK_TO_SUBMENU" ]; then
+                prompt="$BACK_TO_SUBMENU"
+                continue
+            elif [ "$anime_sel" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
+                continue
+            fi
+            del_confirm=$(
+                printf "%b" "$anime_sel\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY" |
+                    $FZF -i --prompt="💥 💥 💥 DELETE CONFIRMATION /// THIS IS PERMANENT 💥 💥 💥 " \
+                        --border-label "╢ ♣  💥 💥 💥 WARNING /// YOU ARE ABOUT TO DELETE AN ANIME!! 💥 💥 💥  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] DELETE" \
                         --header-first | cut -d" " -f1
             )
-            [ "$trackma_show_index" = "◂" ] && prompt="$BACK_TO_SUBMENU" && continue
-            [ "$trackma_show_index" = "🔄" ] && continue
-            printf "filter %s\ndelete %s\ny\n" "$status" "$trackma_show_index" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+            if [ "$del_confirm" = "◂" ]; then
+                prompt="$BACK_TO_SUBMENU" && continue
+            elif [ "$del_confirm" = "🔄" ]; then
+                continue
+            else
+                printf "filter %s\ndelete %s\ny\n" "$status" "$del_confirm" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+            fi
             ;;
         "$UPDATE_EPISODES" | "$UPDATE_STATUS")
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
@@ -1997,7 +2014,7 @@ TO_SUBMENU="SUBMENU ▸"
 BACK_TO_SUBMENU="◂ SUBMENU"
 # submenu entries
 SWITCH_ACCOUNTS="Switch Accounts 👤"
-DELETE_SERIES="Delete Anime 🗑️"
+DELETE_ANIME="Delete Anime 🗑️"
 WATCH_RAND_AIRING="Watch Random Anime (Currently Airing 📣)"
 LIST_AIRING="List Anime (Currently Airing 📣)"
 UPDATE_EPISODES="Update Anime Episodes 🔄"
