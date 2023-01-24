@@ -480,7 +480,9 @@ Do you agree with this? [yes/no]: "
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 # This loads nvm
             # shellcheck disable=SC1091
             [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" >/dev/null 2>&1 # This loads nvm bash_completion
-            nvm use node >/dev/null 2>&1
+            if comand -v nvm >/dev/null 2>&1; then
+                nvm use node >/dev/null 2>&1
+            fi
         fi
     fi
     install_dependencies
