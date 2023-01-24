@@ -1484,9 +1484,9 @@ account_menu() {
                 # finally, play the content and hope for the best
                 while true; do
                     play_anime "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
-                    clear_lines
                     media_player_exit_code=""
                     media_player_menu
+                    clear_lines
                     if [ "$media_player_exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ] || [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
                         continue
                     elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
@@ -1907,9 +1907,9 @@ incognito_menu() {
             last_show_episode=0
             while true; do
                 play_anime "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
-                clear_lines
                 media_player_exit_code=""
                 media_player_menu
+                clear_lines
                 if [ "$media_player_exit_code" = "$PLAYER_MENU_SOURCE_SELECT_CODE" ] || [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
                     continue
                 elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
