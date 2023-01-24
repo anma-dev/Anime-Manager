@@ -840,6 +840,7 @@ media_player_menu() {
 spawn_trackma() {
     if [ "$DEBUG" -eq 1 ]; then
         GLOBAL_TRACKMA_TMPFILE="$CONFIG_PATH/debug_trackma_fifo"
+        echo >"$GLOBAL_TRACKMA_TMPFILE"
     else
         GLOBAL_TRACKMA_TMPFILE="$(get_temp_filename)"
     fi
