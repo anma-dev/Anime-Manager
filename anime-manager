@@ -947,7 +947,7 @@ play_episode() {
             echo && line_to_remove
             printf "$MSG_INFO_COLOR%s$RESET" "      🗃️  Searching for matching file..." && line_to_remove
             play_episode_TORRENT_INFO="$(python3 "$NYAA_FE_BIN" --title "$play_episode_anime_title" --synonyms "$(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$play_episode_anime_episode" --type "$show_type")"
-            EP_DATA="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $1}')"
+            EP_DATA="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $1}' | sed "s/'/'\"'\"'/g")"
             file_list="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $2}')"
             file_index="$(printf "%s" "$play_episode_TORRENT_INFO" | awk -F"////" '{print $3}')"
             debug_match_info=$EP_DATA
