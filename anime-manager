@@ -919,7 +919,7 @@ play_anime() {
             PROMPT_TEXT="Choose a search result: "
             nyaa_search_res=$(printf "%b" "$nyaa_search_res" | sed 's/'"'"'//g')
             choice=$(
-                printf "%b" "{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res" | jq '.name' | sed "s/^\"//g" | sed "s/\"$//g" |
+                printf "%b" "{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play (torrenting) ▸" \
@@ -931,15 +931,15 @@ play_anime() {
                         --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
                         --bind "ctrl-l:toggle-preview" \
                         --bind "ctrl-b:change-prompt($(printf "\033[44;37m BLU-RAY: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -En '/[bB][dD]|[bB][lL][uU][\-]*[rR][aA][yY]/p'" \
-                        --bind "tab:change-prompt($PROMPT_TEXT)+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g'" \
-                        --bind "ctrl-a:change-prompt($(printf "\033[43;37m DUAL-AUDIO: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[dD][uU][aA][lL]/p'" \
-                        --bind "ctrl-d:change-prompt($(printf "\033[46;37m DUBBED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[dD][uU][bB]/p'" \
-                        --bind "ctrl-r:change-prompt($(printf "\033[101;37m RAW: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[rR][aA][wW]/p'" \
-                        --bind "ctrl-s:change-prompt($(printf "\033[103;90m SUBBED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[sS][uU][bB]/p'" \
-                        --bind "ctrl-f:change-prompt($(printf "\033[104;37m MULTI: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[mM][uU][lL][tT][iI]/p'" \
-                        --bind "ctrl-v:change-prompt($(printf "\033[100;90m VHS: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[vV][hH][sS]/p'" \
-                        --bind "ctrl-t:change-prompt($(printf "\033[42;37m TRUSTED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/🟢/p'" \
-                        --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq '.name' | sed 's/^\"//g' | sed 's/\"$//g' | sed -n '/[oO][vV][aA]/p'"
+                        --bind "tab:change-prompt($PROMPT_TEXT)+reload:printf \"%b\" '{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res' | jq --raw-output '.name'" \
+                        --bind "ctrl-a:change-prompt($(printf "\033[43;37m DUAL-AUDIO: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[dD][uU][aA][lL]/p'" \
+                        --bind "ctrl-d:change-prompt($(printf "\033[46;37m DUBBED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[dD][uU][bB]/p'" \
+                        --bind "ctrl-r:change-prompt($(printf "\033[101;37m RAW: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[rR][aA][wW]/p'" \
+                        --bind "ctrl-s:change-prompt($(printf "\033[103;90m SUBBED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[sS][uU][bB]/p'" \
+                        --bind "ctrl-f:change-prompt($(printf "\033[104;37m MULTI: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[mM][uU][lL][tT][iI]/p'" \
+                        --bind "ctrl-v:change-prompt($(printf "\033[100;90m VHS: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[vV][hH][sS]/p'" \
+                        --bind "ctrl-t:change-prompt($(printf "\033[42;37m TRUSTED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/🟢/p'" \
+                        --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[oO][vV][aA]/p'"
             )
             [ "$choice" = "$TO_MAIN_MENU" ] && play_status="$PLAY_STATUS_EXITED" && return
             magnet_link="$(printf "%s" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
