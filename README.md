@@ -55,7 +55,7 @@ The big orange logo requires that your terminal app supports 24-bit colors. You 
 
 ## Dependencies
 
-Python 3+
+Python 3+, NodeJS >=14
 
 | Dependency | Description |
 | - | - |
@@ -68,13 +68,15 @@ Python 3+
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scraping magnet links from nyaa.si |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
+Other dependencies: awk, cat, curl, grep, iina (macOS), mpv, sed, wget.
+
 Ensure all dependencies binaries are available through your `$PATH`.
 
 ## Installation
 
 ### Linux and macOS
 
-The script has an automatic install mode for dependencies that supports macOS and Ubuntu. Automatic install respects your existing installation.
+The script has an automatic install mode for dependencies that supports Ubuntu, Debian, and macOS. Automatic install respects your existing installation.
 
 Clone the repo and give executable permissions to `anime-manager` and everything under `utils/` folder, and put anime-manager in your `PATH`. Make sure the `lib` and `utils` folders are right next to the main script. We will provide more information once the first release is published.
 
