@@ -855,7 +855,11 @@ spawn_trackma() {
 
 close_trackma() {
     # printf "%s" "      ⚙️  Closing background processes, please wait..." && line_to_remove
-    printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
+    if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
+        printf "q\n" >"$GLOBAL_TRACKMA_FIFO"
+    else
+        printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
+    fi
     rm "$GLOBAL_TRACKMA_FIFO"
     echo >"$GLOBAL_TRACKMA_TMPFILE"
     # shellcheck disable=2188
@@ -1281,7 +1285,8 @@ account_menu() {
         "$SWITCH_ACCOUNTS")
             line_to_remove # remove account label
             clear_lines    # remove account label
-            printf "account\n" | trackma_query >/dev/null 2>&1
+            printf "account\nq\n" | trackma_query >/dev/null 2>&1
+            close_trackma
             # select_account
             break
             ;;
