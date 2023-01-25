@@ -1496,17 +1496,19 @@ account_menu() {
                     play_anime "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
                     if [ "$play_status" = "$PLAYER_MENU_SEARCH_SYNONYM" ]; then
                         # the user wants to search again with a title synonym
-                        nyaa_search_res=""
-                        magnet_link=""
-                        file_list=""
                         case $anime_title in
                         "$anime_title_en")
+                            [ -z "$anime_title_ro" ] && continue # does not perform a new search
                             anime_title="$anime_title_ro"
                             ;;
                         "$anime_title_ro")
+                            [ -z "$anime_title_en" ] && continue # does not perform a new search
                             anime_title="$anime_title_en"
                             ;;
                         esac
+                        nyaa_search_res="" # does perform a new search
+                        magnet_link=""
+                        file_list=""
                         play_status=""
                         continue
                     fi
