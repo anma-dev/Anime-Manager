@@ -931,7 +931,7 @@ play_anime() {
                         --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
                         --bind "ctrl-l:toggle-preview" \
                         --bind "ctrl-b:change-prompt($(printf "\033[44;37m BLU-RAY: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -En '/[bB][dD]|[bB][lL][uU][\-]*[rR][aA][yY]/p'" \
-                        --bind "tab:change-prompt($PROMPT_TEXT)+reload:printf \"%b\" '$nyaa_search_res\n{\"name\": \"$TO_MAIN_MENU\"}' | jq --raw-output '.name'" \
+                        --bind "tab:change-prompt($PROMPT_TEXT)+reload:printf \"%b\" '$nyaa_search_res\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n{\"name\": \"$TO_MAIN_MENU\"}' | jq --raw-output '.name'" \
                         --bind "ctrl-a:change-prompt($(printf "\033[43;37m DUAL-AUDIO: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[dD][uU][aA][lL]/p'" \
                         --bind "ctrl-d:change-prompt($(printf "\033[46;37m DUBBED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[dD][uU][bB]/p'" \
                         --bind "ctrl-r:change-prompt($(printf "\033[101;37m RAW: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[rR][aA][wW]/p'" \
