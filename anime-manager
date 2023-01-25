@@ -1161,6 +1161,7 @@ paint_logo() {
     fi
     [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME
     if [ "$DEBUG" -eq 0 ]; then
+        tput clear
         printf "%b\n" "$(
             base64 -d <<EOF | gunzip
 $LOGO_B64
@@ -2106,7 +2107,7 @@ main() {
     else
         FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1 --bind change:first"
     fi
-    paint_logo
+    [ "$MINIMAL" -eq 0 ] && paint_logo
     while true; do
         if [ "$INCOGNITO_MODE" -eq 0 ]; then
             spawn_trackma
