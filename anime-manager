@@ -1141,7 +1141,7 @@ paint_logo() {
     LOGO_HALLOWEEN_B64="H4sIADEPt2MAA8XXO24UQRAG4NynWC6A+j09qgtwAwJIAJHxChCPbCUcECE5IeUg3AYuwBH4a2ZtbVf/PV4DNoG91qfaqu6e6p724w/+6aNYJUjIeflxL88en4q7k9DfEj40mCbgc4YvGD5j+JrhS4uBFQpknAu+ZdgVYl/HX/8T012huyMMrD9vBVnT3i3++vblk3E/keAFHzB8wvDNSRiBHxl21SOrHln1SDayqyO0+2vB9wztRuaoffuK4T2GdpoL/vp28Z25PVp5BtbPt4B+LsAfXz9z3t+IaZKuoOexnmfe5HPGtmCdltgLzjbzVvQgs53KKHOkYz7wILrLTXbVKHaaaeYttpkX/Lk/LTbxUSReLtHV2I7ucrOOXnAQSzJv8kkFC+/+wvfKNtv1KGwLlcALBp55k2kSWzDzRs+80f+Au4K8ozPfK1v8d5kT3ysHtkkWPmNoR8GRXC3+CZKROtpt20yTdAV5bCziybEaJwmcI0tSJXUFY5ZCHhF4YimCVBYdZO4zR/F0LnA6GSc+sOTwOIhPJH+Y0I/daFTLIJotQEg4rpjrC6PPrm9PctLjbun7lQn4ZCujzlbG19Vtdj/j9krig8ONnuVf3I7GF/w/RaJxVw2ZtPPQkwS2wqt3VaGsw7xfvVsDeN3wLg8++5XHbRXaR7tZItu6Qy8SPcuzeFcVGlh0XN3OST2S533pTR70Ka7A0exsVadKor3EbLPHoc9Vonl8l2hy4xCYVj43jPFNY24KepmzxNq+B4BecXcKBonmwTuOdZbkrke8bFZsR6pcJNn9mup1vDc8SQptwUlwJU32LFROkuxRqOwJF6lu5b1hRLfdcoUmFu+AOmTbKikdeGcw81isRrFjjjdlLJPtoBQOvDPoSKyXCRO3r7Qxl0m5yeykYNr28FfOysexcT5gm/eIj+eH3yVKtv9OXc9N7kmKk9yeSVdoYssVX7SMS2bPWXKVbLtUOSvvGJrYJDhLsm3dEcMCSQL2ktuOxoUEeznb7gdj2+ZsM+vD1hQ9Y+L2doB7BzZMbhtdMa8pbGzqUwScJ3Edh+XQJwnoL69JdgYdSYETGDO0rauMGdr+D3gxTV1mYCaxOJYTGsQskjKmYnsa1yd9Bt04wE6jm4IRL2WNfWewajl3jPgp+vX7BrUX20hcC2IXCVwG5Y8RlyKnhc5+AyB6tXLeFwAA"
 
     # print the logos
-    [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME || LOGO_B64=$LOGO_DEFAULT_B64
+    LOGO_B64=$LOGO_DEFAULT_B64
     # special dates
     if [ "$DATE_MONTH" -eq 10 ] && [ "$DATE_DAY" -eq 31 ]; then
         LOGO_B64=$LOGO_HALLOWEEN_B64
@@ -1151,6 +1151,7 @@ paint_logo() {
             LOGO_B64=$LOGO_XMAS_B64
         fi
     fi
+    [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME
     if [ "$DEBUG" -eq 0 ]; then
         printf "%b\n" "$(
             base64 -d <<EOF | gunzip
