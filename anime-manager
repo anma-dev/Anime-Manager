@@ -919,7 +919,7 @@ play_anime() {
             PROMPT_TEXT="Choose a search result: "
             nyaa_search_res=$(printf "%b" "$nyaa_search_res" | sed 's/'"'"'//g')
             choice=$(
-                printf "%b" "$nyaa_search_res\n{\"name\": \"$TO_MAIN_MENU\"}" | jq --raw-output '.name' |
+                printf "%b" "$nyaa_search_res\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n{\"name\": \"$TO_MAIN_MENU\"}" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play (torrenting) ▸" \
@@ -942,6 +942,10 @@ play_anime() {
                         --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[oO][vV][aA]/p'"
             )
             [ "$choice" = "$TO_MAIN_MENU" ] && play_status="$PLAY_STATUS_EXITED" && return
+            if [ "$choice" = "$NYAA_SEARCH_SYNONYM" ]; then
+                play_status="$PLAYER_MENU_SEARCH_SYNONYM"
+                return
+            fi
             magnet_link="$(printf "%s" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
         fi
         if [ -z "$file_list" ]; then
@@ -1490,6 +1494,22 @@ account_menu() {
                 # finally, play the content and hope for the best
                 while true; do
                     play_anime "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+                    if [ "$play_status" = "$PLAYER_MENU_SEARCH_SYNONYM" ]; then
+                        # the user wants to search again with a title synonym
+                        nyaa_search_res=""
+                        magnet_link=""
+                        file_list=""
+                        case $anime_title in
+                        "$anime_title_en")
+                            anime_title="$anime_title_ro"
+                            ;;
+                        "$anime_title_ro")
+                            anime_title="$anime_title_en"
+                            ;;
+                        esac
+                        play_status=""
+                        continue
+                    fi
                     media_player_exit_code=""
                     media_player_menu
                     clear_lines
@@ -2034,11 +2054,13 @@ SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
 PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
 PLAY_METHOD_STREAMING="💡 Stream with animdl (streaming)"
 PLAY_METHOD_MAGNET="🧲 Paste a magnet link (torrenting)"
+NYAA_SEARCH_SYNONYM="🔎 Search again using a title synonym"
 PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING\n$TO_MAIN_MENU"
 # used in media_player_menu
 PLAYER_MENU_SOURCE_SELECT_CODE=0
 PLAYER_MENU_END_CODE=1
 PLAYER_MENU_SELECT_SEARCH_RES_CODE=2
+PLAYER_MENU_SEARCH_SYNONYM=3
 
 main() {
     check_setup
