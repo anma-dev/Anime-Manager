@@ -106,6 +106,7 @@ reset_logs() {
 }
 
 on_exit() {
+    printf "exiting"
     onexit_last_exit_status="$?"
     onexit_parent_lineno="$1"
     onexit_message="${2:-(no message ($onexit_last_exit_status))}"
@@ -125,7 +126,7 @@ on_exit() {
     exit "$onexit_exit_code"
 }
 
-trap 'on_exit ${LINENO}' 1 2 3 15
+trap 'on_exit ${LINENO}' EXIT
 
 # formats and prints a string
 log() {
@@ -861,7 +862,7 @@ close_trackma() {
         printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
     fi
     rm "$GLOBAL_TRACKMA_FIFO"
-    echo >"$GLOBAL_TRACKMA_TMPFILE"
+    rm "$GLOBAL_TRACKMA_TMPFILE"
     # shellcheck disable=2188
     3>&-
 }
@@ -2034,7 +2035,6 @@ TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:s
 # We also have no way of making a distinction between series that
 # actually end with a dot from a residual dot.
 TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
-
 # mainmenu entries
 WATCH_HISTORY="👁️  Watch History"
 WATCH="📺 Watch"
@@ -2098,4 +2098,3 @@ main() {
     done
 }
 main
-trap - 1 2 3 15
