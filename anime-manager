@@ -1248,7 +1248,7 @@ account_menu() {
     MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
     SUBMENU_ENTRIES="$SWITCH_ACCOUNTS\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
     MAINMENU_TITLE="MAIN MENU"
-    SUBMENU_TITLE="SUBMENU"
+    SUBMENU_TITLE="MORE OPTIONS"
     menu_entries=$MAINMENU_ENTRIES
     menu_title=$MAINMENU_TITLE
     menu_help_text=$MAIN_MENU_HELPTEXT
@@ -1727,10 +1727,12 @@ account_menu() {
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --header-first
                 )
-                [ "$status" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && continue
+                [ "$status" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break
+                status="$(get_trackma_status_code "$status")"
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query | sort -r | sed -En "s/$TRACKMA_LIST_REGEX/\1/p")"
                     full_info=$(printf '%s\n' "$full_info" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
+                    [ -z "$full_info" ] && full_info="No entries in this list."
                     full_info="$full_info\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                     choice="$(
                         printf "%b" "$full_info" |
@@ -1753,7 +1755,7 @@ account_menu() {
             ;;
         "$PULL")
             sel=$(
-                printf "🔄 Pull remote list data (does not overwrite local changes)\n%s" "$BACK_TO_SUBMENU" |
+                printf "🔄 Pull remote list data... (does not overwrite local changes)\n%s" "$BACK_TO_SUBMENU" |
                     $FZF -i --prompt="Choose an option: " \
                         --border-label "╢ ♣  $PULL ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -2038,8 +2040,8 @@ UPDATE_STATUS="🔄 Update Anime Status"
 SCORE_SHOW="👍 Score Anime"
 EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
 ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
-TO_SUBMENU="SUBMENU ▸"
-BACK_TO_SUBMENU="◂ SUBMENU"
+TO_SUBMENU="MORE OPTIONS ▸"
+BACK_TO_SUBMENU="◂ BACK"
 # submenu entries
 SWITCH_ACCOUNTS="Switch Accounts 👤"
 DELETE_ANIME="Delete Anime 🗑️"
@@ -2050,7 +2052,7 @@ SET_ALTNAME="Set Alternative Name 📝"
 PULL="Pull Lists from Remote ↓"
 PUSH="Push Local Lists to Remote ↑"
 LIST_BY_SCORE="List Anime (Sort by Rating 🌟)"
-TO_MAIN_MENU="◂ MAINMENU"
+TO_MAIN_MENU="◂ MAIN MENU"
 SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
 # used in account_menu, incognito_menu
 PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
