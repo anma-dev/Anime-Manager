@@ -106,7 +106,6 @@ reset_logs() {
 }
 
 on_exit() {
-    printf "exiting"
     onexit_last_exit_status="$?"
     onexit_parent_lineno="$1"
     onexit_message="${2:-(no message ($onexit_last_exit_status))}"
