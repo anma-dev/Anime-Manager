@@ -46,7 +46,10 @@ Options:
                               with the remote anime list tracking service.
       --monochrome-logo       Print the monochromatic logo instead of the big orange one.
                               Suitable for terminals that do not support 24-bit colors.
-  -d, --debug                 Start debug mode
+      --downloads-folder TORRENT_DOWNLOADS_DIR
+                              Full path for a persistent downloads folder for torrenting.
+                              It is created if it does not exist.
+  -d, --debug                 Start debug mode.
   -h, --help
   -v, --version
 ````
