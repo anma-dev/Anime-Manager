@@ -1143,10 +1143,14 @@ paint_logo() {
     # print the logos
     [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME || LOGO_B64=$LOGO_DEFAULT_B64
     # special dates
-    [ "$DATE_MONTH" -eq 10 ] && [ "$DATE_DAY" -eq 31 ] && LOGO_B64=$LOGO_HALLOWEEN_B64
-    [ "$DATE_MONTH" -eq 12 ] && [ "$DATE_DAY" -eq 24 ] || [ "$DATE_DAY" -eq 25 ] && LOGO_B64=$LOGO_XMAS_B64
-    # [ $DATE_MONTH -eq 12 ] && [ $DATE_DAY -eq 31 ] && LOGO_B64=$LOGO_NEWYEAR_B64
-
+    if [ "$DATE_MONTH" -eq 10 ] && [ "$DATE_DAY" -eq 31 ]; then
+        LOGO_B64=$LOGO_HALLOWEEN_B64
+    fi
+    if [ "$DATE_MONTH" -eq 12 ]; then
+        if [ "$DATE_DAY" -eq 24 ] || [ "$DATE_DAY" -eq 25 ]; then
+            LOGO_B64=$LOGO_XMAS_B64
+        fi
+    fi
     if [ "$DEBUG" -eq 0 ]; then
         printf "%b\n" "$(
             base64 -d <<EOF | gunzip
