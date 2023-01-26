@@ -186,6 +186,7 @@ select_account() {
         USERNAME="$(get_account_name)"
         TRACKER_SERVICE="$(get_remote_tracker)"
     fi
+    printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
 }
 
 check_trackma_config() {
@@ -923,7 +924,6 @@ spawn_trackma() {
     exec 3>"$GLOBAL_TRACKMA_FIFO"
     # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
     while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
-    printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
     # clear_lines
 }
 
