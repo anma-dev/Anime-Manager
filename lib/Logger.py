@@ -27,11 +27,9 @@ class Logger:
         formatter = logging.Formatter(
             '%(asctime)s | %(name)s | %(levelname)s | %(message)s')
         file_handler = logging.FileHandler(logfile)
-        file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         self.log.addHandler(file_handler)
         if debug:
-            stdout_handler = logging.StreamHandler(sys.stderr)
-            stdout_handler.setLevel(logging.DEBUG)
-            stdout_handler.setFormatter(formatter)
-            self.log.addHandler(stdout_handler)
+            stderr_handler = logging.StreamHandler(sys.stderr)
+            stderr_handler.setFormatter(formatter)
+            self.log.addHandler(stderr_handler)

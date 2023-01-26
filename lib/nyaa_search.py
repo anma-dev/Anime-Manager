@@ -62,7 +62,7 @@ query_last_resort = f"\"{args.title}\""
 match_res = []  # aggregated search results from all the queries
 
 
-@exp_back_off(c_breaker=c_breaker)
+@exp_back_off(c_breaker=c_breaker, logger=logger)
 def search_nyaa(query: str, category: str, subcategory: str, filters: str):
     global query_res
     try:

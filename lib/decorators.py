@@ -4,7 +4,6 @@ import requests
 from Logger import Logger
 from circuit_breaker import CBreaker
 
-logger = Logger(debug=True, log_name="decorators").log
 
 '''
 Python decorator functions for Anime Manager.
@@ -12,7 +11,7 @@ https://github.com/anma-dev/Anime-Manager
 '''
 
 
-def exp_back_off(c_breaker: CBreaker, sleep_t=1):
+def exp_back_off(c_breaker: CBreaker, logger: Logger, sleep_t=1):
     '''
     Exponential back-off for network requests,
     implemented as part of Anime Manager nyaa
