@@ -1029,17 +1029,21 @@ play_anime() {
                 play_episode_stream_fifo_write="$(get_temp_filename)"
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
                 # TODO: can't stream with iina
+                stream_pid_file="$(get_temp_filename)"
                 set +m
-                nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
-                animdl_pid=$!
+                (
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    echo $! >"$stream_pid_file"
+                )
                 set -m
+                animdl_pid="$(cat "$stream_pid_file")"
                 exec 4>"$play_episode_stream_fifo_write"
                 printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
                 stream_health=10
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
                     if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-                        if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
+                        if [ -z "$(sed -En "/AV:|libmpv|A-V/p" "$ANIMDL_LOGFILE")" ]; then
                             stream_health=$((stream_health - 1))
                         else
                             # stream started automatically
@@ -1106,10 +1110,14 @@ play_anime() {
             else
                 [ -z "$animdl_search_index" ] && exit 1
                 # TODO: can't stream with iina
+                stream_pid_file="$(get_temp_filename)"
                 set +m
-                nohup animdl stream "$d_provider:$play_episode_anime_title" --index "$animdl_search_index" --range "$anime_ep" --player "mpv" >"$ANIMDL_LOGFILE" 2>&1 &
+                (
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    echo $! >"$stream_pid_file"
+                )
                 set -m
-                sleep 2 # wait for the stream to start before presenting the streaming options
+                animdl_pid="$(cat "$stream_pid_file")"
                 stream_health=10
                 while [ $stream_health -gt 0 ]; do
                     if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
@@ -1209,7 +1217,9 @@ check_torrent_health() {
     done
     if [ $check_torrent_health_waitingtime -eq $TORRENT_TMOUT ]; then
         # kill the process
-        kill -9 "$check_torrent_health_webtorrentpid" >/dev/null 2>&1
+        if ps "$check_torrent_health_webtorrentpid" >/dev/null 2>&1; then
+            kill -9 "$check_torrent_health_webtorrentpid" >/dev/null 2>&1
+        fi
         printf "%s" "$TORRENT_STATUS_ERRORED"
     else
         printf "%s" "$TORRENT_STATUS_OKPLAYING"
@@ -1538,6 +1548,7 @@ account_menu() {
             set +u nounset
             if ps "$animdl_pid" >/dev/null 2>&1; then
                 kill -9 "$animdl_pid"
+                unset animdl_pid
             fi
             set -u nounset
             ;;
