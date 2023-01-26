@@ -1161,6 +1161,11 @@ EOF
         stty "$stty_orig"
         magnet_link="$(printf "%s" "$magnet_link" | sed "s/;//g" | tr -d '\012')" # newline esc seq in octal
         clear_lines
+        if [ -z "$magnet_link" ]; then
+            play_status=$PLAY_STATUS_EXITED
+            magnet_link=""
+            return
+        fi
         player_source="torrenting"
         play_anime "$anime_title_trackma" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
     fi
