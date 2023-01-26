@@ -71,7 +71,7 @@ Python 3+, NodeJS >=14
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scraping magnet links from nyaa.si |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
-Other dependencies: awk, cat, curl, grep, iina (macOS), mpv, sed, wget.
+Other dependencies: awk, cat, curl, grep, gunzip, iina (macOS), mpv, ps, sed, wget.
 
 Ensure all dependencies binaries are available through your `$PATH`.
 
