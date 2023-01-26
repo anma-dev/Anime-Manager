@@ -923,6 +923,7 @@ spawn_trackma() {
     exec 3>"$GLOBAL_TRACKMA_FIFO"
     # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
     while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
+    printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
     # clear_lines
 }
 
