@@ -946,9 +946,14 @@ play_anime() {
                         --bind "ctrl-t:change-prompt($(printf "\033[42;37m TRUSTED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/🟢/p'" \
                         --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[oO][vV][aA]/p'"
             )
-            [ "$choice" = "$SELECT_SOURCE" ] && play_status="$PLAY_STATUS_EXITED" && return
             if [ "$choice" = "$NYAA_SEARCH_SYNONYM" ]; then
                 play_status="$PLAY_STATUS_SEARCH_SYNONYM"
+                return
+            elif [ "$choice" = "$SELECT_SOURCE" ]; then
+                play_status="$PLAY_STATUS_EXITED"
+                return
+            elif [ -z "$choice" ]; then
+                play_status="$PLAY_STATUS_EXITED"
                 return
             fi
             magnet_link="$(printf "%s" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
@@ -986,6 +991,9 @@ play_anime() {
                         --preview-label ' Expanded view ' \
                         --bind "ctrl-l:toggle-preview" | cut -d " " -f1
             )
+            if [ -z "$file_index" ]; then
+                play_status=$PLAY_STATUS_EXITED && return
+            fi
         fi
 
         [ "$file_index" = "◀" ] && play_status="$PLAY_STATUS_OKPLAYING" && return
@@ -1072,8 +1080,11 @@ play_anime() {
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" \
                             --header-first | cut -d '.' -f1
                 )"
-                [ -z "$animdl_search_index" ] && exit 1
                 if [ "$animdl_search_index" = "$SELECT_SOURCE" ]; then
+                    play_status=$PLAY_STATUS_EXITED
+                    animdl_search_index=""
+                    return
+                elif [ -z "$animdl_search_index" ]; then
                     play_status=$PLAY_STATUS_EXITED
                     animdl_search_index=""
                     return
@@ -1488,7 +1499,7 @@ account_menu() {
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                                 --header-first | cut -d " " -f1
                     )"
-                    if [ "$play_method_menu_opt" = "◂" ]; then
+                    if [ "$play_method_menu_opt" = "◂" ] || [ -z "$play_method_menu_opt" ]; then
                         prompt="$TO_MAIN_MENU"
                         clear_modifiers
                         break
@@ -1533,6 +1544,11 @@ account_menu() {
                         play_status=""
                         continue
                     elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
+                        nyaa_search_res="" # does perform a new search
+                        magnet_link=""
+                        file_list=""
+                        play_status=""
+                        animdl_search_index=""
                         break 2 # go to source selection
                     fi
                     media_player_exit_code=""
