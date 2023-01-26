@@ -160,6 +160,8 @@ else:
     if len(video_res) == 0:
         msg = [
             f"No filename match for ",
+            f"-     title: {args.title}",
+            f"-     synonyms: {args.synonyms}",
             f"-     magnet link: {args.magnet_link}",
             f"-     episode: {args.episode}", f"-     type: {args.type}"
         ]
