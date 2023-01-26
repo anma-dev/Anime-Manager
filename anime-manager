@@ -40,7 +40,12 @@ export LANG LC_ALL \
 
 VERSION="0.0.1"
 OSTYPE="$(uname -s 2>/dev/null)"
+if [ "$OSTYPE" = "Linux" ]; then
+    DISTRO_ID="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
+    DISTRO_VERSION="$(awk -F= '$1 == "VERSION_ID" {print $2}' /etc/*-release | sed "s/\"//g")"
+fi
 DEFAULT_DOWNLOADS_DIR="/tmp/anime-manager/webtorrent"
+MEDIA_PLAYERS="mpv | iina | vlc | smplayer"
 
 parser_definition() {
     setup REST help:usage -- "Usage: anime-manager [options]..." ''
@@ -49,10 +54,12 @@ parser_definition() {
                               fills the screen and is reversed. Dimmer colors."
     flag INCOGNITO_MODE -i --incognito init:="0" -- "Switch Incognito Mode on. Your activity will not be synced 
                               with the remote anime list tracking service."
-    flag MONOCHROME_LOGO --monochrome-logo init:="0" -- "Print the monochromatic logo instead of the big orange one. 
+    flag MONOCHROME_LOGO --monochrome-logo init:="0" -- "Print the monochromatic logo instead of the big orange one.
                               Suitable for terminals that do not support 24-bit colors."
-    param TORRENT_DOWNLOADS_DIR --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting. 
+    param TORRENT_DOWNLOADS_DIR --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting.
                               It is created if it does not exist."
+    param MEDIA_PLAYER_APP --player pattern:"$MEDIA_PLAYERS" -- "Select the media player. Defaults to mpv or iina (macOS)
+                              Available players: iina, mpv, smplayer, vlc."
     flag DEBUG -d --debug init:="0" -- "Start debug mode."
     disp :usage -h --help
     disp VERSION -v --version init:="0"
@@ -65,6 +72,19 @@ if [ "$DEBUG" -eq 1 ]; then
     export NYAA_DEBUG="$DEBUG"
 else
     unset NYAA_DEBUG
+fi
+
+if [ "$OSTYPE" != "Darwin" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
+    printf "The iina media player is not available for your platform.\n"
+    exit 1
+fi
+
+if [ -z "$MEDIA_PLAYER_APP" ]; then
+    if [ "$OSTYPE" = "Darwin" ]; then
+        MEDIA_PLAYER_APP="iina"
+    else
+        MEDIA_PLAYER_APP="mpv"
+    fi
 fi
 
 if [ "$MONOCHROME_LOGO" -eq 1 ] && [ "$MINIMAL" -eq 1 ]; then
@@ -217,9 +237,11 @@ clear_lines() {
 # check if we can run automatic install for missing dependencies
 auto_compat() {
     if [ "$OSTYPE" = "Linux" ]; then
-        distro_id="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
-        case $distro_id in
-        "ubuntu" | "debian")
+        case $DISTRO_ID in
+        "ubuntu")
+            true
+            ;;
+        "debian")
             true
             ;;
         *)
@@ -249,12 +271,13 @@ get_shell_config_file() {
 # install dependencies automatically if we can
 install_dependencies() {
     AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
+    printf "%s\n" "$AM_SHELL_CFG_MSG"
     shell_cfg="$(get_shell_config_file)"
     install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
     # Ubuntu (not WSL) and macOS support
-    if ! which fzf bat animdl trackma jq node >/dev/null 2>&1 || [ ! -s lib/webtorrent-cli/bin/cmd.js ]; then
+    if ! which fzf bat animdl trackma jq node "$MEDIA_PLAYER_APP" >/dev/null 2>&1 || [ ! -s lib/webtorrent-cli/bin/cmd.js ]; then
         log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
-
+        AUTOINSTALL=1
         if auto_compat; then
             printf "%s" "Install missing dependencies now? [y/N] " && line_to_remove
             read -r yn </dev/tty
@@ -278,6 +301,34 @@ install_dependencies() {
             mkdir -p "$HOME/.local/bin"
             if ! grep '$HOME/.local/bin:$PATH' "$shell_cfg"; then
                 printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
+            fi
+            if ! command -v "$MEDIA_PLAYER_APP"; then
+                case "$MEDIA_PLAYER_APP" in
+                "mpv")
+                    sudo apt -y install mpv
+                    ;;
+                "smplayer")
+                    if [ "$DISTRO_ID" = "debian" ]; then
+                        if [ "$DISTRO_VERSION" -ne 11 ]; then
+                            printf "\n\nDebian version not supported. Please manually install smplayer.\n\n"
+                        else
+                            # https://software.opensuse.org/download.html?project=home%3Asmplayerdev&package=smplayer
+                            echo 'deb http://download.opensuse.org/repositories/home:/smplayerdev/Debian_11/ /' | sudo tee /etc/apt/sources.list.d/home:smplayerdev.list
+                            curl -fsSL https://download.opensuse.org/repositories/home:smplayerdev/Debian_11/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_smplayerdev.gpg >/dev/null
+                            sudo apt -y update
+                            sudo apt -y install smplayer
+                        fi
+                    elif [ "$OSTYPE" = "ubuntu" ]; then
+                        # https://www.smplayer.info/en/downloads
+                        sudo add-apt-repository -y ppa:rvm/smplayer
+                        sudo apt-get -y update
+                        sudo apt-get -y install smplayer smplayer-themes smplayer-skins
+                    fi
+                    ;;
+                "vlc")
+                    sudo apt -y install vlc
+                    ;;
+                esac
             fi
             # make alias for batcat and put it in path
             if ! command -v bat; then
@@ -334,6 +385,24 @@ install_dependencies() {
             fi
             brew install curl jq grep axel openssl@1.1 ffmpeg git bat
             brew install patchelf cmake automake fzf
+            if ! command -v "$MEDIA_PLAYER_APP"; then
+                case "$MEDIA_PLAYER_APP" in
+                "mpv")
+                    brew install --cask mpv
+                    ;;
+                "smplayer")
+                    brew install --cask smplayer
+                    ;;
+                "vlc")
+                    brew install --cask vlc
+                    ;;
+                "iina")
+                    brew install --cask iina
+                    # TODO: can't stream with iina
+                    brew install --cask mpv
+                    ;;
+                esac
+            fi
             if ! command -v animdl; then
                 # https://github.com/justfoolingaround/animdl
                 pip3 install animdl
@@ -363,7 +432,7 @@ install_dependencies() {
         fi
         echo
         log "$install_dep_msg"
-        exit
+        exit 0
     fi
 }
 
@@ -387,6 +456,7 @@ getcwd() {
 }
 
 lines_to_remove=0
+LINENO=0
 # Message color palette
 RESET="\033[0m\n"
 MSG_INFO_COLOR="\033[38;2;255;255;224m" # lightyellow
@@ -407,6 +477,8 @@ player_source="torrenting"
 
 animdl_playthrough=0
 animdl_search_index=1
+AUTOINSTALL=0
+GLOBAL_TRACKMA_FIFO=""
 NYAA_SEARCH_BIN="$(getcwd)/lib/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$CONFIG_PATH/nyaa_search.log"
 NYAA_FE_LOGFILE="$CONFIG_PATH/file_extractor.log"
@@ -1003,7 +1075,7 @@ play_anime() {
             torrent_pid_file="$(get_temp_filename)"
             set +m
             (
-                nohup node "$WEBTORRENT_CLI" download "$magnet_link" --select "$file_index" --out "$TORRENT_DOWNLOADS_DIR" --"$MEDIA_PLAYER" >"$WEBTORRENT_LOGFILE" 2>&1 &
+                nohup node "$WEBTORRENT_CLI" download "$magnet_link" --select "$file_index" --out "$TORRENT_DOWNLOADS_DIR" --"$MEDIA_PLAYER_APP" >"$WEBTORRENT_LOGFILE" 2>&1 &
                 echo $! >"$torrent_pid_file"
             )
             set -m
@@ -1037,10 +1109,11 @@ play_anime() {
                 play_episode_stream_fifo_write="$(get_temp_filename)"
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
                 # TODO: can't stream with iina
+                MEDIA_PLAYER_APP="mpv"
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -1121,10 +1194,11 @@ play_anime() {
             else
                 [ -z "$animdl_search_index" ] && exit 1
                 # TODO: can't stream with iina
+                MEDIA_PLAYER_APP="mpv"
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "mpv" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -2043,12 +2117,6 @@ incognito_menu() {
     done
 }
 
-if [ "$OSTYPE" = "Darwin" ]; then
-    MEDIA_PLAYER="iina"
-else
-    MEDIA_PLAYER="mpv"
-fi
-
 export BACK_MSG
 export TO_MAIN_MENU
 export SWITCH_STATUS_MSG_MENU_ENTRY
@@ -2115,13 +2183,16 @@ on_exit() {
     onexit_parent_lineno="$1"
     onexit_message="${2:-(no message ($onexit_last_exit_status))}"
     onexit_exit_code="${3:-$onexit_last_exit_status}"
+    [ "$AUTOINSTALL" -eq 1 ] && exit "$onexit_exit_code"
     if [ "$onexit_exit_code" -eq 130 ] || [ "$onexit_exit_code" -eq 0 ]; then
         tput clear && tput clear
     else
         tput clear
         printf "%s\n" "ERROR on line $onexit_parent_lineno - $onexit_message - exit code $onexit_exit_code"
     fi
-    [ "$INCOGNITO_MODE" -eq 0 ] && close_trackma
+    if [ "$INCOGNITO_MODE" -eq 0 ]; then
+        close_trackma
+    fi
     # cleanup, save disk space
     if [ "$DEBUG" -eq 0 ]; then
         reset_logs

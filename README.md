@@ -49,6 +49,9 @@ Options:
       --downloads-folder TORRENT_DOWNLOADS_DIR
                               Full path for a persistent downloads folder for torrenting.
                               It is created if it does not exist.
+      --player MEDIA_PLAYER_APP
+                              Select the media player. Defaults to mpv or iina (macOS)
+                              Available players: iina, mpv, smplayer, vlc.
   -d, --debug                 Start debug mode.
   -h, --help
   -v, --version
