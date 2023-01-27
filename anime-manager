@@ -38,7 +38,7 @@ export LANG LC_ALL \
 
 . ./lib/array
 
-VERSION="alpha-0.1.0"
+VERSION="alpha-0.2.0"
 OSTYPE="$(uname -s 2>/dev/null)"
 if [ "$OSTYPE" = "Linux" ]; then
     DISTRO_ID="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
@@ -1494,7 +1494,7 @@ account_menu() {
     print_readme_first_msg
     [ "$MINIMAL" -eq 0 ] && paint_logo
     [ "$MINIMAL" -eq 0 ] && print_account
-    LINK_CACHE_DIR="${AM_USER_HOME_DIR}/saved_links"
+    LINK_CACHE_DIR="${AM_USER_HOME_DIR}/bookmarks"
     mkdir -p "$LINK_CACHE_DIR"
     WATCH_HISTORY_FILE="${AM_USER_HOME_DIR}/watch-history"
     [ ! -f "$WATCH_HISTORY_FILE" ] && touch "$WATCH_HISTORY_FILE"
