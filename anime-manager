@@ -523,28 +523,29 @@ mkdir -p "$LOG_DIR"
 print_readme_first_msg() {
     if [ ! -f "$CHECKPOINTFILE" ]; then
         printf "%s" "
+┌────────────────────────────────────────────────────────────────────────┐
+│ READ FIRST:                                                            │
+│                                                                        │
+│    This program comes with ABSOLUTELY NO WARRANTY.                     │
+│ Anime Manager is a file sharing program. When you run a torrent (Anime │
+│ Manager can play content by the means of running a torrent), its data  │
+│ will be made available to others by means of upload. Any content you   │
+│ share is your sole responsibility. No further notices will be issued.  │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
 
-READ FIRST
-
-    This program comes with ABSOLUTELY NO WARRANTY.                    |
-Anime Manager is a file sharing program. When you run a torrent (Anime |
-Manager can play content by the means of running a torrent), its data  |
-will be made available to others by means of upload. Any content you   |
-share is your sole responsibility. No further notices will be issued.  |
-                                                                       |
--------------
-
-Do you agree with this? [yes/no]: "
+ Do you agree with this? [yes/no]: "
         while true; do
             read -r answer
             case "$answer" in
             "yes") break ;;
             "no") exit ;;
-            *) printf "%s" "Please answer 'yes' or 'no': " && line_to_remove ;;
+            *) printf "%s" " Please answer 'yes' or 'no': " ;;
             esac
         done
         printf "%s\n" "$answer" >"$CHECKPOINTFILE"
     fi
+    tput clear
 }
 
 check_setup() {
