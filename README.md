@@ -23,6 +23,7 @@ and even MORE...
 - 💡 **Switch between torrenting and streaming as you play**
 - 👉 **Select a new torrenting or streaming source as you play**
 - 🗃️ **Pick from matching files for batch torrents**
+- 🔖 **Bookmark magnet links**
 - 🕵️ **Incognito Mode**
 
 It integrates the following functionality and tools:
