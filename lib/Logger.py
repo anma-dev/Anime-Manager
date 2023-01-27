@@ -2,7 +2,7 @@ from os import path, makedirs, environ
 import sys
 import logging
 
-config_dir = path.expanduser("~/.config/anime-manager")
+config_dir = path.expanduser("~/.config/anime-manager/log")
 
 
 class Logger:
