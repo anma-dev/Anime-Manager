@@ -919,14 +919,21 @@ media_player_menu() {
     fi
     # player reset entries
     if [ "$player_source" = "torrenting" ]; then
-        playing_menu="${playing_menu}🔎 Select another search result\n🙈 Unexpected? Select another file ▸\n💡 Switch to streaming"
-    elif [ "$player_source" = "streaming" ]; then
-        playing_menu="${playing_menu}🔎 Select another search result\n😺 Switch to torrenting"
+        playing_menu="${playing_menu}🔎 Select another search result\n"
     fi
-    if ! has_cached_link; then
-        playing_menu="${playing_menu}\n💾 Save magnet link"
-    else
-        playing_menu="${playing_menu}\n🗑️  Delete saved magnet link"
+    if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
+        # common menu for torrenting
+        playing_menu="${playing_menu}🙈 Unexpected? Select another file ▸"
+        if ! has_cached_link; then
+            playing_menu="${playing_menu}\n🔖 Add magnet link to Bookmarks"
+        elif has_cached_link && [ "$player_source" = "torrenting" ]; then
+            # the user performed a new search, let them overwrite cached links with the new magnet
+            playing_menu="${playing_menu}\n🔖 Overwrite bookmarked link\n🗑️  Delete bookmark"
+        elif has_cached_link && [ "$player_source" = "cached_link" ]; then
+            playing_menu="${playing_menu}\n🗑️  Delete bookmark"
+        fi
+    elif [ "$player_source" = "streaming" ]; then
+        playing_menu="${playing_menu}🔎 Select another search result"
     fi
     FZF_PREVIEW_WINDOW_CMD="printf \"%s\" '$debug_match_info' | jq | bat -p --language=json"
     opt=$(printf "%b" "${playing_menu}\n${TO_MAIN_MENU}" |
@@ -951,7 +958,7 @@ media_player_menu() {
         media_player_exit_code="$PLAYER_MENU_END_CODE"
     elif [ "$opt" = "⏭️" ]; then
         set_ep_as_watched
-        if [ "$player_source" = "torrenting" ]; then
+        if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
             # will query nyaa again or resume from cache
             nyaa_search_res=""
             magnet_link=""
@@ -983,7 +990,8 @@ media_player_menu() {
     elif [ "$opt" = "🙈" ]; then
         play_status="$PLAY_STATUS_FILE_SEL"
         media_player_exit_code="$PLAYER_MENU_SOURCE_SELECT_CODE"
-    elif [ "$opt" = "💾" ]; then
+    elif [ "$opt" = "🔖" ]; then
+        # new bookmark or overwrite bookmark
         cache_link
         media_player_menu
     elif [ "$opt" = "🗑️" ]; then
@@ -1067,7 +1075,40 @@ get_magnet_info() {
     episode_data="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $1}' | sed "s/'/'\"'\"'/g")"
     file_list="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $2}')"
     file_index="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $3}')"
+    debug_match_info=$episode_data
     # do not clear_lines here because the messages are chained
+}
+
+# get magnet content and select a file from it
+# it picks the file index from the magnet file if there is no file list initialized
+# or it allows the user to pick a file from the list
+select_magnet_file() {
+    if [ -z "$file_list" ]; then
+        get_magnet_info
+    fi
+    [ "$file_index" = "$NYAA_FID_CODE_CONTENT_MISMATCH" ] && play_status="$PLAY_STATUS_FILE_SEL"
+    if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
+        if [ "$file_list" = "None" ]; then
+            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Could not find any matching files in this magnet" && line_to_remove
+            magnet_link=""
+            file_list=""
+            play_status=$PLAY_STATUS_ERRORED
+            return
+        fi
+        FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {}"
+        file_index=$(
+            printf "%b" "$file_list\n◀ Now Playing" | sed "s/\"//g" |
+                $FZF -i --prompt "Choose a file: " \
+                    --border-label "╢ ♣  🗃️  FILE SELECTION: $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
+                    --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" \
+                    --header-first \
+                    --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                    --preview-window "$PREVIEW_WINDOW_OPTS" \
+                    --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                    --preview-label ' Expanded view ' \
+                    --bind "ctrl-l:toggle-preview" | cut -d " " -f1
+        )
+    fi
 }
 
 # plays an anime episode via streaming or torrenting
@@ -1089,16 +1130,6 @@ play_anime() {
     show_synonyms="$6"
 
     if [ "$player_source" = "torrenting" ]; then
-        if has_cached_link; then
-            # check for cached data
-            echo && line_to_remove
-            printf "$MSG_INFO_COLOR%s$RESET" "      💾 Loading saved link..." && line_to_remove
-            cached_playback=1
-            magnet_link="$(get_cached_link)"
-            get_magnet_info
-            torrent_magnet_link
-            return
-        fi
         if [ -z "$magnet_link" ]; then
             # get magnet link and play it with webtorrent-cli
             if [ -z "$nyaa_search_res" ]; then
@@ -1160,49 +1191,17 @@ play_anime() {
             fi
             magnet_link="$(printf "%s" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
         fi
-        if [ -z "$file_list" ]; then
-            get_magnet_info
-            debug_match_info=$episode_data
-        fi
-
-        [ "$file_index" = "$NYAA_FID_CODE_CONTENT_MISMATCH" ] && play_status="$PLAY_STATUS_FILE_SEL"
-
-        if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
-            if [ "$file_list" = "None" ]; then
-                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Could not find any matching files in this magnet" && line_to_remove
-                magnet_link=""
-                file_list=""
-                play_status=$PLAY_STATUS_ERRORED
-                return
-            fi
-            FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {}"
-            file_index=$(
-                printf "%b" "$file_list\n◀ Now Playing" | sed "s/\"//g" |
-                    $FZF -i --prompt "Choose a file: " \
-                        --border-label "╢ ♣  🗃️  FILE SELECTION: $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" \
-                        --header-first \
-                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview-window "$PREVIEW_WINDOW_OPTS" \
-                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview-label ' Expanded view ' \
-                        --bind "ctrl-l:toggle-preview" | cut -d " " -f1
-            )
-            if [ -z "$file_index" ]; then
-                play_status=$PLAY_STATUS_EXITED && return
-            fi
-        fi
-
-        [ "$file_index" = "◀" ] && play_status="$PLAY_STATUS_OKPLAYING" && return
-
-        if [ "$file_index" != "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
-            torrent_magnet_link
-        else
+        select_magnet_file
+        [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
+        if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
             printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR: please contact development" && line_to_remove
             printf "$MSG_WARN_COLOR%s$RESET" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
+            return
+        else
+            torrent_magnet_link
         fi
     elif [ "$player_source" = "streaming" ]; then
         stream_providers=$(array "animepahe" "allanime" "zoro" "animeout" "gogoanime" "tenshi")
@@ -1347,6 +1346,28 @@ EOF
         fi
         player_source="torrenting"
         play_anime "$anime_title_trackma" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+    elif [ "$player_source" = "cached_link" ]; then
+        if has_cached_link; then
+            # check for cached data
+            if [ "$play_status" != "$PLAY_STATUS_FILE_SEL" ]; then
+                echo && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET" "      🔖 Loading bookmark..." && line_to_remove
+            fi
+            cached_playback=1
+            magnet_link="$(get_cached_link)"
+            select_magnet_file
+            [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
+            if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
+                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR: please contact development" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
+                magnet_link=""
+                file_list=""
+                play_status=$PLAY_STATUS_ERRORED
+                return
+            else
+                torrent_magnet_link
+            fi
+        fi
     fi
 }
 
@@ -1675,6 +1696,10 @@ account_menu() {
             # player loop
             play_method_menu_opt=""
             player_source=""
+            PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING\n$TO_MAIN_MENU"
+            if has_cached_link; then
+                PLAY_METHOD_MENU="$PLAY_METHOD_SAVED_LINK\n$PLAY_METHOD_MENU"
+            fi
             while true; do
                 if [ -z "$player_source" ]; then
                     if [ "$random_anime" -eq 1 ]; then
@@ -1701,6 +1726,8 @@ account_menu() {
                         player_source="torrenting"
                     elif [ "$play_method_menu_opt" = "🧲" ]; then
                         player_source="self_magnet"
+                    elif [ "$play_method_menu_opt" = "🔖" ]; then
+                        player_source="cached_link"
                     fi
                 fi
                 show_info="$(get_show_info "$anime_title_trackma" "$status")"
@@ -2285,10 +2312,10 @@ SELECT_SOURCE="◂ SELECT SOURCE"
 SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
 # used in account_menu, incognito_menu
 PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
-PLAY_METHOD_STREAMING="💡 Stream with animdl (streaming)"
-PLAY_METHOD_MAGNET="🧲 Paste a magnet link (torrenting)"
+PLAY_METHOD_SAVED_LINK="🔖 Load from Bookmarks (torrenting)"
+PLAY_METHOD_STREAMING="💡 Play with animdl (streaming)"
+PLAY_METHOD_MAGNET="🧲 Play a magnet link (torrenting)"
 NYAA_SEARCH_SYNONYM="🔎 Search again using a title synonym"
-PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING\n$TO_MAIN_MENU"
 # used in media_player_menu
 PLAYER_MENU_SOURCE_SELECT_CODE=0
 PLAYER_MENU_END_CODE=1
