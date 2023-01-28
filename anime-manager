@@ -1687,7 +1687,7 @@ account_menu() {
                     fi
                     status=$new_status
                     # update series index after changing lists
-                    trackma_index="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\"'\"'/g")" | trackma_query | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                    trackma_index="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\"'\"'/g")" | trackma_query | sed -En "s/$TRACKMA_LIST_REGEX/\1/p" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                 fi
             fi
 
