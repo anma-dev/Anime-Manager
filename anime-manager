@@ -801,11 +801,13 @@ hash_title() {
 # Uses the entry status and index in the list to avoid collisions
 get_cache_filename() {
     # use constant anime title from trackma list
+    # use normalized status code
     # do not use title synonyms because they can change
+    get_cache_filename_status="$(get_trackma_status_code "$status")"
     get_cache_filename_title="$(printf "%s" "$anime_title_trackma" | sed -E 's/[^A-Za-z0-9._-]/_/g' | cut -c 1-10)"
     printf "%s" "$(
         hash_title "$(
-            printf "%s" "$status////$trackma_index////$get_cache_filename_title"
+            printf "%s" "$get_cache_filename_status////$trackma_index////$get_cache_filename_title"
         )"
     )"
 }
@@ -1199,7 +1201,7 @@ play_anime() {
                 play_status="$PLAY_STATUS_EXITED"
                 return
             fi
-            magnet_link="$(printf "%s" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
+            magnet_link="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
         fi
         select_magnet_file
         [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
