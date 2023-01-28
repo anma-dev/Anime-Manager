@@ -50,7 +50,7 @@ MEDIA_PLAYERS="mpv | iina | vlc | smplayer"
 parser_definition() {
     setup REST help:usage -- "Usage: anime-manager [options]..." ''
     msg -- 'Options:'
-    flag MINIMAL --minimal init:="0" -- "Minimalistic interface. It does not print the logo, the menu  
+    flag MINIMAL -m --minimal init:="0" -- "Minimalistic interface. It does not print the logo, the menu  
                               fills the screen and is reversed. Dimmer colors."
     flag INCOGNITO_MODE -i --incognito init:="0" -- "Switch Incognito Mode on. Your activity will not be synced 
                               with the remote anime list tracking service."
@@ -58,9 +58,9 @@ parser_definition() {
                               Suitable for terminals that do not support 24-bit colors."
     flag TORRENT_ONLY -t --torrent-only init:="0" -- "Always torrent the anime selection. Always load bookmark if 
                               possible or automatically search Nyaa Torrents."
-    param TORRENT_DOWNLOADS_DIR --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting.
+    param TORRENT_DOWNLOADS_DIR -f --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting.
                               It is created if it does not exist."
-    param MEDIA_PLAYER_APP --player pattern:"$MEDIA_PLAYERS" -- "Select the media player. Defaults to mpv or iina (macOS)
+    param MEDIA_PLAYER_APP -p --player pattern:"$MEDIA_PLAYERS" -- "Select the media player. Defaults to mpv or iina (macOS)
                               Available players: iina, mpv, smplayer, vlc."
     flag DEBUG -d --debug init:="0" -- "Start debug mode."
     disp :usage -h --help

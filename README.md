@@ -41,7 +41,7 @@ AM starts empty by default, with no account configured. You will have to configu
 Usage: anime-manager [options]...
 
 Options:
-      --minimal               Minimalistic interface. It does not print the logo, the menu
+  -m, --minimal               Minimalistic interface. It does not print the logo, the menu
                               fills the screen and is reversed. Dimmer colors.
   -i, --incognito             Switch Incognito Mode on. Your activity will not be synced
                               with the remote anime list tracking service.
@@ -49,10 +49,10 @@ Options:
                               Suitable for terminals that do not support 24-bit colors.
   -t, --torrent-only          Always torrent the anime selection. Always load bookmark if
                               possible or automatically search Nyaa Torrents.
-      --downloads-folder TORRENT_DOWNLOADS_DIR
+  -f, --downloads-folder TORRENT_DOWNLOADS_DIR
                               Full path for a persistent downloads folder for torrenting.
                               It is created if it does not exist.
-      --player MEDIA_PLAYER_APP
+  -p, --player MEDIA_PLAYER_APP
                               Select the media player. Defaults to mpv or iina (macOS)
                               Available players: iina, mpv, smplayer, vlc.
   -d, --debug                 Start debug mode.
