@@ -2205,6 +2205,10 @@ incognito_menu() {
     menu_help_text=$INCOGNITO_MENU_HELPTEXT
     prompt=""
     CHECKPOINTFILE="$TMP_PATH/tmp-checkpoint"
+    # always remove checkpoint file for every incognito user
+    if [ -s "$CHECKPOINTFILE" ]; then
+        rm -f "$CHECKPOINTFILE"
+    fi
     print_readme_first_msg
     [ "$MINIMAL" -eq 0 ] && paint_logo
     [ "$MINIMAL" -eq 0 ] && print_incognito_msg
@@ -2388,11 +2392,9 @@ main() {
         if [ "$INCOGNITO_MODE" -eq 0 ]; then
             account_menu
         else
+
             incognito_menu
-            # remove checkpoint file for every incognito user
-            if [ -s "$CHECKPOINTFILE" ]; then
-                rm -f "$CHECKPOINTFILE"
-            fi
+
         fi
     done
 }
