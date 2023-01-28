@@ -38,7 +38,7 @@ export LANG LC_ALL \
 
 . ./lib/array
 
-VERSION="alpha-0.2.1"
+VERSION="alpha-0.2.2"
 OSTYPE="$(uname -s 2>/dev/null)"
 if [ "$OSTYPE" = "Linux" ]; then
     DISTRO_ID="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
