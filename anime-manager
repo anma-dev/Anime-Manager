@@ -1947,9 +1947,9 @@ account_menu() {
             else
                 if [ -z "$new_status" ]; then
                     new_status=$(
-                        printf "%b" "$menuitem\n$TRACKMA_STATUS_MENU_ENTRIES" |
+                        printf "%b" "$TRACKMA_STATUS_MENU_ENTRIES\n$menuitem" |
                             $FZF -i --prompt="Choose the new status: " \
-                                --border-label "╢ ♣  UPDATE EPISODE status (Select the NEW status) ♣  ╟" \
+                                --border-label "╢ ♣  UPDATE EPISODE status (Select the new status) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                                 --header-first
                     )
