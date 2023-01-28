@@ -2135,6 +2135,7 @@ account_menu() {
                             fi
                         ) ($status list) ♣  " \
                             --header "⇅ Navigation - [Enter] Go back" \
+                            --header-first \
                             --prompt ""
                 )
                 [ "$sel" = "$top_menu_entry" ] && prompt="$top_menu_entry" && continue
@@ -2161,6 +2162,7 @@ account_menu() {
                                 fi
                             ) ($status list) ♣  " \
                             --header "⇅ Navigation - [Ctrl-L] Toggle info - [ESC] Exit - [Enter] Play ▸" \
+                            --header-first \
                             --prompt "Choose an anime: "
                 )
                 [ "$sel" = "$top_menu_entry" ] && clear_modifiers && break
