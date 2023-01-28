@@ -47,6 +47,8 @@ Options:
                               with the remote anime list tracking service.
       --monochrome-logo       Print the monochromatic logo instead of the big orange one.
                               Suitable for terminals that do not support 24-bit colors.
+  -t, --torrent-only          Always torrent the anime selection. Always load bookmark if
+                              possible or automatically search Nyaa Torrents.
       --downloads-folder TORRENT_DOWNLOADS_DIR
                               Full path for a persistent downloads folder for torrenting.
                               It is created if it does not exist.
