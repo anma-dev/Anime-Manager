@@ -2057,9 +2057,10 @@ account_menu() {
                     trackma_show_index=$(printf "%s" "$choice" | cut -d" " -f1)
                     echo && line_to_remove
                     printf "%b" "      What is the altname❔ (leave blank to clear it)\n      👉 " && line_to_remove
-                    read -r NEWNAME
+                    read -r ALTNAME
                     line_to_remove # user intro
-                    printf "altname %s '%s'\n" "$trackma_show_index" "$NEWNAME" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                    ALTNAME="$(printf "%s" "$ALTNAME" | sed -E 's/[^a-zA-Z0-9'\''" -]//g' | sed "s/'/'\\\''/g")"
+                    printf "altname %s '%s'\n" "$trackma_show_index" "$ALTNAME" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                     clear_lines
                 done
             done
