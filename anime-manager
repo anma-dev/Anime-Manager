@@ -1057,7 +1057,8 @@ close_trackma() {
     rm "$GLOBAL_TRACKMA_FIFO"
     rm "$GLOBAL_TRACKMA_TMPFILE"
     # shellcheck disable=2188
-    3>&-
+    3>&- # this syntax is valid by POSIX https://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_07_06
+    true # fix weird 'Syntax error: "}" missing' by the language server.
 }
 
 trackma_query_function_code='trackma_query() {
