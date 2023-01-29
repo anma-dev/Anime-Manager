@@ -2003,8 +2003,6 @@ account_menu() {
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
                     full_info="$(format_trackma_list "$full_info" | sort -r)"
-                    # remove character sequences and add an emoji next to airing shows
-                    full_info=$(format_trackma_list "$full_info")
                     full_info="$full_info\n$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                     # anime selection loop
                     anime_choice="$(
