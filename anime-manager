@@ -1769,7 +1769,7 @@ account_menu() {
                     elif [ "$random_airing" -eq 1 ]; then
                         menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
                         top_menu="$BACK_TO_SUBMENU"
-                    elif [ "$sort_airing" -eq 1 ]; then
+                    elif [ -n "$sort_airing" ] && [ "$sort_airing" -eq 1 ]; then
                         # if we come from airing list selection
                         menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
                         top_menu="$BACK_TO_SUBMENU"
