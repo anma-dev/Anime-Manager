@@ -510,7 +510,7 @@ TRACKMA_LOGFILE="$LOG_DIR/trackma.log"
 ANIMDL_LOGFILE="$LOG_DIR/animdl.log"
 # webtorrent globals
 # torrent status codes
-TORRENT_TMOUT=60
+TORRENT_TMOUT=20
 TORRENT_STATUS_OKPLAYING=0
 TORRENT_STATUS_STALLED=1
 TORRENT_STATUS_ERRORED=2
@@ -738,13 +738,14 @@ eval "$get_show_title_function_code"
 
 # gets the index of an entry
 get_entry_index_function_code='get_entry_index() {
-    echo >"$GLOBAL_TRACKMA_TMPFILE"
     res_title=""
     anime_title="$1"
     status="$2"
     # replace single quotes with escaped single quotes for trackma search
     # whole pattern escaped because eval'\''d
-    res="$(printf "filter %s\nsearch '"'"'%s'"'"'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'"'"'/'"'"'\"'"'"'\"'"'"'/g")" | trackma_query)"
+    printf "filter %s\nsearch '"'"'%s'"'"'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'"'"'/'"'"'\"'"'"'\"'"'"'/g")" | trackma_query >/dev/null 2>&1
+    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+    res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
     res="$(filter_trackma_list "$res" | head -n1)"
     entry_index="$(printf "%s" "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
     if [ -z "$entry_index" ]; then
