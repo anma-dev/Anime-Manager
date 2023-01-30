@@ -694,7 +694,7 @@ format_trackma_list() {
     format_trackma_list_list="$(filter_trackma_list "$1")"
     # remove character sequences and add an emoji next to shows currently airing
     format_trackma_list_list=$(printf '%b' "$format_trackma_list_list" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
-    printf "%b" "$format_trackma_list_list"
+    printf "%b" "$format_trackma_list_list" | sort -r
 }
 
 # cleans a trackma entry from status emoji and escape codes
@@ -1669,7 +1669,7 @@ account_menu() {
                     # format and filter airing shows, select one randomly
                     choice=$(printf "%s" "$full_info" | sed -n "/📣/p" | shuf -n 1)
                 else
-                    full_info="$(printf "%s" "$full_info" | sort -r --version-sort)"
+                    full_info="$(printf "%s" "$full_info")"
                     choice=$(
                         printf "%s\n%s" "$full_info" "$TO_MAIN_MENU" |
                             $FZF -i --prompt "Choose an anime to watch: " \
@@ -1905,7 +1905,7 @@ account_menu() {
             [ "$status" = "$BACK_TO_SUBMENU" ] && prompt="$BACK_TO_SUBMENU" && continue
             status=$(get_trackma_status_code "$status")
             FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query)
-            FULL_LIST=$(format_trackma_list "$FULL_LIST" | sort -r --version-sort)
+            FULL_LIST=$(format_trackma_list "$FULL_LIST")
             [ -z "$FULL_LIST" ] && FULL_LIST="No anime found in this list..."
             FULL_LIST="$FULL_LIST\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
             anime_sel=$(
@@ -1961,7 +1961,7 @@ account_menu() {
                     res="$(format_trackma_list "$res")"
                     if [ -z "$res" ]; then
                         res="This list has no items..."
-                        printf "%b" "$res\n$menuitem" | sort -r | $FZF -i --prompt="Choose an anime to update: " \
+                        printf "%b" "$res\n$menuitem" | $FZF -i --prompt="Choose an anime to update: " \
                             --border-label "╢ ♣  ${update_op_menu_label} ($status list) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --header-first
@@ -2045,7 +2045,7 @@ account_menu() {
                 [ "$status" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && clear_modifiers && break
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
-                    full_info="$(format_trackma_list "$full_info" | sort -r)"
+                    full_info="$(format_trackma_list "$full_info")"
                     full_info="$full_info\n$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                     # anime selection loop
                     anime_choice="$(
@@ -2085,7 +2085,7 @@ account_menu() {
                 status="$(get_trackma_status_code "$status")"
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
-                    full_info=$(format_trackma_list "$full_info" | sort -r)
+                    full_info=$(format_trackma_list "$full_info")
                     [ -z "$full_info" ] && full_info="No entries in this list."
                     full_info="$full_info\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
                     choice="$(
