@@ -285,7 +285,7 @@ get_shell_config_file() {
 install_dependencies() {
     shell_cfg="$(get_shell_config_file)"
     install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
-    if ! which fzf bat animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -s lib/webtorrent-cli/bin/cmd.js ]; then
+    if ! which fzf bat animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -s "$WEBTORRENT_CLI" ]; then
         log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
         AUTOINSTALL=1
         AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
@@ -497,7 +497,11 @@ NYAA_SEARCH_BIN="$(getcwd)/lib/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$LOG_DIR/nyaa_search.log"
 NYAA_FE_LOGFILE="$LOG_DIR/file_extractor.log"
 NYAA_FE_BIN="$(getcwd)/lib/file_extractor.py"
-WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
+if [ "$DEBUG" -eq 1 ]; then
+    WEBTORRENT_CLI="../webtorrent-cli/bin/cmd.js"
+else
+    WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
+fi
 
 # logfiles
 WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
