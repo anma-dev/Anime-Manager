@@ -140,6 +140,7 @@ clear_modifiers() {
     file_index=""
     animdl_playthrough=0
     animdl_search_index=1
+    sort_airing=""
 }
 
 reset_logs() {
@@ -1755,7 +1756,7 @@ account_menu() {
             play_method_menu_opt=""
             player_source=""
             media_player_exit_code=""
-            PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING\n$TO_MAIN_MENU"
+            PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING"
             if has_cached_link; then
                 PLAY_METHOD_MENU="$PLAY_METHOD_SAVED_LINK\n$PLAY_METHOD_MENU"
             fi
@@ -1764,10 +1765,17 @@ account_menu() {
                 if [ -z "$player_source" ]; then
                     if [ "$random_anime" -eq 1 ]; then
                         menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        top_menu="$BACK_TO_SUBMENU"
                     elif [ "$random_airing" -eq 1 ]; then
                         menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        top_menu="$BACK_TO_SUBMENU"
+                    elif [ "$sort_airing" -eq 1 ]; then
+                        # if we come from airing list selection
+                        menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        top_menu="$BACK_TO_SUBMENU"
                     else
                         menu_label="SELECT SOURCE: $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        top_menu="$TO_MAIN_MENU"
                     fi
                     # we check the play status otherwise we would never be able to select source
                     if [ "$TORRENT_ONLY" -eq 1 ] && [ "$play_status" != "$PLAY_STATUS_SELECT_SOURCE" ]; then
@@ -1778,7 +1786,7 @@ account_menu() {
                         fi
                     else
                         play_method_menu_opt="$(
-                            printf "%b" "$PLAY_METHOD_MENU" |
+                            printf "%b" "$PLAY_METHOD_MENU\n$top_menu" |
                                 $FZF -i --prompt="Select a source: " \
                                     --border-label "╢ ♣  $menu_label ♣  ╟" \
                                     --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
