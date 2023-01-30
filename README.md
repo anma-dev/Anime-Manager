@@ -73,7 +73,7 @@ Python 3+, NodeJS >=14
 | [bat](https://github.com/sharkdp/bat) | Pretty print anime synopses |
 | [fzf](https://github.com/junegunn/fzf/) | User menus.  Get a recent version that supports border label and border label coloring. <br/>Some repos provide older versions of fzf. |
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
-| [webtorrent-cli](https://github.com/anma-dev/webtorrent-cli) | Torrenting magnet links |
+| [webtorrent-cli](https://github.com/anma-dev/webtorrent-cli) | Torrenting magnet links. We are using a fork that adds support for file selection, <br/> so it will only download what is being played. |
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scraping magnet links from nyaa.si |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
 
