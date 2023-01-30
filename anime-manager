@@ -81,13 +81,14 @@ if [ "$OSTYPE" != "Darwin" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
     exit 1
 fi
 
-if [ -z "$MEDIA_PLAYER_APP" ]; then
+# set the default media player
+set_media_player() {
     if [ "$OSTYPE" = "Darwin" ]; then
         MEDIA_PLAYER_APP="iina"
     else
         MEDIA_PLAYER_APP="mpv"
     fi
-fi
+}
 
 if [ "$MONOCHROME_LOGO" -eq 1 ] && [ "$MINIMAL" -eq 1 ]; then
     printf "Error: Incompatible options --monochrome-logo, --minimal\nPlease use one or the other."
@@ -561,6 +562,7 @@ print_readme_first_msg() {
 
 check_setup() {
     # initial checks
+    set_media_player
     # use node if nvm is already installed
     if ! which node >/dev/null 2>&1; then
         PLATFORM_NVM_DIR=""
@@ -1145,6 +1147,9 @@ select_magnet_file() {
 # plays an anime episode via streaming or torrenting
 play_anime() {
     reset_logs
+    # reset the media player
+    # TODO: can't stream with iina
+    set_media_player
     while ! connectivity_check; do
         echo && line_to_remove
         printf "$MSG_WARN_COLOR%s$RESET" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
@@ -1988,7 +1993,7 @@ account_menu() {
                         clear_lines
                         [ -z "$new_episode_count" ] && clear_modifiers && continue
                         if [ "$new_episode_count" -ne "$last_watched_ep" ]; then
-                            # this will also change the status to completed if 
+                            # this will also change the status to completed if
                             # anime last episode = updated watched episode
                             # and if the user already scored the anime
                             printf "filter %s\nupdate '%s' %s\n" "$status" "$trackma_entry_index" "$new_episode_count" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
