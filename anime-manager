@@ -1200,14 +1200,14 @@ play_anime() {
                     nyaa_search_res="${nyaa_search_res}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n{\"name\": \"$SELECT_SOURCE\"}"
                     # replace simple quotes with 'smart quotes' to avoid filtering command failure
                     # and to not disrupt the user experience
-                    nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
+                    nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")\n{\"name\": \"$TO_MAIN_MENU\"}"
                 fi
                 clear_lines
             fi
             FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'"
             PROMPT_TEXT="Choose a search result: "
             choice=$(
-                printf "%b" "${nyaa_search_res}\n{\"name\": \"$TO_MAIN_MENU\"}" | jq --raw-output '.name' |
+                printf "%b" "$nyaa_search_res" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play (torrenting) ▸" \
