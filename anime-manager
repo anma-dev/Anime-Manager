@@ -1765,7 +1765,7 @@ account_menu() {
                 if [ -z "$player_source" ]; then
                     if [ "$random_anime" -eq 1 ]; then
                         menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title_trackma") ▶ $anime_ep"
-                        top_menu="$BACK_TO_SUBMENU"
+                        top_menu="$TO_MAIN_MENU"
                     elif [ "$random_airing" -eq 1 ]; then
                         menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
                         top_menu="$BACK_TO_SUBMENU"
