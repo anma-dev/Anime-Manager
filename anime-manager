@@ -140,7 +140,6 @@ clear_modifiers() {
     file_index=""
     animdl_playthrough=0
     animdl_search_index=1
-    sort_airing=""
 }
 
 reset_logs() {
@@ -666,7 +665,7 @@ eval "$get_trackma_status_code_function_code"
 set_ep_as_watched() {
     if [ -z "$trackma_entry_index" ] || [ -z "$anime_ep" ]; then
         printf "ERROR: Could not update episode\n"
-        exit 1
+        kill $$
     fi
     # avoid 'EngineError: Show already at episode X'
     if [ "$anime_ep" -ne "$last_watched_ep" ]; then
@@ -688,7 +687,6 @@ set_anime_status() {
 }
 
 filter_trackma_list_function_code='filter_trackma_list() {
-    # remove single quotes and filter
     printf "%b" "$1" | sed -En "s/$TRACKMA_LIST_REGEX/\1/p"
 }'
 eval "$filter_trackma_list_function_code"
@@ -746,11 +744,11 @@ get_entry_index_function_code='get_entry_index() {
     printf "filter %s\nsearch '"'"'%s'"'"'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'"'"'/'"'"'\"'"'"'\"'"'"'/g")" | trackma_query >/dev/null 2>&1
     while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
-    res="$(filter_trackma_list "$res" | head -n1)"
+    res="$(filter_trackma_list "$res")"
     entry_index="$(printf "%s" "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
     if [ -z "$entry_index" ]; then
-        printf "%b\n" "💥 ERROR getting entry index.\nPlease report this error message to the developer."
-        exit 1
+        printf "%b\n" "💥 ERROR getting entry index."
+        kill $$
     fi
     printf "%s" "$entry_index"
 }'
@@ -766,8 +764,10 @@ get_show_status() {
         anime_title="$1"
         while read -r trackma_code; do
             # trackma search uses regex so we need to sanitize it
-            res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query)"
-            res="$(filter_trackma_list "$res" | head -n1)"
+            printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+            while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+            res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
+            res="$(filter_trackma_list "$res")"
             [ -n "$res" ] && res_title="$(get_show_title "$res")"
             if [ -n "$res_title" ] && [ "$res_title" = "$anime_title" ]; then
                 status="$(get_trackma_status_code "$trackma_code")"
@@ -777,8 +777,8 @@ get_show_status() {
 $TRACKMA_STATUS_MENU_ENTRIES
 EOF
         if [ -z "$status" ]; then
-            printf "%b\n" "💥 ERROR getting show status.\nPlease report this error message to the developer."
-            exit 1
+            printf "%b\n" "💥 ERROR getting show status."
+            kill $$
         fi
         printf "%s" "$status"
     fi
@@ -823,7 +823,7 @@ get_last_show_ep() {
     get_last_show_ep_full_entry=$(get_show_entry "$get_last_show_ep_anime_title")
     [ -z "$get_last_show_ep_full_entry" ] && printf "💥 Error getting last episode!" && exit 1
     last_episode="$(printf "%b" "$get_last_show_ep_full_entry" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p")"
-    [ -z "$last_episode" ] && printf "Could not get last episode\n" && exit 1
+    [ -z "$last_episode" ] && printf "Could not get last episode\n" && kill $$
     printf "%s" "$last_episode"
 }
 
@@ -840,6 +840,10 @@ get_cache_filename() {
     # use constant anime title from trackma list
     # use normalized status code
     # do not use title synonyms because they can change
+    if [ -z "$status" ] || [ -z "$anime_title_trackma" ] || [ -z "$trackma_entry_index" ]; then
+        printf "💥 ERROR: unable to get bookmark file.\n"
+        kill $$
+    fi
     get_cache_filename_status="$(get_trackma_status_code "$status")"
     get_cache_filename_title="$(printf "%s" "$anime_title_trackma" | sed -E 's/[^A-Za-z0-9._-]/_/g' | cut -c 1-10)"
     hash_title "$(
@@ -890,11 +894,13 @@ get_show_entry() {
     play_episode_anime_title="$1"
     status="$(get_show_status "$play_episode_anime_title")"
     # trackma search uses regex so we need to sanitize it
-    res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query)"
-    get_show_entry_list="$(filter_trackma_list "$res" | head -n1)"
+    printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+    res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
+    get_show_entry_list="$(filter_trackma_list "$res")"
     # we assume we should find a result
     [ -z "$get_show_entry_list" ] &&
-        printf "%b\n" "💥 ERROR getting show entry.\nPlease report this error message to the developer." && exit 1
+        printf "%b\n" "💥 ERROR getting show entry." && kill $$
     printf "%b" "$get_show_entry_list"
 }
 
@@ -1744,7 +1750,9 @@ account_menu() {
                     fi
                     status=$new_status
                     # update series index after changing lists
-                    res="$(printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\\\''/g")" | trackma_query)"
+                    printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\\\''/g")" | trackma_query >/dev/null 2>&1
+                    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+                    res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
                     trackma_entry_index="$(format_trackma_list "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                 fi
             fi
