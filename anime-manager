@@ -670,7 +670,7 @@ set_ep_as_watched() {
     fi
     # avoid 'EngineError: Show already at episode X'
     if [ "$anime_ep" -ne "$last_watched_ep" ]; then
-        printf "update %s %s\n" "$trackma_entry_index" "$anime_ep" | trackma_query >/dev/null 2>&1
+        printf "update %s %s\n" "$trackma_entry_index" "$((anime_ep + 1))" | trackma_query >/dev/null 2>&1
         # we check if theres actually something to save
         # save other shows and replace the new updated registry for this show
         preserved_history=$(awk "!/^$(sanitize_ext_regex "$anime_title_trackma").*$/" "$WATCH_HISTORY_FILE")
