@@ -1198,6 +1198,9 @@ play_anime() {
                     # so we do not need two options in that case
                     # incognito mode does not know about synonyms either
                     nyaa_search_res="${nyaa_search_res}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n{\"name\": \"$SELECT_SOURCE\"}"
+                    # replace simple quotes with 'smart quotes' to avoid filtering command failure
+                    # and to not disrupt the user experience
+                    nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
                 fi
                 clear_lines
             fi
