@@ -788,7 +788,7 @@ EOF
 # internet connectivity check with random selection of hosts
 connectivity_check() {
     urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
-    urls_len=$(printf '%s\n' "$urls" | array_len)
+    urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
     rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
     rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
     if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc "$rand_url" 443 >/dev/null 2>&1; then
