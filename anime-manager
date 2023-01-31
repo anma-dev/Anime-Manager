@@ -1215,10 +1215,10 @@ play_anime() {
                     # incognito mode source selection menu is the same as the main menu
                     # so we do not need two options in that case
                     # incognito mode does not know about synonyms either
-                    nyaa_search_res="${nyaa_search_res}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n{\"name\": \"$SELECT_SOURCE\"}"
+                    nyaa_search_res="{\"name\": \"$TO_MAIN_MENU\"}\n{\"name\": \"$SELECT_SOURCE\"}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n${nyaa_search_res}"
                     # replace simple quotes with 'smart quotes' to avoid filtering command failure
                     # and to not disrupt the user experience
-                    nyaa_search_res="{\"name\": \"$TO_MAIN_MENU\"}\n$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
+                    nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
                 fi
                 clear_lines
             fi
