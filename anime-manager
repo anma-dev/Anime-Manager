@@ -497,11 +497,7 @@ NYAA_SEARCH_BIN="$(getcwd)/lib/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$LOG_DIR/nyaa_search.log"
 NYAA_FE_LOGFILE="$LOG_DIR/file_extractor.log"
 NYAA_FE_BIN="$(getcwd)/lib/file_extractor.py"
-if [ "$DEBUG" -eq 1 ]; then
-    WEBTORRENT_CLI="../webtorrent-cli/bin/cmd.js"
-else
-    WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
-fi
+WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
 
 # logfiles
 WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
