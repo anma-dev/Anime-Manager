@@ -114,7 +114,7 @@ Issues and suggestions are welcome! For guaranteed serious discussion use the Gi
 
 ## Say thanks
 
- It's not expected but you can send a small thank you note to the dev to let them know this project was helpful to you by clicking the badge below.
+ It's not expected but you can send a short thank you note to the dev to let them know this project was helpful to you by clicking the badge below.
 
   [![saythanks](https://img.shields.io/badge/say-thanks-ff69b4.svg)](https://saythanks.io/to/anma-dev)
 
