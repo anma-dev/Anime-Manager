@@ -87,7 +87,20 @@ Ensure all dependencies binaries are available through your `$PATH`.
 
 The script has an automatic install mode for dependencies that supports Ubuntu, Debian, and macOS. Automatic install respects your existing installation.
 
-Clone the repo and give executable permissions to `anime-manager` and everything under `utils/` folder, and put anime-manager in your `PATH`. Make sure the `lib` and `utils` folders are right next to the main script. We will provide more information once the first release is published.
+Clone the repo, initialize submodules, and then run the main script:
+
+````text
+$ git clone --recurse-submodules https://github.com/anma-dev/Anime-Manager.git Anime-Manager
+$ cd Anime-Manager/
+$ ./anime-manager
+Anime Manager can automatically install its dependencies.
+Some dependencies were not found!
+### Anime Manager autoinstall ###
+...
+🎉 Finished the autoinstall!
+Restart your shell to start using Anime Manager.
+````
+
 
 ### Windows
 
