@@ -181,7 +181,7 @@ select_account() {
                 $FZF -i --prompt="Select an option: " \
                     --border-label "╢ ♣  ACCOUNT SELECTION ♣  ╟" \
                     --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                    --header-first --tac --no-sort
+                    --header-first
         )
         if [ "$(printf "%s" "$account_choice" | cut -d " " -f1)" = "🕵️" ]; then
             INCOGNITO_MODE=1
@@ -697,7 +697,7 @@ format_trackma_list() {
     format_trackma_list_list="$(filter_trackma_list "$1")"
     # remove character sequences and add an emoji next to shows currently airing
     format_trackma_list_list=$(printf '%b' "$format_trackma_list_list" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],📣 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/📣/ s/(.*)\.{3}(.*)/\1\2/")
-    printf "%b" "$format_trackma_list_list" | sort -r
+    printf "%b" "$format_trackma_list_list"
 }
 
 # cleans a trackma entry from status emoji and escape codes
@@ -1218,7 +1218,7 @@ play_anime() {
                     nyaa_search_res="${nyaa_search_res}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n{\"name\": \"$SELECT_SOURCE\"}"
                     # replace simple quotes with 'smart quotes' to avoid filtering command failure
                     # and to not disrupt the user experience
-                    nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")\n{\"name\": \"$TO_MAIN_MENU\"}"
+                    nyaa_search_res="{\"name\": \"$TO_MAIN_MENU\"}\n$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
                 fi
                 clear_lines
             fi
@@ -1230,6 +1230,7 @@ play_anime() {
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                         --header-first \
+                        --tac \
                         --preview "$FZF_PREVIEW_WINDOW_CMD" \
                         --preview-window "$PREVIEW_WINDOW_OPTS" \
                         --preview-label ' Expanded view ' \
@@ -1335,11 +1336,12 @@ play_anime() {
                 clear_lines
                 results=$(sed -En '/^[[:space:]]+[0-9]+\./p' "$ANIMDL_LOGFILE")
                 animdl_search_index="$(
-                    printf "%b" "$results\n$SELECT_SOURCE\n$TO_MAIN_MENU" | sed "s/^[[:space:]]*//" |
+                    printf "%b" "$SELECT_SOURCE\n$TO_MAIN_MENU\n$results" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
                             --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_anime_title") ▶ Episode $anime_ep ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
-                            --header-first | cut -d '.' -f1
+                            --header-first \
+                            --tac | cut -d '.' -f1
                 )"
                 if [ "$animdl_search_index" = "$SELECT_SOURCE" ]; then
                     play_status="$PLAY_STATUS_SELECT_SOURCE"
@@ -1659,8 +1661,7 @@ account_menu() {
                         $FZF -i --prompt="Select an anime: " \
                             --border-label "╢ ♣  WATCH HISTORY ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
-                            --header-first \
-                            --tac --no-sort
+                            --header-first --tac
                 )
                 [ "$sel" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
                 anime_title_trackma=$(printf "%s" "$sel" | sed -En "s/^(.*)[[:space:]]+([[:digit:]]+)$/\1/p" | sed "s/[[:space:]]*$//" | sed "s/\[.*\]//g" | sed "s/ $//g")
@@ -1717,7 +1718,7 @@ account_menu() {
                 else
                     full_info="$(printf "%s" "$full_info")"
                     choice=$(
-                        printf "%s\n%s" "$full_info" "$TO_MAIN_MENU" |
+                        printf "%s\n%s" "$TO_MAIN_MENU" "$full_info" |
                             $FZF -i --prompt "Choose an anime to watch: " \
                                 --border-label "╢ ♣  YOUR $(
                                     if [ "$TRACKER_SERVICE" = "anilist" ]; then
@@ -1727,7 +1728,7 @@ account_menu() {
                                     fi
                                 ) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
-                                --header-first
+                                --header-first --tac
                     )
                 fi
                 [ "$choice" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
@@ -1934,11 +1935,11 @@ account_menu() {
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
             [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
             choice="$(
-                printf "%b" "$results\n$TO_MAIN_MENU" |
+                printf "%b" "$TO_MAIN_MENU\n$results" |
                     $FZF --prompt="Choose the anime to add: " \
                         --border-label "╢ ♣  ADD NEW ANIME ($status list) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Add" \
-                        --header-first
+                        --header-first --tac
             )"
             [ -z "$results" ] && clear_modifiers && continue
             if [ "$choice" = "$TO_MAIN_MENU" ]; then
@@ -1962,13 +1963,13 @@ account_menu() {
             FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query)
             FULL_LIST=$(format_trackma_list "$FULL_LIST")
             [ -z "$FULL_LIST" ] && FULL_LIST="No anime found in this list..."
-            FULL_LIST="$FULL_LIST\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
+            FULL_LIST="$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$FULL_LIST"
             anime_sel=$(
                 printf "%b" "$FULL_LIST" |
                     $FZF -i --prompt="Choose an anime to DELETE: " \
                         --border-label "╢ ♣  DELETE ANIME ($status list) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" \
-                        --header-first
+                        --header-first --tac
             )
             if [ "$anime_sel" = "$BACK_TO_SUBMENU" ]; then
                 prompt="$BACK_TO_SUBMENU"
@@ -2023,11 +2024,11 @@ account_menu() {
                         continue
                     fi
                     choice="$(
-                        printf "%b" "$res\n$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY" |
+                        printf "%b" "$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$res" |
                             $FZF -i --prompt="Choose an anime to update: " \
                                 --border-label "╢ ♣  ${update_op_menu_label} ($status list) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                                --header-first
+                                --header-first --tac
                     )"
                     if [ "$choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
                         break
@@ -2101,14 +2102,14 @@ account_menu() {
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
                     full_info="$(format_trackma_list "$full_info")"
-                    full_info="$full_info\n$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
+                    full_info="$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
                     # anime selection loop
                     anime_choice="$(
                         printf "%b" "$full_info" |
-                            $FZF -i --prompt="Choose an anime: " \
+                            $FZF -i --prompt="Choose an anime to score: " \
                                 --border-label "╢ ♣  SCORE ANIME ($status) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                                --header-first
+                                --header-first --tac
                     )"
                     [ "$anime_choice" = "$TO_MAIN_MENU" ] && clear_modifiers && break 2
                     [ "$anime_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
@@ -2120,7 +2121,7 @@ account_menu() {
                             --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_choice_name") ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --pointer 🌟 \
-                            --header-first | sed -En "s/\(([[:digit:]]+)\).*/\1/p"
+                            --header-first --tac | sed -En "s/\(([[:digit:]]+)\).*/\1/p"
                     )
                     clear_lines
                     printf "filter %s\nscore %s %s\n" "$status" "$anime_choice_id" "$score" | trackma_query >/dev/null 2>&1
@@ -2142,13 +2143,13 @@ account_menu() {
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
                     full_info=$(format_trackma_list "$full_info")
                     [ -z "$full_info" ] && full_info="No entries in this list."
-                    full_info="$full_info\n$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY"
+                    full_info="$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
                     choice="$(
                         printf "%b" "$full_info" |
                             $FZF -i --prompt="Choose an anime: " \
                                 --border-label "╢ ♣  SET ALTERNATIVE NAME ($status list) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                                --header-first
+                                --header-first --tac
                     )"
                     [ "$choice" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break 2
                     [ "$choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
@@ -2273,7 +2274,7 @@ account_menu() {
             while true; do
                 FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
                 sel=$(
-                    printf "%s\n%s\n%s" "$msg" "$top_menu_entry" "$SWITCH_STATUS_MSG_MENU_ENTRY" |
+                    printf "%s\n%s\n%s" "$top_menu_entry" "$SWITCH_STATUS_MSG_MENU_ENTRY" "$msg" |
                         $FZF -i --bind "ctrl-l:toggle-preview" --preview "$FZF_PREVIEW_WINDOW_CMD" \
                             --preview-window "$PREVIEW_WINDOW_OPTS" \
                             --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
@@ -2289,7 +2290,8 @@ account_menu() {
                             ) ($status list) ♣  " \
                             --header "⇅ Navigation - [Ctrl-L] Toggle info - [ESC] Exit - [Enter] Play ▶" \
                             --header-first \
-                            --prompt "Choose an anime: "
+                            --prompt "" \
+                            --tac
                 )
                 [ "$sel" = "$top_menu_entry" ] && clear_modifiers && break
                 [ "$sel" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
@@ -2513,9 +2515,9 @@ main() {
     MENU_PREVIEW_POS_MODES="down,70%|left,70%|top,70%|"
     if [ "$MINIMAL" -eq 1 ]; then
         # initial preview options
-        FZF="fzf -0 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top --layout=reverse --info inline --no-separator --bind change:first"
+        FZF="fzf -0 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top --layout=reverse --info inline --no-separator --bind change:first --no-sort"
     else
-        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1 --bind change:first"
+        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1 --bind change:first --no-sort"
     fi
     while true; do
         if [ "$INCOGNITO_MODE" -eq 0 ]; then
