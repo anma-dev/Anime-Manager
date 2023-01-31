@@ -953,13 +953,17 @@ media_player_menu() {
         return
     fi
     clear_lines
-    series_menu_title=$(trim "$anime_title")
+    if [ -z "$anime_title_trackma" ]; then
+        printf "💥 anime_title_trackma is not set"
+        kill $$
+    fi
+    trimmed_anime_title=$(trim "$anime_title_trackma")
     playing_menu=""
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
         # trackma account entries
         if [ "$last_show_episode" != "?" ] && [ "$anime_ep" -eq "$last_show_episode" ]; then
             playing_menu="🏁 Set as Watched + Move to Completed list\n"
-            [ "$show_type" != "movie" ] && series_menu_title="🏁 END! ─ $series_menu_title"
+            [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
         else
             playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched\n"
         fi
@@ -985,7 +989,7 @@ media_player_menu() {
     opt=$(printf "%b" "${playing_menu}\n${TO_MAIN_MENU}" |
         $FZF -i --prompt="Choose an action: " \
             --border-label "╢ ♣  📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" |
-                tr '[:lower:]' '[:upper:]') ─ ${series_menu_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ %s" "$anime_ep") ♣  ╟" \
+                tr '[:lower:]' '[:upper:]') ─ ${trimmed_anime_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ %s" "$anime_ep") ♣  ╟" \
             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
             --header-first \
             --preview "$FZF_PREVIEW_WINDOW_CMD" \
