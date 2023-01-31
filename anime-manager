@@ -1329,13 +1329,17 @@ play_anime() {
                 clear_lines
                 results=$(sed -En '/^[[:space:]]+[0-9]+\./p' "$ANIMDL_LOGFILE")
                 animdl_search_index="$(
-                    printf "%b" "$results\n$SELECT_SOURCE" | sed "s/^[[:space:]]*//" |
+                    printf "%b" "$results\n$SELECT_SOURCE\n$TO_MAIN_MENU" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
                             --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_anime_title") ▶ Episode $anime_ep ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first | cut -d '.' -f1
                 )"
                 if [ "$animdl_search_index" = "$SELECT_SOURCE" ]; then
+                    play_status="$PLAY_STATUS_SELECT_SOURCE"
+                    animdl_search_index=""
+                    return
+                elif [ "$animdl_search_index" = "$TO_MAIN_MENU" ]; then
                     play_status=$PLAY_STATUS_EXITED
                     animdl_search_index=""
                     return
