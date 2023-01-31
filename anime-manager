@@ -1269,7 +1269,7 @@ play_anime() {
             magnet_link="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
         fi
         select_magnet_file
-        [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
+        [ "$file_index" = "◂" ] && play_status=$PLAY_STATUS_OKPLAYING && return
         if [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
             # could not find matching file
             return
@@ -1279,6 +1279,10 @@ play_anime() {
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
+            return
+        elif [ -z "$file_index" ]; then
+            # return to 'now playing' menu
+            play_status=$PLAY_STATUS_OKPLAYING
             return
         else
             torrent_magnet_link
@@ -1440,13 +1444,17 @@ EOF
             cached_playback=1
             magnet_link="$(get_cached_link)"
             select_magnet_file
-            [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
+            [ "$file_index" = "◂" ] && play_status=$PLAY_STATUS_OKPLAYING && return
             if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
                 printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR: please contact development" && line_to_remove
                 printf "$MSG_WARN_COLOR%s$RESET" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
                 magnet_link=""
                 file_list=""
                 play_status=$PLAY_STATUS_ERRORED
+                return
+            elif [ -z "$file_index" ]; then
+                # return to 'now playing' menu
+                play_status=$PLAY_STATUS_OKPLAYING
                 return
             else
                 torrent_magnet_link

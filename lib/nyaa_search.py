@@ -7,7 +7,7 @@ from NyaaPy.nyaa import Nyaa
 from Logger import Logger
 import requests
 from http import HTTPStatus
-import return_codes as codes
+import codes
 from decorators import exp_back_off
 from circuit_breaker import CBreaker
 c_breaker = CBreaker()

@@ -1,5 +1,6 @@
 '''
-Return codes to feed the main Anime Manager script (anime-manager)
+This script is part of Anime Manager
+https://github.com/anma-dev/Anime-Manager
 '''
 
 # nyaa_search
@@ -10,3 +11,4 @@ RET_CODE_REDIRECT_ERR = -4
 RET_CODE_HTTP_429 = -5
 # nyaa_torrent_fid
 RET_CODE_CONTENT_MISMATCH = -6
+CODE_FILE_SEL = -7

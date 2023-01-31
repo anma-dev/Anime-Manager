@@ -9,7 +9,7 @@ import anitopy
 import csv
 from contextlib import suppress
 from Logger import Logger
-import return_codes as codes
+import codes
 
 '''
 This script is part of Anime Manager.
@@ -46,6 +46,8 @@ if match:
     args.synonyms.append(match[0].replace("&", "and"))
 all_titles = [] + args.synonyms
 all_titles.append(args.title)
+# remove empty values
+all_titles = [x for x in all_titles if len(x) != 0]
 
 logger = Logger(file="file_extractor.log",
                 debug=args.debug,
@@ -58,9 +60,7 @@ match = False
 video_ext = (".webm", ".mkv", ".flv", ".avi", ".mov", ".wmv", ".mp4", ".m4p",
              ".m4v", ".mpg", ".mp2", ".mpeg", ".mpe", ".mpv", ".m2v", ".3gp",
              ".3g2")
-error_code = -2
-file_sel_code = -1
-index = file_sel_code
+match_file_index = codes.CODE_FILE_SEL
 video_res = []
 
 
@@ -83,6 +83,21 @@ def normalize_fragment(fragment: str):
 
 def split_filename(f: str):
     return f.split(" - ")
+
+
+def prioritize_match_name():
+    """
+    Try to find a title match and prioritize it.
+    This is useful for example when some uploader bundles 
+    stuff that a user did not request but is still a match
+    by episode.
+    It will not remove matches.
+    """
+    for index, match_file in enumerate(video_res):
+        for x in all_titles:
+            if re.findall(f"{normalize_title(x)}", normalize_title(match_file)):
+                return index
+    return None
 
 
 def extract_episode(fragment: str):
@@ -145,6 +160,11 @@ try:
             if "ova" in normalize_title(filename):
                 video_res.append(filename_og)
         else:
+            """
+            Match only the episode number because it might be the case
+            that some uploader did not name the files with the anime 
+            title or synonyms but would still be a match.
+            """
             if not extract_episode(filename):
                 for fragment in split_filename(filename):
                     if not extract_episode(fragment):
@@ -153,8 +173,8 @@ try:
 
 except Exception as e:
     logger.error(traceback.format_exc())
-    index = codes.RET_CODE_FATAL_ERROR
-    res = f"None////None////{index}"
+    match_file_index = codes.RET_CODE_FATAL_ERROR
+    res = f"None////None////{match_file_index}"
 else:
     if len(video_res) == 0:
         msg = [
@@ -166,12 +186,16 @@ else:
         ]
         logger.info("\n".join(msg))
         comp_res = '\\n'.join(video_res)
-        index = codes.RET_CODE_CONTENT_MISMATCH
-        res = f"None////None////{index}"
+        match_file_index = codes.RET_CODE_CONTENT_MISMATCH
+        res = f"None////None////{match_file_index}"
     else:
-        # return index from first match
-        index = int(re.findall("^(\d+)\s+.*", video_res[0])[0])
+        video_res_index = prioritize_match_name()
+        if not video_res_index:
+            # select the first match by default
+            video_res_index = 0
+        match_file_index = int(re.findall(
+            "^(\d+)\s+.*", video_res[video_res_index])[0])
+        parsed_title_res = anitopy.parse(video_res[video_res_index])
         comp_res = '\\n'.join(video_res)
-        parsed_title_res = anitopy.parse(video_res[0])
-        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{index}"
+        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{match_file_index}"
 print(res)
