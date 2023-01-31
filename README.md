@@ -100,7 +100,7 @@ Some dependencies were not found!
 🎉 Finished the autoinstall!
 Restart your shell to start using Anime Manager.
 ````
-
+Then restart your terminal and run the main script again. You can also download compressed code for a version [here](https://github.com/anma-dev/Anime-Manager/tags). Versions are more stable than master.
 
 ### Windows
 
