@@ -140,6 +140,7 @@ clear_modifiers() {
     file_index=""
     animdl_playthrough=0
     animdl_search_index=1
+    nyaa_search_ret_code=""
 }
 
 reset_logs() {
@@ -929,7 +930,7 @@ media_player_menu() {
         else
             printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play (torrenting)." && line_to_remove
         fi
-        printf "%s\n" "      [Enter]  Source selection ▶" && line_to_remove
+        printf "%s\n" "      [Enter]  ◂ MAIN MENU" && line_to_remove
         # recovery menu loop
         while true; do
             read -r key
@@ -1013,7 +1014,7 @@ media_player_menu() {
                 player_source="cached_link"
             else
                 # If no bookmark is set switch to nyaa search.
-                # This could happen if the user deleted the 
+                # This could happen if the user deleted the
                 # bookmark from the 'now playing' menu.
                 player_source="torrenting"
             fi
@@ -1196,13 +1197,12 @@ play_anime() {
                 echo && line_to_remove
                 printf "$MSG_INFO_COLOR%s$RESET" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_BIN --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
-                nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
-                nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $2}')
+                if printf "%s" "$nyaa_search_res" | grep "////" >/dev/null 2>&1; then
+                    nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
+                    nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $2}')
+                fi
                 if [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
-                    echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 $nyaa_search_ret_msg" && line_to_remove
-                    play_status=$PLAY_STATUS_ERRORED
-                    return
+                    nyaa_search_res="{\"name\": \"$nyaa_search_ret_msg\"}"
                 elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
                     echo && line_to_remove
                     printf "$MSG_WARN_COLOR%s$RESET" "      🚫 $nyaa_search_ret_msg" && line_to_remove
@@ -1245,11 +1245,17 @@ play_anime() {
                         --bind "ctrl-t:change-prompt($(printf "\033[42;37m TRUSTED: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/🟢/p'" \
                         --bind "ctrl-o:change-prompt($(printf "\033[45;37m OVA: \033[0m"))+reload:printf \"%s\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[oO][vV][aA]/p'"
             )
+            # These conditionals need to be in this order for the user to
+            # be able to select a different source or synonym before exiting
+            # if the search returned no results.
             if [ "$choice" = "$NYAA_SEARCH_SYNONYM" ]; then
                 play_status="$PLAY_STATUS_SEARCH_SYNONYM"
                 return
             elif [ "$choice" = "$SELECT_SOURCE" ]; then
                 play_status="$PLAY_STATUS_SELECT_SOURCE"
+                return
+            elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
+                play_status="$PLAY_STATUS_EXITED"
                 return
             elif [ "$choice" = "$TO_MAIN_MENU" ]; then
                 play_status="$PLAY_STATUS_EXITED"
@@ -1262,6 +1268,10 @@ play_anime() {
         fi
         select_magnet_file
         [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
+        if [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
+            # could not find matching file
+            return
+        fi
         if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
             printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR!" && line_to_remove
             magnet_link=""
