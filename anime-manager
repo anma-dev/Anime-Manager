@@ -1156,9 +1156,9 @@ select_magnet_file() {
         fi
         FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {}"
         file_index=$(
-            printf "%b" "$file_list\n◀ Now Playing" | sed "s/\"//g" |
+            printf "%b" "$file_list\n◂ NOW PLAYING" | sed "s/\"//g" |
                 $FZF -i --prompt "Choose a file: " \
-                    --border-label "╢ ♣  🗃️  FILE SELECTION: $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
+                    --border-label "╢ ♣  🗃️  FILE SELECTION ─ $(trim "$anime_title_trackma") ▶ $play_episode_anime_episode ♣  ╟" \
                     --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                     --header-first \
                     --preview "$FZF_PREVIEW_WINDOW_CMD" \
