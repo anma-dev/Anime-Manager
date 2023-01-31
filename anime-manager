@@ -166,6 +166,7 @@ start_substring() {
 }
 
 select_account() {
+    paint_logo
     # account selection
     TRACKMA_ACCOUNTS="$(sed -nE "/[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
     if [ -n "$TRACKMA_ACCOUNTS" ]; then
@@ -199,6 +200,7 @@ select_account() {
         TRACKER_SERVICE="$(get_remote_tracker)"
     fi
     printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
+    tput clear
 }
 
 check_trackma_config() {
@@ -2302,6 +2304,7 @@ account_menu() {
 }
 
 incognito_menu() {
+    tput clear
     INCOGNITO_MENU_HELPTEXT="
 👤  Switch Incognito Mode off.
 ───
