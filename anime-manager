@@ -962,7 +962,7 @@ media_player_menu() {
             playing_menu="🏁 Set as Watched + Move to Completed list\n"
             [ "$show_type" != "movie" ] && series_menu_title="🏁 END! ─ $series_menu_title"
         else
-            playing_menu="⏭️  Set as Watched + Play next\n✅ Set as Watched\n"
+            playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched\n"
         fi
     fi
     # player reset entries
@@ -985,8 +985,8 @@ media_player_menu() {
     FZF_PREVIEW_WINDOW_CMD="printf \"%s\" '$debug_match_info' | jq | bat -p --language=json"
     opt=$(printf "%b" "${playing_menu}\n${TO_MAIN_MENU}" |
         $FZF -i --prompt="Choose an action: " \
-            --border-label "╢ 📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" |
-                tr '[:lower:]' '[:upper:]') ─ ${series_menu_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ Episode %s" "$anime_ep") ╟" \
+            --border-label "╢ ♣  📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" |
+                tr '[:lower:]' '[:upper:]') ─ ${series_menu_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ %s" "$anime_ep") ♣  ╟" \
             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
             --header-first \
             --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -1156,7 +1156,7 @@ select_magnet_file() {
             printf "%b" "$file_list\n◀ Now Playing" | sed "s/\"//g" |
                 $FZF -i --prompt "Choose a file: " \
                     --border-label "╢ ♣  🗃️  FILE SELECTION: $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
-                    --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Stream (torrenting) ▸" \
+                    --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                     --header-first \
                     --preview "$FZF_PREVIEW_WINDOW_CMD" \
                     --preview-window "$PREVIEW_WINDOW_OPTS" \
@@ -1228,7 +1228,7 @@ play_anime() {
                 printf "%b" "$nyaa_search_res" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play (torrenting) ▸" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                         --header-first \
                         --preview "$FZF_PREVIEW_WINDOW_CMD" \
                         --preview-window "$PREVIEW_WINDOW_OPTS" \
@@ -1324,7 +1324,7 @@ play_anime() {
                     printf "%b" "$results\n$SELECT_SOURCE" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
                             --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_anime_title") ▶ Episode $anime_ep ♣  ╟" \
-                            --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play" \
+                            --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first | cut -d '.' -f1
                 )"
                 if [ "$animdl_search_index" = "$SELECT_SOURCE" ]; then
@@ -1636,8 +1636,7 @@ account_menu() {
                     printf "%b" "$HIST" |
                         $FZF -i --prompt="Select an anime: " \
                             --border-label "╢ ♣  WATCH HISTORY ♣  ╟" \
-                            --header "[Enter] Play" \
-                            --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▸" \
+                            --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
                             --header-first \
                             --tac --no-sort
                 )
@@ -1682,7 +1681,7 @@ account_menu() {
                                         printf "%s" "WATCHING LIST"
                                     fi
                                 ) ♣  ╟" \
-                                --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▸" \
+                                --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
                                 --header-first
                     )
                     clear_modifiers
@@ -1705,7 +1704,7 @@ account_menu() {
                                         printf "%s" "WATCHING LIST"
                                     fi
                                 ) ♣  ╟" \
-                                --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▸" \
+                                --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
                                 --header-first
                     )
                 fi
@@ -1731,13 +1730,13 @@ account_menu() {
             if [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Watching")" ] &&
                 [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Rewatching")" ]; then
                 new_status="Watching"
-                menu_play_options="▶️  Play\n🔄 Set status as Watching + Play"
+                menu_play_options="Play ▶\n🔄 Set status as Watching + Play ▶"
                 if [ "$status" = "$(get_trackma_status_code "Completed")" ]; then
-                    menu_play_options="▶️ Play\n🔄 Set status as Watching + Reset watched + Continue Playing"
+                    menu_play_options="Play ▶\n🔄 Set status as Watching + Reset watched + Play ▶"
                     reset_episodes=1
                     if [ "$TRACKER_SERVICE" = "anilist" ]; then
                         new_status="Rewatching"
-                        menu_play_options="▶️ Play\n🔄 Set status as Rewatching + Continue Playing"
+                        menu_play_options="Play ▶\n🔄 Set status as Rewatching + Play ▶"
                     fi
                 else
                     reset_episodes=0
@@ -2266,7 +2265,7 @@ account_menu() {
                                     printf " SHOWS"
                                 fi
                             ) ($status list) ♣  " \
-                            --header "⇅ Navigation - [Ctrl-L] Toggle info - [ESC] Exit - [Enter] Play ▸" \
+                            --header "⇅ Navigation - [Ctrl-L] Toggle info - [ESC] Exit - [Enter] Play ▶" \
                             --header-first \
                             --prompt "Choose an anime: "
                 )
