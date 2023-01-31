@@ -1467,7 +1467,7 @@ $LOGO_B64
 EOF
         )"
     fi
-    printf "$TITLE_COLOR%s$RESET" "      🍿 Watch and Track Anime from Your Terminal"
+    printf "$TITLE_COLOR%s$RESET" "      🍿 Watch and Sync Anime from Your Terminal"
     printf "$MSG_HELP_COLOR%s$RESET" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
 
 }
