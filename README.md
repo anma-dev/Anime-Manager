@@ -6,7 +6,7 @@ Anime Manager is a powerful open source script that lets you watch (streaming + 
 
 <img src="https://user-images.githubusercontent.com/121255032/215242211-3225dcc9-17f2-41fa-bf61-ffa003aa4377.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/215242219-6edcfccf-a358-47af-9480-c24a0e3654ad.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/215242517-4f726787-1c4b-49ec-898f-a8745b5fcc98.png" width="30%"></img> 
 
-You can use your existing anime list service (those [trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your progress as you watch, all from one utility for added convenience!
+You can use your existing anime list service (those [Trackma supports](https://github.com/z411/trackma#currently-supported-websites)) to synchronize your progress as you watch, all from one utility for added convenience!
 
 ## Features
 
