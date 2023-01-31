@@ -1265,8 +1265,7 @@ play_anime() {
         select_magnet_file
         [ "$file_index" = "◀" ] && play_status=$PLAY_STATUS_OKPLAYING && return
         if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
-            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR: please contact development" && line_to_remove
-            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
+            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR!" && line_to_remove
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
