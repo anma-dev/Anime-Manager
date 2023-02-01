@@ -1857,7 +1857,7 @@ account_menu() {
                         fi
                     fi
                 fi
-                show_info="$(get_show_info "$anime_title_trackma" "$status")"
+                show_info="$(get_show_info "$choice" "$status")"
                 if [ -z "$show_type" ]; then
                     if printf "%s" "$show_info" | grep "Type: " >/dev/null 2>&1; then
                         show_type="$(printf "%b" "$show_info" | grep "Type: " | awk -F": " '{print $2}')"
