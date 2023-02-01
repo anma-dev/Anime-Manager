@@ -784,16 +784,25 @@ EOF
     fi
 }
 
-# internet connectivity check with random selection of hosts
+# Internet connectivity check with random selection of hosts
 connectivity_check() {
+    connectivity_check_tmout=3
     urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
     urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
     rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
     rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
-    if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc "$rand_url" 443 >/dev/null 2>&1; then
-        true
-    else
-        false
+    if [ "$OSTYPE" = "Darwin" ]; then
+        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc -G $connectivity_check_tmout "$rand_url" 443 >/dev/null 2>&1; then
+            true
+        else
+            false
+        fi
+    elif [ "$OSTYPE" = "Linux" ]; then
+        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | timeout $connectivity_check_tmout nc "$rand_url" 443 >/dev/null 2>&1; then
+            true
+        else
+            false
+        fi
     fi
 }
 
