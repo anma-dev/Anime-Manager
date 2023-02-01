@@ -806,8 +806,10 @@ get_show_info_function_code='get_show_info() {
     elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
         printf "%s\n" "Switch to another list"
     else
-        trackma_entry_index="$(get_entry_index "$get_show_info_show_title" "$get_show_info_status")"
-        get_show_info_info="$(printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$trackma_entry_index" | trackma_query | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
+        trackma_entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+        printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$trackma_entry_index" | trackma_query >/dev/null 2>&1
+        while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+        get_show_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
         printf "\n%b" "$get_show_info_info"
     fi
 }'
@@ -2272,10 +2274,11 @@ account_menu() {
             fi
             export status
             while true; do
-                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $get_show_info_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
+                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
                 sel=$(
                     printf "%s\n%s\n%s" "$top_menu_entry" "$SWITCH_STATUS_MSG_MENU_ENTRY" "$msg" |
-                        $FZF -i --bind "ctrl-l:toggle-preview" --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                        $FZF -i --bind "ctrl-l:toggle-preview" \
+                            --preview "$FZF_PREVIEW_WINDOW_CMD" \
                             --preview-window "$PREVIEW_WINDOW_OPTS" \
                             --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
                             --preview-label ' Info ' \
