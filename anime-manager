@@ -3,120 +3,67 @@
 set -o errexit
 set -o nounset
 
-# override locale categories
-eval export "$(locale)"
-unset LC_ALL
-LANG="C"
-LC_ALL="C"
-LC_COLLATE="C"
-LC_CTYPE="C"
-LC_MESSAGES="C"
-LC_MONETARY="C"
-LC_NUMERIC="C"
-LC_TIME="C"
-LC_ADDRESS="C"
-LC_IDENTIFICATION="C"
-LC_MEASUREMENT="C"
-LC_NAME="C"
-LC_PAPER="C"
-LC_TELEPHONE="C"
-LANGUAGE="en_US.UTF-8"
-export LANG LC_ALL \
-    LC_COLLATE \
-    LC_CTYPE \
-    LC_MESSAGES \
-    LC_MONETARY \
-    LC_NUMERIC \
-    LC_TIME \
-    LANGUAGE \
-    LC_ADDRESS \
-    LC_IDENTIFICATION \
-    LC_MEASUREMENT \
-    LC_NAME \
-    LC_PAPER \
-    LC_TELEPHONE
+#*********************************
+#* ANIME MANAGER - Watch and sync anime from your terminal.
+# Project repository: https://github.com/anma-dev/Anime-Manager
+# LICENSE: GNU GPL 3.0
+VERSION="v0.4.5-alpha"
+#*********************************
 
-. ./lib/array
+#*********************************
+#* UTILITY FUNCTIONS
+#*********************************
 
-VERSION="alpha-0.4.4"
-OSTYPE="$(uname -s 2>/dev/null)"
-if [ "$OSTYPE" = "Linux" ]; then
-    DISTRO_ID="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
-    DISTRO_VERSION="$(awk -F= '$1 == "VERSION_ID" {print $2}' /etc/*-release | sed "s/\"//g")"
-fi
-DEFAULT_DOWNLOADS_DIR="/tmp/anime-manager/webtorrent"
-MEDIA_PLAYERS="mpv | iina | vlc | smplayer"
+#*********************************
+#* GENERAL UTILITIES
+#*********************************
 
-parser_definition() {
-    setup REST help:usage -- "Usage: anime-manager [options]..." ''
-    msg -- 'Options:'
-    flag MINIMAL -m --minimal init:="0" -- "Minimalistic interface. It does not print the logo, the menu  
-                              fills the screen and is reversed. Dimmer colors."
-    flag INCOGNITO_MODE -i --incognito init:="0" -- "Switch Incognito Mode on. Your activity will not be synced 
-                              with the remote anime list tracking service."
-    flag MONOCHROME_LOGO --monochrome-logo init:="0" -- "Print the monochromatic logo instead of the big orange one.
-                              Suitable for terminals that do not support 24-bit colors."
-    flag TORRENT_ONLY -t --torrent-only init:="0" -- "Always torrent the anime selection. Always load bookmark if 
-                              possible or automatically search Nyaa Torrents."
-    param TORRENT_DOWNLOADS_DIR -f --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting.
-                              It is created if it does not exist."
-    param MEDIA_PLAYER_APP -p --player pattern:"$MEDIA_PLAYERS" -- "Select the media player. Defaults to mpv or iina (macOS)
-                              Available players: iina, mpv, smplayer, vlc."
-    flag DEBUG -d --debug init:="0" -- "Start debug mode."
-    disp :usage -h --help
-    disp VERSION -v --version init:="0"
-}
-
-eval "$(utils/getoptions parser_definition) exit 1"
-
-if [ "$DEBUG" -eq 1 ]; then
-    set -x
-    export NYAA_DEBUG="$DEBUG"
-else
-    unset NYAA_DEBUG
-fi
-
-if [ "$OSTYPE" != "Darwin" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
-    printf "The iina media player is not available for your platform.\n"
-    exit 1
-fi
-
-# set the default media player
-set_media_player() {
+# Internet connectivity check with random selection of hosts
+connectivity_check() {
+    connectivity_check_tmout=3
+    urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
+    urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
+    rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
+    rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
     if [ "$OSTYPE" = "Darwin" ]; then
-        MEDIA_PLAYER_APP="iina"
-    else
-        MEDIA_PLAYER_APP="mpv"
+        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc -G $connectivity_check_tmout "$rand_url" 443 >/dev/null 2>&1; then
+            true
+        else
+            false
+        fi
+    elif [ "$OSTYPE" = "Linux" ]; then
+        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | timeout $connectivity_check_tmout nc "$rand_url" 443 >/dev/null 2>&1; then
+            true
+        else
+            false
+        fi
     fi
 }
 
-if [ "$MONOCHROME_LOGO" -eq 1 ] && [ "$MINIMAL" -eq 1 ]; then
-    printf "Error: Incompatible options --monochrome-logo, --minimal\nPlease use one or the other."
-    exit
-fi
+#! Unused
+torrent_is_playing() {
+    process_name="$(ps -p "$webtorrentpid" -o comm=)"
+    if [ "$process_name" = "WebTorrent" ]; then
+        true
+    else
+        false
+    fi
+}
 
-if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "--" >/dev/null 2>&1; then
-    printf "Requires an argument: --downloads-folder\n"
-    exit 1
-fi
+# get the shell configuration file path
+get_shell_config_file() {
+    get_shell_config_file_cfg_file=""
+    if [ "$SHELL" = "/bin/bash" ]; then
+        [ "$OSTYPE" = "Linux" ] && touch "$HOME/.bashrc" && get_shell_config_file_cfg_file="$HOME/.bashrc"
+        [ "$OSTYPE" = "Darwin" ] && touch "$HOME/.bash_profile" && get_shell_config_file_cfg_file="$HOME/.bash_profile"
+    fi
+    # nvm on macos needs the shell config file
+    [ "$SHELL" = "/bin/zsh" ] && touch "$HOME/.zshrc" && get_shell_config_file_cfg_file="$HOME/.zshrc"
+    printf "%s" "$get_shell_config_file_cfg_file"
+}
 
-if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "~" >/dev/null 2>&1; then
-    printf "Full path required: --downloads-folder\n"
-    exit 1
-fi
-
-if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "\./" >/dev/null 2>&1; then
-    printf "Full path required: --downloads-folder\n"
-    exit 1
-fi
-
-if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "\\$" >/dev/null 2>&1; then
-    printf "Full path required: --downloads-folder\n"
-    exit 1
-fi
-
-# cleanly go to the main loop
-# a 'modifier' for us is a flow control variable
+# Clear all modifiers. A 'modifier' for us is a flow control variable for the
+# menu navigation
 clear_modifiers() {
     random_anime=0
     random_airing=0
@@ -165,65 +112,6 @@ start_substring() {
     printf "%s" "$cut_string_string" | cut -c1-"$cut_string_end_id"
 }
 
-select_account() {
-    paint_logo
-    # account selection
-    TRACKMA_ACCOUNTS="$(sed -nE "/[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
-    if [ -n "$TRACKMA_ACCOUNTS" ]; then
-        TRACKMA_ACCOUNTS_MENU_ENTRIES="$(printf "%s" "$TRACKMA_ACCOUNTS" | sed "s/^[0-9]: /👤 /g")"
-    else
-        TRACKMA_ACCOUNTS_MENU_ENTRIES="No account was found"
-    fi
-    TRACKMA_ACCOUNTS_MENU_ENTRIES="🕵️  Incognito Mode\n$TRACKMA_ACCOUNTS_MENU_ENTRIES"
-    while [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ] && [ "$INCOGNITO_MODE" -eq 0 ]; do
-        account_choice=$(
-            printf "%b" "$TRACKMA_ACCOUNTS_MENU_ENTRIES" |
-                $FZF -i --prompt="Select an option: " \
-                    --border-label "╢ ♣  ACCOUNT SELECTION ♣  ╟" \
-                    --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                    --header-first
-        )
-        if [ "$(printf "%s" "$account_choice" | cut -d " " -f1)" = "🕵️" ]; then
-            INCOGNITO_MODE=1
-            close_trackma
-            break
-        elif [ "$account_choice" = "No account was found" ]; then
-            exit
-        else
-            acc_id="$(printf "%s" "$TRACKMA_ACCOUNTS" | grep "$(printf "%s" "$account_choice" | sed "s/^👤 //g")" | cut -d ":" -f1)"
-            [ -z "$acc_id" ] && exit
-            printf "r%s\n" "$acc_id" | trackma_query >/dev/null 2>&1
-        fi
-    done
-    if [ "$INCOGNITO_MODE" -eq 0 ]; then
-        USERNAME="$(get_account_name)"
-        TRACKER_SERVICE="$(get_remote_tracker)"
-    fi
-    printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
-    tput clear
-}
-
-check_trackma_config() {
-    check_trackma_config_config_file=""
-    if [ -s "$HOME"/.trackma/config.json ]; then
-        check_trackma_config_config_file="$HOME/.trackma/config.json"
-    elif [ -s "$HOME"/.config/trackma/config.json ]; then
-        check_trackma_config_config_file="$HOME/.config/trackma/config.json"
-    fi
-    AUTORET_VALUE="$(jq --raw-output '.autoretrieve' "$check_trackma_config_config_file")"
-    AUTOSEN_VALUE="$(jq --raw-output '.autosend' "$check_trackma_config_config_file")"
-    if [ "$AUTORET_VALUE" = "always" ] || [ "$AUTOSEN_VALUE" = "always" ]; then
-        printf "%b" "
-💥 Anime Manager was unable to start!
-   Please change the 'autoretrieve' and 'autosave' options
-   in '$check_trackma_config_config_file'
-   to a value other than 'always'.
-"
-        exit
-    fi
-    select_account
-}
-
 # trim long show titles
 trim() {
     MAX_MENU_TITLE_SERIES_LEN=20
@@ -240,216 +128,6 @@ line_to_remove() {
     lines_to_remove="$((lines_to_remove + 1))"
 }
 
-# clear n number of lines from output
-# caveat: wrapped lines
-clear_lines() {
-    while [ $lines_to_remove -gt 0 ]; do
-        printf "%b" "${OVERWRITE}"
-        lines_to_remove=$((lines_to_remove - 1))
-    done
-}
-
-# check if we can run automatic install for missing dependencies
-auto_compat() {
-    if [ "$OSTYPE" = "Linux" ]; then
-        case $DISTRO_ID in
-        "ubuntu")
-            true
-            ;;
-        "debian")
-            true
-            ;;
-        *)
-            false
-            ;;
-        esac
-    elif [ "$OSTYPE" = "Darwin" ]; then
-        true
-    else
-        log "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\n\nMORE INFO: https://github.com/anma-dev/Anime-Manager#dependencies"
-        exit 0
-    fi
-}
-
-# get the shell configuration file path
-get_shell_config_file() {
-    get_shell_config_file_cfg_file=""
-    if [ "$SHELL" = "/bin/bash" ]; then
-        [ "$OSTYPE" = "Linux" ] && touch "$HOME/.bashrc" && get_shell_config_file_cfg_file="$HOME/.bashrc"
-        [ "$OSTYPE" = "Darwin" ] && touch "$HOME/.bash_profile" && get_shell_config_file_cfg_file="$HOME/.bash_profile"
-    fi
-    # nvm on macos needs the shell config file
-    [ "$SHELL" = "/bin/zsh" ] && touch "$HOME/.zshrc" && get_shell_config_file_cfg_file="$HOME/.zshrc"
-    printf "%s" "$get_shell_config_file_cfg_file"
-}
-
-# install dependencies automatically if we can
-install_dependencies() {
-    shell_cfg="$(get_shell_config_file)"
-    install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
-    if ! which fzf bat animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/webtorrent-cli/node_modules" ]; then
-        log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
-        AUTOINSTALL=1
-        AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
-        printf "%s\n" "$AM_SHELL_CFG_MSG"
-        if auto_compat; then
-            printf "%s" "Install missing dependencies now? [y/N] " && line_to_remove
-            read -r yn </dev/tty
-            if [ -z "$yn" ]; then
-                yn="n"
-            fi
-            case "$yn" in
-            [Yy]*) ;;
-            [Nn]*) exit ;;
-            *) printf "%s\n" "      Please answer 'yes' or 'no'." && line_to_remove ;;
-            esac
-        fi
-        # begin installation
-        if [ "$OSTYPE" = "Linux" ]; then
-            log "🐧 Installing Linux dependencies."
-            if ! sudo -v; then
-                log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
-            fi
-            sudo apt update
-            sudo apt -y install build-essential procps curl wget file git python3-setuptools python3-pip bat jq xxhash
-            mkdir -p "$HOME/.local/bin"
-            if ! grep '$HOME/.local/bin:$PATH' "$shell_cfg"; then
-                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
-            fi
-            if ! command -v "$MEDIA_PLAYER_APP"; then
-                case "$MEDIA_PLAYER_APP" in
-                "mpv")
-                    sudo apt -y install mpv
-                    ;;
-                "smplayer")
-                    if [ "$DISTRO_ID" = "debian" ]; then
-                        if [ "$DISTRO_VERSION" -ne 11 ]; then
-                            printf "\n\nDebian version not supported. Please manually install smplayer.\n\n"
-                        else
-                            # https://software.opensuse.org/download.html?project=home%3Asmplayerdev&package=smplayer
-                            echo 'deb http://download.opensuse.org/repositories/home:/smplayerdev/Debian_11/ /' | sudo tee /etc/apt/sources.list.d/home:smplayerdev.list
-                            curl -fsSL https://download.opensuse.org/repositories/home:smplayerdev/Debian_11/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_smplayerdev.gpg >/dev/null
-                            sudo apt -y update
-                            sudo apt -y install smplayer
-                        fi
-                    elif [ "$OSTYPE" = "ubuntu" ]; then
-                        # https://www.smplayer.info/en/downloads
-                        sudo add-apt-repository -y ppa:rvm/smplayer
-                        sudo apt-get -y update
-                        sudo apt-get -y install smplayer smplayer-themes smplayer-skins
-                    fi
-                    ;;
-                "vlc")
-                    sudo apt -y install vlc
-                    ;;
-                esac
-            fi
-            # make alias for batcat and put it in path
-            if ! command -v bat; then
-                [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat "$HOME/.local/bin/bat"
-            fi
-            if ! command -v fzf; then
-                if [ -d "$HOME/.fzf" ]; then
-                    printf "\n\n%s\n\n" "INSTALLATION CONFLICT! Existing $HOME/.fzf folder found!\nfzf was not installed. Please install it manually."
-                else
-                    # require an fzf version with label and label coloring support
-                    git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
-                    "$HOME/.fzf/install" --all --update-rc
-                fi
-            else
-                fzf_version="$(fzf --version)"
-                if [ -z "$(printf "%s" "$fzf_version" | awk -F. '$1 >= 0 && $2 >= 35 {print $0}')" ]; then
-                    printf "\n\n%s\n\n" "Please manually update your fzf installation to version >= 0.35.x."
-                fi
-            fi
-            ./utils/install-webtorrent.sh
-            if ! command -v animdl; then
-                # https://github.com/justfoolingaround/animdl
-                pip3 install animdl
-            fi
-            if ! command -v trackma; then
-                sudo apt install lsof
-                sudo apt -y install python3-pyqt5
-                # https://github.com/z411/trackma
-                pip3 install pillow \
-                    pydbus \
-                    setuptools \
-                    wheel \
-                    pyinotify \
-                    nyaapy \
-                    anitopy \
-                    'requests>=2.20.0' \
-                    beautifulsoup4==4.6.0 \
-                    lxml \
-                    dbus-python
-                pip3 install Trackma==0.8.5
-            fi
-        elif [ "$OSTYPE" = "Darwin" ]; then
-            log "🍏 Installing macOS dependencies."
-            if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | grep version >/dev/null 2>&1; then
-                # xcode command line tools is a dependency of nvm and homebrew
-                xcode-select --install
-            fi
-            if ! command -v brew; then
-                # Install homebrew unattended
-                NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            fi
-            if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg" >/dev/null 2>&1; then
-                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
-            fi
-            brew install curl jq grep axel openssl@1.1 ffmpeg git bat xxhash
-            brew install patchelf cmake automake fzf
-            if ! command -v "$MEDIA_PLAYER_APP"; then
-                case "$MEDIA_PLAYER_APP" in
-                "mpv")
-                    brew install --cask mpv
-                    ;;
-                "smplayer")
-                    brew install --cask smplayer
-                    ;;
-                "vlc")
-                    brew install --cask vlc
-                    ;;
-                "iina")
-                    brew install --cask iina
-                    # TODO: can't stream with iina
-                    brew install --cask mpv
-                    ;;
-                esac
-            fi
-            if ! command -v animdl; then
-                # https://github.com/justfoolingaround/animdl
-                pip3 install animdl
-            fi
-            ./utils/install-webtorrent.sh
-            if ! command -v trackma; then
-                # https://github.com/z411/trackma
-                # dbus-python module is broken on macOS and cannot be built. This means no trackma mpris support.
-                # pip3 install dbus-python
-                # inotify is not available on macosx-XX-arm64
-                # pip3 install pyinotify
-                # Installs qt5 for trackma gui
-                pip3 install pillow \
-                    PyQt5 \
-                    pydbus \
-                    setuptools \
-                    setuptools_scm \
-                    scikit-build \
-                    nyaapy \
-                    anitopy \
-                    'requests>=2.20.0' \
-                    beautifulsoup4==4.6.0 \
-                    lxml \
-                    wheel \
-                    Trackma==0.8.5
-            fi
-        fi
-        echo
-        log "$install_dep_msg"
-        exit 0
-    fi
-}
-
 # sanitizes a string to be used in an extended regular expression
 # used for updating watch history file
 sanitize_ext_regex_function_code='sanitize_ext_regex() {
@@ -462,6 +140,15 @@ sanitize_ext_regex_function_code='sanitize_ext_regex() {
 }'
 eval "$sanitize_ext_regex_function_code"
 
+# clear n number of lines from output
+# caveat: wrapped lines
+clear_lines() {
+    while [ "$lines_to_remove" -gt 0 ]; do
+        printf "%b" "${OVERWRITE}"
+        lines_to_remove=$((lines_to_remove - 1))
+    done
+}
+
 sanitize_bash() {
     printf "%s" "$1" | LC_ALL=C sed -e 's/[^a-zA-Z0-9,._+@%/-]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
 }
@@ -469,6 +156,118 @@ sanitize_bash() {
 getcwd() {
     printf "%s" "$(lsof -p "$$" | grep cwd | awk '{print $9}')"
 }
+
+# Create a safe temporary filename in a posix-compliant way
+get_temp_filename() {
+    {
+        posix_mktemp_file_file=$(
+            (mktemp -u "$TMP_PATH/anmaXXXXXXXX") 2>/dev/null
+        )
+    } || {
+        posix_mktemp_file_file=$TMP_PATH/anma$$-$(awk 'BEGIN { srand(); print int(rand()*32768) }' /dev/null)
+    } || exit $?
+    printf "%s" "$posix_mktemp_file_file"
+}
+
+get_xxhash() {
+    hash_input="$1"
+    hash_title_hash="$(printf "%s" "$hash_input" | xxh128sum | sed "s/[[:space:]]*stdin//g")"
+    printf "%s" "$hash_title_hash"
+}
+
+# Prints the account currently in use by Trackma
+print_account() {
+    clear_lines
+    printf "$SUBTITLE_COLOR%s$RESET" "      👤 Account ─ ${USERNAME} │"
+}
+
+# Prints a message to inform the user that they are in incognito mode
+print_incognito_msg() {
+    clear_lines
+    printf "      "
+    printf "$INCOGNITO_MODE_COLORS%s$RESET" "🕵  INCOGNITO MODE "
+}
+
+# Print the application logo.
+# The logos are compressed for efficiency.
+paint_logo() {
+    # print the logos
+    LOGO_B64=$LOGO_DEFAULT_B64
+    # special dates
+    if [ "$DATE_MONTH" -eq 10 ] && [ "$DATE_DAY" -eq 31 ]; then
+        LOGO_B64=$LOGO_HALLOWEEN_B64
+    fi
+    if [ "$DATE_MONTH" -eq 12 ]; then
+        if [ "$DATE_DAY" -eq 24 ] || [ "$DATE_DAY" -eq 25 ]; then
+            LOGO_B64=$LOGO_XMAS_B64
+        fi
+    fi
+    [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME
+    if [ "$DEBUG" -eq 0 ]; then
+        tput clear
+        printf "%b\n" "$(
+            base64 -d <<EOF | gunzip
+$LOGO_B64
+EOF
+        )"
+    fi
+    printf "$TITLE_COLOR%s$RESET" "      🍿 Watch and Sync Anime from Your Terminal"
+    printf "$MSG_HELP_COLOR%s$RESET" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
+
+}
+
+#*********************************
+#* INITIALIZATION
+# Defaults, set environment variables, parse arguments, imports, etc
+#*********************************
+
+# Override locale categories
+eval export "$(locale)"
+unset LC_ALL
+LANG="C"
+LC_ALL="C"
+LC_COLLATE="C"
+LC_CTYPE="C"
+LC_MESSAGES="C"
+LC_MONETARY="C"
+LC_NUMERIC="C"
+LC_TIME="C"
+LC_ADDRESS="C"
+LC_IDENTIFICATION="C"
+LC_MEASUREMENT="C"
+LC_NAME="C"
+LC_PAPER="C"
+LC_TELEPHONE="C"
+LANGUAGE="en_US.UTF-8"
+export LANG LC_ALL \
+    LC_COLLATE \
+    LC_CTYPE \
+    LC_MESSAGES \
+    LC_MONETARY \
+    LC_NUMERIC \
+    LC_TIME \
+    LANGUAGE \
+    LC_ADDRESS \
+    LC_IDENTIFICATION \
+    LC_MEASUREMENT \
+    LC_NAME \
+    LC_PAPER \
+    LC_TELEPHONE \
+    LANGUAGE
+
+#* IMPORTS
+. ./lib/array
+
+#* DEFAULTS
+LOGO_MONOCHROME="H4sIAGMI22MAA+NSAINH0zoeTWsAow5kTguQMxHMmggXbkFXpvC4oQG3LBYTscs0IJmIrIYLyYktYATVNhGMQJwGiHq4cANcBsOJ6LI4TMQig+ZpJDUNcCc2wMxowMJpQBNGk4E4EYsskRwUG1DsAnMScwoyEnUN9Ez0TAEnIr+F9QEAAA=="
+LOGO_DEFAULT_B64="H4sIAGQI22MAA8XYO27cMBAA0N5XcKMLJOCfIuYgKVIFQYAUWThFDqDCxbZqXOUAOZdzkQyXa2k+lLUOdpPCsfEwnCHFkUjk/qMfwYGL8fRjDnf3UoY3i/1r+aDkC5WQUb4p+azkQclBCc/s5HxO8kPJwwWjmOBf/1PCzcTcSpzqqKuJ6rp/KTbfTPytxKiOupqojrqqPP/8pYx924zquyuJLakrz0/Hjk0XGh8re6tJL0pm27ZHaqPssSbPT3PHpovietmOu9l8Z25+M+6obNiLykVn27RBye9pLyp0aoZO/qBX+kocz6d68CS9KJlt23YqpE5fpk7/vmKPyvYruE62bdNjh72o2OnCN9nQieIVOv27aUMn6q+yhaLHnuxOyfBmkSft5SJnFHVnBLNpR2XDRVHi++QTWGUZnByL5nkF/CvIJ413pahGRkgqLkIW2RyMaqSDoubmwaoNrqhXYcDqZSCKdTh8AkHGuYytJMtUVEtxAT8RIuOJxOfR1Y+wiKsnkKqMv9UuveAkUa3aFrx/yZwNeW2D909V+4ys32zCu71CbBG10w1ZGRvAJRV3xlliVmgbHiWKJ9lIxuHvIieOt7EOFvDqbWnIypgE3qq4M84Sndww4xseJYqObETjsKHwGuf5+1bRbOLAyILn2+VXfCRYRvBpw9Yi+F7mandUcH70PdBioUTwIxe7JwaKA186QmdkYCwQ+HvTMfx+v9hELUGwa4VFaNS42EwtQ3DMMuBVK7C9X2ygYiF4FpVgDB0zHcOxZIfx5MhjFRq12iwsMgt9i80marj+RKr6s9AoNCfNQcbVZ2mm2qCEfDaDhYwrJd2wCM1lIOVmMzVcVZEWhfmy2KRsqYr/Jg+RdQ2x+VXLkAxE1kuLrRVSJyoBXqEi6zg8N+MI0UmLzSZlawU8mTEh66RqvtmazffNyQoIFiLpwipGVsBmKDgVZnUD60hhuFbWN3hUY6tHcqBUiWKkw9c5iJHVvKjqsB1wgqTjqlg5Ej9r5/nO1MY6ksbh513OtxrOl3Qrnu91I/LhE5WAW73+Tx7eFerjHQ/fqdg66isVfLKF5PF4itVR76jUtjqYRfAn1VHvqdQGOoRF8Nz0PAbF1Zi4CF4KTM38By4gytAxFQAA"
+LOGO_XMAS_B64="H4sIAGQI22MAA8XYvW7UQBAH8D6vkGZ5ANB+29Y8AzVIVAhFouAUBDR0V1xxBUJyQ5t3gxfII/DfO59vdmadM5CI4pLTTzOzu/Z418n1m9CTJ5/S4WM3V9dSzB+L+2t5peSGS+wgH5S8U3KrZKOkruzlfA7yRcntiqxK8O1/SnwysU8lXnXUo4nquqcT1z2i3N99310IC5CXSm6UfFohX7lY1VQHea1ko+Stks+VlKZ6psQoub/7dqfwakViLarT/kF+/tgzc0M+2Hal6VxzMco1qi3bTplpRI3c+k5Xm0zHmUbUfmW13cW40KgX1KhLUe1qlXWDrHaQX9s1UWLMyerMqFc6WStur8xcjLKNasumc82qKFEtN3p6sp0y04jaX6zmF22vzKyKEtVSo+MWzTSi9hczGx2XVP+mRv8uZrZN5/Jd0UXVv48m8mw9ipjRZLuVVueqHo2NHp1svGiOnMwNHfl6BEiQVxrfosqMlFRcoiyqJepUpqdezg02qGqBnFpEQb0KS04uAxRknM+4CnIY36FtWiiWciSxO/qIPULEle1WjVzOG7kWvDA5tWqP32rVBdWqXV+wGtsNeA1TY1u8Ycp2a6LLeHtXwxywHgZdk1RcJJ/lxBdRdYVzBY0kdSVPWE8cvweJeNk6YJVuBwrimTqSjMsUnJz4CbcS1TW3oaCRpDryhOeKaCi8toWo0BY0mnjFgo5Cqi5FaOPQU8jVKCc77594KjEXflvWiKMhUehrcUo8hYGJnYTP6Gwjs36gWD0i2JtPtlVmuGSK1Q2M/Wwjt46iX7Bzbkd4rYrsNheJFIOMctIy9bZhiGO3eBYehf20P9ooLFUW25aOtuWG9bOtLoZJeNSCYfVdZX4yw8UWYfsmzqEO62LdMAuv5Sh3RzuvwLYNK616JAyU09G2ygyXQKnqGvw82figdZQtpaqXZjMPRuXZRmapp1R1HE7Ok225pWLnEeIkPAqG+YaqWmibl7kwR4l1IU5mPHKp6lUYHqZUdVIoN7BkCusoVX2DgxmNjVzDJYlMj0c3isxiQYzqcesxQdZxRZzMRNPYo43M0ACp6jm8HwQ532Ll9rARIKmMOf9pj9MdFz2z/8sVwVyHzcdZsEm6kvWeiy0x5zoBJ1YZ6zmXvlS2s+CTS9YLLqVZNnEWnJGhjoH4EpNmwQuALZV/AwFV1qL/FAAA"
+LOGO_HALLOWEEN_B64="H4sIAGUI22MAA8XYPY7VMBAA4H6vsI05AMj22E6iuQA3oKBCaCUKlqVAQnRP4hWvQkpDuwfhNnCBPQLj/I5nnH0B3ori7T59mhnbycSx3vVraNGjj3H42Nuraynmj8X9tbxScsMlNCTvlbxVcqfkVklZ2cv5DPJJyd2OrELo2/+U8GRin0q86qiLieq6i8rD/bevHF0jwwZ5qeSNko875EshoMYCNRaosUA+UFpsK9t+kM9KbnbIh0JyUz1TYpQ83Pc/FF7tSCxFddo/yM/vJ2auS4MddprONWejXKXath2VmUpUz61tdLXJdJypRJ12VjuejYNKPdng21H1aoU1naw2yK/Dnigx5mRlZtArnawWd1JmzkbZSrVt07lmV5Solio9PdlRmalEnc5W85t2UmZ2RYlqsdJxm2YqUaezmZWOi6p/Y6V/NzPrpnP5ruiC6t+LiXy3jiJmNNlxp5W5qkdDpUcn68+aQydzoUFfjkAC8krTt6AyA0YVFzGJahEblemxlXMj61Q1QKcWkVGvwqKTyyACGecTXQU5jG+obWooljKS2B19oD1CxOXtVo2c3zdyLXRgcmrVnv6rVWdUq3ZtxmJs19ExTI1t6YQp262KLtHpXQ0zYDkMdU1UcQF9khPfRNUVzmU0ktSVnLGcOP3vJNJha8Ai3XYI4pkaScYlBCcnPuNBorrmFjIaSaojZ1wrUkPRsQ2CQpvRaOIVMzqEWFwKqGPXIqRilNnW/ZOeSpoLvy17xGEXEdpSnBKP0DGxk/AZrdYzazsMxSNCe/NsB2WGS8JQ3MDQLtZzazD4DVtzG6RjVWC3OUvAADLKSUvY2opRHLvFi/Ao2k/b0XphsbBQtzjagRutn211ASbhURtGq28K85MZLjYL2zfpPdTQulg3LMJrOUzNaOsKbN1opUWPQIcpjnZQZrgAxqJr6O9s/aPWYLIYi15azDwalRbrmcUWY9Fx9Oac7cAtZltHCJPwKDKaLxTVoG5e5pI5jKwL6c1Mj1wsepWMHqZYdBLkG5gzhTUYi76hFzM1NuUaLlFkenp0g8jMBmJUT7eeJsg6LouTmdQ0drSeGTVALHqOzgcg55st3x42AknMYy4/I9DbnS56Yj8aZKG5dutPFnRSoMtBWe+42Byz1gF6Y+WxnnNpc2W7CH1SznrBJTfLbViE3pFQxpD4HBMXoQOAzZV/A8rdUJD/FAAA"
+
+DEFAULT_DOWNLOADS_DIR="/tmp/anime-manager/webtorrent"
+MEDIA_PLAYERS="mpv | iina | vlc | smplayer"
+DEFAULT_LINUX_PLAYER="mpv"
+DEFAULT_DARWIN_PLAYER="iina"
 
 lines_to_remove=0
 LINENO=0
@@ -529,76 +328,161 @@ NYAA_SEARCH_CODE_NO_RESULTS="-1"
 NYAA_SEARCH_CODE_FATAL_ERROR="-3"
 NYAA_FID_CODE_CONTENT_MISMATCH="-6"
 
-mkdir -p "$TMP_PATH"
-mkdir -p "$TORRENT_DOWNLOADS_DIR"
-mkdir -p "$CONFIG_PATH"
-mkdir -p "$LOG_DIR"
-[ ! -f "$TRACKMA_LOGFILE" ] && touch "$TRACKMA_LOGFILE"
+export BACK_MSG
+export TO_MAIN_MENU
+export SWITCH_STATUS_MSG_MENU_ENTRY
+export TRACKMA_ENTRY_REGEX
+export TRACKMA_LOGFILE
 
-print_readme_first_msg() {
-    if [ ! -f "$CHECKPOINTFILE" ]; then
-        printf "%s" "
-┌────────────────────────────────────────────────────────────────────────┐
-│ READ FIRST:                                                            │
-│                                                                        │
-│    This program comes with ABSOLUTELY NO WARRANTY.                     │
-│ Anime Manager is a file sharing program. When you run a torrent (Anime │
-│ Manager can play content by the means of running a torrent), its data  │
-│ will be made available to others by means of upload. Any content you   │
-│ share is your sole responsibility. No further notices will be issued.  │
-│                                                                        │
-└────────────────────────────────────────────────────────────────────────┘
+# fzf colors
+export FZF_DEFAULT_OPTS='--color=fg:#ffffff,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00,bg+:#262626,hl+:#5fd7ff --color=info:#ffffff,prompt:#ffbf00,pointer:#af5fff --color=marker:#87ff00,spinner:#af5fff,header:#d7005f --color=label:#ffbf00'
 
- Do you agree with this? [yes/no]: "
-        while true; do
-            read -r answer
-            case "$answer" in
-            "yes") break ;;
-            "no") exit ;;
-            *) printf "%s" " Please answer 'yes' or 'no': " ;;
-            esac
-        done
-        printf "%s\n" "$answer" >"$CHECKPOINTFILE"
-    fi
-    tput clear
+# regex for extracting trackma results
+# gets the whole series list
+TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
+# gets the multiple parts of an entry, by matching groups
+#	1- list index
+#	2- series title
+#	3- unused
+#	4- last watched ep
+#	5- end episode
+#	6- series score
+# Caveat: removing possesive quantifier makes the \2 match to end
+# with a residual dot, we will have to remove it with sed.
+# We also have no way of making a distinction between series that
+# actually end with a dot from a residual dot.
+TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
+# mainmenu entries
+WATCH_HISTORY="👁️  Watch History"
+WATCH="📺 Watch"
+WATCH_RANDOM="🔀 Watch Random"
+ADD_SHOW="🧩 Add Anime"
+LIST="📙 Lists"
+UPDATE_STATUS="🔄 Update Anime Status"
+SCORE_SHOW="👍 Score Anime"
+EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
+ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
+TO_SUBMENU="MORE OPTIONS ▸"
+BACK_TO_SUBMENU="◂ BACK"
+# submenu entries
+SWITCH_ACCOUNTS="Switch Accounts 👤"
+DELETE_ANIME="Delete Anime 🗑️"
+WATCH_RAND_AIRING="Watch Random Anime (Currently Airing 📣)"
+LIST_AIRING="List Anime (Currently Airing 📣)"
+UPDATE_EPISODES="Update Anime Episodes 🔄"
+SET_ALTNAME="Set Alternative Name 📝"
+PULL="Pull Lists from Remote ↓"
+PUSH="Push Local Lists to Remote ↑"
+LIST_BY_SCORE="List Anime (Sort by Rating 🌟)"
+TO_MAIN_MENU="◂ MAIN MENU"
+SELECT_SOURCE="◂ SELECT SOURCE"
+SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
+# used in account_menu, incognito_menu
+PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
+PLAY_METHOD_SAVED_LINK="🔖 Load from Bookmarks (torrenting)"
+PLAY_METHOD_STREAMING="💡 Play with animdl (streaming)"
+PLAY_METHOD_MAGNET="🧲 Play a magnet link (torrenting)"
+NYAA_SEARCH_SYNONYM="🔎 Search again using a title synonym"
+MAIN_MENU_HELPTEXT="
+🕵️  Switch Incognito Mode on. Browse and watch without syncing your activity with any account.
+───
+👍  Score an anime or change an anime score.
+───
+🔄  Update the status of your anime.
+───
+📙  Browse all your lists. It can also play anime.
+───
+🧩  Add a new anime to your Plan to Watch list.
+───
+🔀  Select one random anime from your watching lists (watching, rewatching) and play it.
+───
+📺  Open your watching lists (watching, rewatching) for playing an anime.
+───
+👁️  Your watching history with anime and episode count.
+"
+
+SUB_MENU_HELPTEXT="
+🌟  Display your lists in descending order by score.
+───
+↑  Upload your local progress to your tracking service.
+───
+↓  Download your remote progress and update your local lists.
+───
+📝  Set the alternative name for an anime.
+───
+🔄  Update your watching progress on an anime.
+───
+📣  Display your lists by showing currently airing anime only.
+───
+📣  Play one random, currently airing anime from your watching lists (watching, rewatching).
+───
+🗑️  Delete an anime from your lists. You will lose all your progress on that anime.
+───
+👤  Switch between the various accounts connected to Trackma.
+"
+# used in media_player_menu
+PLAYER_MENU_FILE_SELECT_CODE=0
+PLAYER_MENU_END_CODE=1
+PLAYER_MENU_SELECT_SEARCH_RES_CODE=2
+PLAYER_MENU_SEARCH_SYNONYM=3
+
+# Parse arguments
+parser_definition() {
+    setup REST help:usage -- "Usage: anime-manager [options]..." ''
+    msg -- 'Options:'
+    flag MINIMAL -m --minimal init:="0" -- "Minimalistic interface. It does not print the logo, the menu  
+                              fills the screen and is reversed. Dimmer colors."
+    flag INCOGNITO_MODE -i --incognito init:="0" -- "Switch Incognito Mode on. Your activity will not be synced 
+                              with the remote anime list tracking service."
+    flag MONOCHROME_LOGO --monochrome-logo init:="0" -- "Print the monochromatic logo instead of the big orange one.
+                              Suitable for terminals that do not support 24-bit colors."
+    flag TORRENT_ONLY -t --torrent-only init:="0" -- "Always torrent the anime selection. Always load bookmark if 
+                              possible or automatically search Nyaa Torrents."
+    param TORRENT_DOWNLOADS_DIR -f --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting.
+                              It is created if it does not exist."
+    param MEDIA_PLAYER_APP -p --player pattern:"$MEDIA_PLAYERS" -- "Select the media player. Defaults to mpv or iina (macOS)
+                              Available players: iina, mpv, smplayer, vlc."
+    flag DEBUG -d --debug init:="0" -- "Start debug mode."
+    disp :usage -h --help
+    disp VERSION -v --version init:="0"
 }
 
-check_setup() {
-    # initial checks
-    set_media_player
-    # use node if nvm is already installed
-    if ! which node >/dev/null 2>&1; then
-        PLATFORM_NVM_DIR=""
-        if [ -d "$HOME/.config/nvm" ]; then
-            PLATFORM_NVM_DIR="$HOME/.config/nvm"
-        elif [ -d "$HOME/.nvm" ]; then
-            PLATFORM_NVM_DIR="$HOME/.nvm"
-        fi
-        if [ -d "$PLATFORM_NVM_DIR" ]; then
-            export NVM_DIR="$PLATFORM_NVM_DIR"
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 # This loads nvm
-            # shellcheck disable=SC1091
-            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" >/dev/null 2>&1 # This loads nvm bash_completion
-            if comand -v nvm >/dev/null 2>&1; then
-                nvm use node >/dev/null 2>&1
-            fi
-        fi
-    fi
-    install_dependencies
-}
+eval "$(utils/getoptions parser_definition) exit 1"
 
-# Create a safe temporary filename in a posix-compliant way
-get_temp_filename() {
-    {
-        posix_mktemp_file_file=$(
-            (mktemp -u "$TMP_PATH/anmaXXXXXXXX") 2>/dev/null
-        )
-    } || {
-        posix_mktemp_file_file=$TMP_PATH/anma$$-$(awk 'BEGIN { srand(); print int(rand()*32768) }' /dev/null)
-    } || exit $?
-    printf "%s" "$posix_mktemp_file_file"
-}
+if [ "$DEBUG" -eq 1 ]; then
+    set -x
+    export NYAA_DEBUG="$DEBUG"
+else
+    unset NYAA_DEBUG
+fi
+
+# Further validate arguments
+if [ "$MONOCHROME_LOGO" -eq 1 ] && [ "$MINIMAL" -eq 1 ]; then
+    printf "Error: Incompatible options --monochrome-logo, --minimal\nPlease use one or the other."
+    exit
+fi
+
+if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "--" >/dev/null 2>&1; then
+    printf "Requires an argument: --downloads-folder\n"
+    exit 1
+fi
+
+if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "~" >/dev/null 2>&1; then
+    printf "Full path required: --downloads-folder\n"
+    exit 1
+fi
+
+if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "\./" >/dev/null 2>&1; then
+    printf "Full path required: --downloads-folder\n"
+    exit 1
+fi
+
+if printf "%s" "$TORRENT_DOWNLOADS_DIR" | grep -- "\\$" >/dev/null 2>&1; then
+    printf "Full path required: --downloads-folder\n"
+    exit 1
+fi
+
+#* TRACKMA UTILITIES =====
 
 # get the account in use in Trackma
 get_account_name() {
@@ -784,37 +668,32 @@ EOF
     fi
 }
 
-# Internet connectivity check with random selection of hosts
-connectivity_check() {
-    connectivity_check_tmout=3
-    urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
-    urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
-    rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
-    rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
-    if [ "$OSTYPE" = "Darwin" ]; then
-        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc -G $connectivity_check_tmout "$rand_url" 443 >/dev/null 2>&1; then
-            true
-        else
-            false
-        fi
-    elif [ "$OSTYPE" = "Linux" ]; then
-        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | timeout $connectivity_check_tmout nc "$rand_url" 443 >/dev/null 2>&1; then
-            true
-        else
-            false
-        fi
-    fi
+# get anime series across lists or from a particular list
+# this is used to play any episode from the watch history
+# the status code argument should be parseable by trackma
+get_show_entry() {
+    play_episode_anime_title="$1"
+    status="$(get_show_status "$play_episode_anime_title")"
+    # trackma search uses regex so we need to sanitize it
+    printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+    res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
+    get_show_entry_list="$(filter_trackma_list "$res")"
+    # we assume we should find a result
+    [ -z "$get_show_entry_list" ] &&
+        printf "%b\n" "💥 ERROR getting show entry." && kill $$
+    printf "%b" "$get_show_entry_list"
 }
 
 # get shows info from Trackma
 get_show_info_function_code='get_show_info() {
-    get_show_info_show_title="$(get_show_title "$1")"
-    get_show_info_status="$(get_trackma_status_code "$2")"
     if [ "$1" = "$TO_MAIN_MENU" ]; then
         printf "%s\n" "Go back to the main menu"
     elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
         printf "%s\n" "Switch to another list"
     else
+        get_show_info_show_title="$(get_show_title "$1")"
+        get_show_info_status="$(get_trackma_status_code "$2")"
         trackma_entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
         printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$trackma_entry_index" | trackma_query >/dev/null 2>&1
         while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
@@ -838,13 +717,386 @@ get_last_show_ep() {
     printf "%s" "$last_episode"
 }
 
-hash_title() {
-    hash_title_title="$1"
-    hash_title_hash=""
-    hash_title_hash="$(printf "%s" "$hash_title_title" | xxh128sum | sed "s/[[:space:]]*stdin//g")"
-    printf "%s" "$hash_title_hash"
+#*********************************
+# 3. SYSTEM_SETUP - Detect environment, autoinstall
+#*********************************
+
+# set the default media player
+set_media_player() {
+    if [ "$OSTYPE" = "Darwin" ]; then
+        MEDIA_PLAYER_APP="$DEFAULT_DARWIN_PLAYER"
+    else
+        MEDIA_PLAYER_APP="$DEFAULT_LINUX_PLAYER"
+    fi
 }
 
+# check if we can run automatic install for missing dependencies
+auto_compat() {
+    if [ "$OSTYPE" = "Linux" ]; then
+        case $DISTRO_ID in
+        "ubuntu")
+            true
+            ;;
+        "debian")
+            true
+            ;;
+        *)
+            false
+            ;;
+        esac
+    elif [ "$OSTYPE" = "Darwin" ]; then
+        true
+    else
+        log "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\n\nMORE INFO: https://github.com/anma-dev/Anime-Manager#dependencies"
+        exit 0
+    fi
+}
+
+# install dependencies automatically if we can
+install_dependencies() {
+    shell_cfg="$(get_shell_config_file)"
+    install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
+    if ! which fzf bat animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/webtorrent-cli/node_modules" ]; then
+        log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
+        AUTOINSTALL=1
+        AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
+        printf "%s\n" "$AM_SHELL_CFG_MSG"
+        if auto_compat; then
+            printf "%s" "Install missing dependencies now? [y/N] " && line_to_remove
+            read -r yn </dev/tty
+            if [ -z "$yn" ]; then
+                yn="n"
+            fi
+            case "$yn" in
+            [Yy]*) ;;
+            [Nn]*) exit ;;
+            *) printf "%s\n" "      Please answer 'yes' or 'no'." && line_to_remove ;;
+            esac
+        fi
+        # begin installation
+        if [ "$OSTYPE" = "Linux" ]; then
+            log "🐧 Installing Linux dependencies."
+            if ! sudo -v; then
+                log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
+            fi
+            sudo apt update
+            sudo apt -y install build-essential procps curl wget file git python3-setuptools python3-pip bat jq xxhash
+            mkdir -p "$HOME/.local/bin"
+            if ! grep '$HOME/.local/bin:$PATH' "$shell_cfg"; then
+                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
+            fi
+            if ! command -v "$MEDIA_PLAYER_APP"; then
+                case "$MEDIA_PLAYER_APP" in
+                "mpv")
+                    sudo apt -y install mpv
+                    ;;
+                "smplayer")
+                    if [ "$DISTRO_ID" = "debian" ]; then
+                        if [ "$DISTRO_VERSION" -ne 11 ]; then
+                            printf "\n\nDebian version not supported. Please manually install smplayer.\n\n"
+                        else
+                            # https://software.opensuse.org/download.html?project=home%3Asmplayerdev&package=smplayer
+                            echo 'deb http://download.opensuse.org/repositories/home:/smplayerdev/Debian_11/ /' | sudo tee /etc/apt/sources.list.d/home:smplayerdev.list
+                            curl -fsSL https://download.opensuse.org/repositories/home:smplayerdev/Debian_11/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_smplayerdev.gpg >/dev/null
+                            sudo apt -y update
+                            sudo apt -y install smplayer
+                        fi
+                    elif [ "$OSTYPE" = "ubuntu" ]; then
+                        # https://www.smplayer.info/en/downloads
+                        sudo add-apt-repository -y ppa:rvm/smplayer
+                        sudo apt-get -y update
+                        sudo apt-get -y install smplayer smplayer-themes smplayer-skins
+                    fi
+                    ;;
+                "vlc")
+                    sudo apt -y install vlc
+                    ;;
+                esac
+            fi
+            # make alias for batcat and put it in path
+            if ! command -v bat; then
+                [ ! -s "$HOME/.local/bin/bat" ] && ln -s /usr/bin/batcat "$HOME/.local/bin/bat"
+            fi
+            if ! command -v fzf; then
+                if [ -d "$HOME/.fzf" ]; then
+                    printf "\n\n%s\n\n" "INSTALLATION CONFLICT! Existing $HOME/.fzf folder found!\nfzf was not installed. Please install it manually."
+                else
+                    # require an fzf version with label and label coloring support
+                    git clone --depth 1 https://github.com/junegunn/fzf.git "$HOME/.fzf"
+                    "$HOME/.fzf/install" --all --update-rc
+                fi
+            else
+                fzf_version="$(fzf --version)"
+                if [ -z "$(printf "%s" "$fzf_version" | awk -F. '$1 >= 0 && $2 >= 35 {print $0}')" ]; then
+                    printf "\n\n%s\n\n" "Please manually update your fzf installation to version >= 0.35.x."
+                fi
+            fi
+            ./utils/install-webtorrent.sh
+            if ! command -v animdl; then
+                # https://github.com/justfoolingaround/animdl
+                pip3 install animdl
+            fi
+            if ! command -v trackma; then
+                sudo apt install lsof
+                sudo apt -y install python3-pyqt5
+                # https://github.com/z411/trackma
+                pip3 install pillow \
+                    pydbus \
+                    setuptools \
+                    wheel \
+                    pyinotify \
+                    nyaapy \
+                    anitopy \
+                    'requests>=2.20.0' \
+                    beautifulsoup4==4.6.0 \
+                    lxml \
+                    dbus-python
+                pip3 install Trackma==0.8.5
+            fi
+        elif [ "$OSTYPE" = "Darwin" ]; then
+            log "🍏 Installing macOS dependencies."
+            if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | grep version >/dev/null 2>&1; then
+                # xcode command line tools is a dependency of nvm and homebrew
+                xcode-select --install
+            fi
+            if ! command -v brew; then
+                # Install homebrew unattended
+                NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            if ! grep 'export PATH="/opt/homebrew/bin/:$PATH"' "$shell_cfg" >/dev/null 2>&1; then
+                printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="/opt/homebrew/bin/:$PATH"' >>"$shell_cfg"
+            fi
+            brew install curl jq grep axel openssl@1.1 ffmpeg git bat xxhash
+            brew install patchelf cmake automake fzf
+            if ! command -v "$MEDIA_PLAYER_APP"; then
+                case "$MEDIA_PLAYER_APP" in
+                "mpv")
+                    brew install --cask mpv
+                    ;;
+                "smplayer")
+                    brew install --cask smplayer
+                    ;;
+                "vlc")
+                    brew install --cask vlc
+                    ;;
+                "iina")
+                    brew install --cask iina
+                    # TODO: can't stream with iina
+                    brew install --cask mpv
+                    ;;
+                esac
+            fi
+            if ! command -v animdl; then
+                # https://github.com/justfoolingaround/animdl
+                pip3 install animdl
+            fi
+            ./utils/install-webtorrent.sh
+            if ! command -v trackma; then
+                # https://github.com/z411/trackma
+                # dbus-python module is broken on macOS and cannot be built. This means no trackma mpris support.
+                # pip3 install dbus-python
+                # inotify is not available on macosx-XX-arm64
+                # pip3 install pyinotify
+                # Installs qt5 for trackma gui
+                pip3 install pillow \
+                    PyQt5 \
+                    pydbus \
+                    setuptools \
+                    setuptools_scm \
+                    scikit-build \
+                    nyaapy \
+                    anitopy \
+                    'requests>=2.20.0' \
+                    beautifulsoup4==4.6.0 \
+                    lxml \
+                    wheel \
+                    Trackma==0.8.5
+            fi
+        fi
+        echo
+        log "$install_dep_msg"
+        exit 0
+    fi
+}
+
+check_setup() {
+    # initial checks
+    set_media_player
+    # use node if nvm is already installed
+    if ! which node >/dev/null 2>&1; then
+        PLATFORM_NVM_DIR=""
+        if [ -d "$HOME/.config/nvm" ]; then
+            PLATFORM_NVM_DIR="$HOME/.config/nvm"
+        elif [ -d "$HOME/.nvm" ]; then
+            PLATFORM_NVM_DIR="$HOME/.nvm"
+        fi
+        if [ -d "$PLATFORM_NVM_DIR" ]; then
+            export NVM_DIR="$PLATFORM_NVM_DIR"
+            # shellcheck disable=SC1091
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" >/dev/null 2>&1 # This loads nvm
+            # shellcheck disable=SC1091
+            [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion" >/dev/null 2>&1 # This loads nvm bash_completion
+            if comand -v nvm >/dev/null 2>&1; then
+                nvm use node >/dev/null 2>&1
+            fi
+        fi
+    fi
+    install_dependencies
+}
+
+if [ "$OSTYPE" != "Darwin" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
+    printf "The iina media player is not available for your platform.\n"
+    exit 1
+fi
+
+OSTYPE="$(uname -s 2>/dev/null)"
+if [ "$OSTYPE" = "Linux" ]; then
+    DISTRO_ID="$(awk -F= '$1 == "ID" {print $2}' /etc/*-release)"
+    DISTRO_VERSION="$(awk -F= '$1 == "VERSION_ID" {print $2}' /etc/*-release | sed "s/\"//g")"
+fi
+
+mkdir -p "$TMP_PATH"
+mkdir -p "$TORRENT_DOWNLOADS_DIR"
+mkdir -p "$CONFIG_PATH"
+mkdir -p "$LOG_DIR"
+touch "$TRACKMA_LOGFILE"
+
+#*********************************
+#* 4. MAIN LOGIC
+#*********************************
+
+#* TRACKMA SUBPROCESS
+# global long-running trackma subprocess
+spawn_trackma() {
+    if [ "$DEBUG" -eq 1 ]; then
+        GLOBAL_TRACKMA_TMPFILE="$LOG_DIR/debug_trackma_fifo"
+        echo >"$GLOBAL_TRACKMA_TMPFILE"
+    else
+        GLOBAL_TRACKMA_TMPFILE="$(get_temp_filename)"
+    fi
+    GLOBAL_TRACKMA_FIFO="$(get_temp_filename)"
+    mkfifo -m 600 "$GLOBAL_TRACKMA_FIFO"
+    trackma <"$GLOBAL_TRACKMA_FIFO" >"$GLOBAL_TRACKMA_TMPFILE" 2>"$TRACKMA_LOGFILE" &
+    exec 3>"$GLOBAL_TRACKMA_FIFO"
+    # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
+    while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
+    # clear_lines
+}
+
+# Sends a query to the Trackma process and returns the result.
+trackma_query_function_code='trackma_query() {
+    echo >"$GLOBAL_TRACKMA_TMPFILE"
+    while read -r query </dev/stdin; do
+        printf "%s\n" "$query" >"$GLOBAL_TRACKMA_FIFO"
+    done
+    # wait for various prompts as signal for operation finished
+    while ! sed -En "/>>|\):/p" "$GLOBAL_TRACKMA_TMPFILE"; do :; done
+    cat "$GLOBAL_TRACKMA_TMPFILE"
+}'
+eval "$trackma_query_function_code"
+
+close_trackma() {
+    # printf "%s" "      ⚙️  Closing background processes, please wait..." && line_to_remove
+    if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
+        printf "q\n" >"$GLOBAL_TRACKMA_FIFO"
+    else
+        printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
+    fi
+    rm "$GLOBAL_TRACKMA_FIFO"
+    rm "$GLOBAL_TRACKMA_TMPFILE"
+    # shellcheck disable=2188
+    3>&- # this syntax is valid by POSIX https://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_07_06
+    true # fix weird 'Syntax error: "}" missing' by the language server.
+}
+
+print_readme_first_msg() {
+    if [ ! -f "$CHECKPOINTFILE" ]; then
+        printf "%s" "
+┌────────────────────────────────────────────────────────────────────────┐
+│ READ FIRST:                                                            │
+│                                                                        │
+│    This program comes with ABSOLUTELY NO WARRANTY.                     │
+│ Anime Manager is a file sharing program. When you run a torrent (Anime │
+│ Manager can play content by the means of running a torrent), its data  │
+│ will be made available to others by means of upload. Any content you   │
+│ share is your sole responsibility. No further notices will be issued.  │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
+
+ Do you agree with this? [yes/no]: "
+        while true; do
+            read -r answer
+            case "$answer" in
+            "yes") break ;;
+            "no") exit ;;
+            *) printf "%s" " Please answer 'yes' or 'no': " ;;
+            esac
+        done
+        printf "%s\n" "$answer" >"$CHECKPOINTFILE"
+    fi
+    tput clear
+}
+
+select_account() {
+    paint_logo
+    # account selection
+    TRACKMA_ACCOUNTS="$(sed -nE "/[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
+    if [ -n "$TRACKMA_ACCOUNTS" ]; then
+        TRACKMA_ACCOUNTS_MENU_ENTRIES="$(printf "%s" "$TRACKMA_ACCOUNTS" | sed "s/^[0-9]: /👤 /g")"
+    else
+        TRACKMA_ACCOUNTS_MENU_ENTRIES="No account was found"
+    fi
+    TRACKMA_ACCOUNTS_MENU_ENTRIES="🕵️  Incognito Mode\n$TRACKMA_ACCOUNTS_MENU_ENTRIES"
+    while [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ] && [ "$INCOGNITO_MODE" -eq 0 ]; do
+        account_choice=$(
+            printf "%b" "$TRACKMA_ACCOUNTS_MENU_ENTRIES" |
+                $FZF -i --prompt="Select an option: " \
+                    --border-label "╢ ♣  ACCOUNT SELECTION ♣  ╟" \
+                    --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
+                    --header-first
+        )
+        if [ "$(printf "%s" "$account_choice" | cut -d " " -f1)" = "🕵️" ]; then
+            INCOGNITO_MODE=1
+            close_trackma
+            break
+        elif [ "$account_choice" = "No account was found" ]; then
+            exit
+        else
+            acc_id="$(printf "%s" "$TRACKMA_ACCOUNTS" | grep "$(printf "%s" "$account_choice" | sed "s/^👤 //g")" | cut -d ":" -f1)"
+            [ -z "$acc_id" ] && exit
+            printf "r%s\n" "$acc_id" | trackma_query >/dev/null 2>&1
+        fi
+    done
+    if [ "$INCOGNITO_MODE" -eq 0 ]; then
+        USERNAME="$(get_account_name)"
+        TRACKER_SERVICE="$(get_remote_tracker)"
+    fi
+    printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
+    tput clear
+}
+
+check_trackma_config() {
+    check_trackma_config_config_file=""
+    if [ -s "$HOME"/.trackma/config.json ]; then
+        check_trackma_config_config_file="$HOME/.trackma/config.json"
+    elif [ -s "$HOME"/.config/trackma/config.json ]; then
+        check_trackma_config_config_file="$HOME/.config/trackma/config.json"
+    fi
+    AUTORET_VALUE="$(jq --raw-output '.autoretrieve' "$check_trackma_config_config_file")"
+    AUTOSEN_VALUE="$(jq --raw-output '.autosend' "$check_trackma_config_config_file")"
+    if [ "$AUTORET_VALUE" = "always" ] || [ "$AUTOSEN_VALUE" = "always" ]; then
+        printf "%b" "
+💥 Anime Manager was unable to start!
+   Please change the 'autoretrieve' and 'autosave' options
+   in '$check_trackma_config_config_file'
+   to a value other than 'always'.
+"
+        exit
+    fi
+    select_account
+}
+
+#* BOOKMARKS
 # Prints a deterministic normalized cache filename
 # Uses the entry status and index in the list to avoid collisions
 get_cache_filename() {
@@ -857,7 +1109,7 @@ get_cache_filename() {
     fi
     get_cache_filename_status="$(get_trackma_status_code "$status")"
     get_cache_filename_title="$(printf "%s" "$anime_title_trackma" | sed -E 's/[^A-Za-z0-9._-]/_/g' | cut -c 1-10)"
-    hash_title "$(
+    get_xxhash "$(
         printf "%s" "$get_cache_filename_status////$trackma_entry_index////$get_cache_filename_title"
     )"
 }
@@ -898,32 +1150,7 @@ delete_link_cache() {
     fi
 }
 
-# get anime series across lists or from a particular list
-# this is used to play any episode from the watch history
-# the status code argument should be parseable by trackma
-get_show_entry() {
-    play_episode_anime_title="$1"
-    status="$(get_show_status "$play_episode_anime_title")"
-    # trackma search uses regex so we need to sanitize it
-    printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$play_episode_anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
-    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
-    res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
-    get_show_entry_list="$(filter_trackma_list "$res")"
-    # we assume we should find a result
-    [ -z "$get_show_entry_list" ] &&
-        printf "%b\n" "💥 ERROR getting show entry." && kill $$
-    printf "%b" "$get_show_entry_list"
-}
-
-torrent_is_playing() {
-    process_name="$(ps -p "$webtorrentpid" -o comm=)"
-    if [ "$process_name" = "WebTorrent" ]; then
-        true
-    else
-        false
-    fi
-}
-
+#* MEDIA PLAYER MENU
 # the menu that shows up when the media player opens
 media_player_menu() {
     media_player_exit_code=""
@@ -1068,49 +1295,9 @@ media_player_menu() {
     fi
 }
 
-# global long-running trackma subprocess
-spawn_trackma() {
-    if [ "$DEBUG" -eq 1 ]; then
-        GLOBAL_TRACKMA_TMPFILE="$LOG_DIR/debug_trackma_fifo"
-        echo >"$GLOBAL_TRACKMA_TMPFILE"
-    else
-        GLOBAL_TRACKMA_TMPFILE="$(get_temp_filename)"
-    fi
-    GLOBAL_TRACKMA_FIFO="$(get_temp_filename)"
-    mkfifo -m 600 "$GLOBAL_TRACKMA_FIFO"
-    trackma <"$GLOBAL_TRACKMA_FIFO" >"$GLOBAL_TRACKMA_TMPFILE" 2>"$TRACKMA_LOGFILE" &
-    exec 3>"$GLOBAL_TRACKMA_FIFO"
-    # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
-    while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
-    # clear_lines
-}
+#* PLAYER LOGIC
 
-close_trackma() {
-    # printf "%s" "      ⚙️  Closing background processes, please wait..." && line_to_remove
-    if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
-        printf "q\n" >"$GLOBAL_TRACKMA_FIFO"
-    else
-        printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
-    fi
-    rm "$GLOBAL_TRACKMA_FIFO"
-    rm "$GLOBAL_TRACKMA_TMPFILE"
-    # shellcheck disable=2188
-    3>&- # this syntax is valid by POSIX https://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_07_06
-    true # fix weird 'Syntax error: "}" missing' by the language server.
-}
-
-trackma_query_function_code='trackma_query() {
-    echo >"$GLOBAL_TRACKMA_TMPFILE"
-    while read -r query </dev/stdin; do
-        printf "%s\n" "$query" >"$GLOBAL_TRACKMA_FIFO"
-    done
-    # wait for various prompts as signal for operation finished
-    while ! sed -En "/>>|\):/p" "$GLOBAL_TRACKMA_TMPFILE"; do :; done
-    cat "$GLOBAL_TRACKMA_TMPFILE"
-}'
-eval "$trackma_query_function_code"
-
-# plays a file from a magnet link with webtorrent-cli
+# Torrent plays a file from a magnet link
 torrent_magnet_link() {
     # run completely detached from terminal for availability
     torrent_pid_file="$(get_temp_filename)"
@@ -1125,7 +1312,7 @@ torrent_magnet_link() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
     play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
-    if [ "$play_episode_torrent_status" -eq $TORRENT_STATUS_ERRORED ]; then
+    if [ "$play_episode_torrent_status" -eq "$TORRENT_STATUS_ERRORED" ]; then
         printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to play (torrenting)" && line_to_remove
         magnet_link=""
         play_status=$PLAY_STATUS_ERRORED
@@ -1234,7 +1421,7 @@ play_anime() {
             fi
             FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'"
             PROMPT_TEXT="Choose a search result: "
-            choice=$(
+            nya_res_choice=$(
                 printf "%b" "$nyaa_search_res" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
@@ -1261,23 +1448,23 @@ play_anime() {
             # These conditionals need to be in this order for the user to
             # be able to select a different source or synonym before exiting
             # if the search returned no results.
-            if [ "$choice" = "$NYAA_SEARCH_SYNONYM" ]; then
+            if [ "$nya_res_choice" = "$NYAA_SEARCH_SYNONYM" ]; then
                 play_status="$PLAY_STATUS_SEARCH_SYNONYM"
                 return
-            elif [ "$choice" = "$SELECT_SOURCE" ]; then
+            elif [ "$nya_res_choice" = "$SELECT_SOURCE" ]; then
                 play_status="$PLAY_STATUS_SELECT_SOURCE"
                 return
             elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
                 play_status="$PLAY_STATUS_EXITED"
                 return
-            elif [ "$choice" = "$TO_MAIN_MENU" ]; then
+            elif [ "$nya_res_choice" = "$TO_MAIN_MENU" ]; then
                 play_status="$PLAY_STATUS_EXITED"
                 return
-            elif [ -z "$choice" ]; then
+            elif [ -z "$nya_res_choice" ]; then
                 play_status="$PLAY_STATUS_EXITED"
                 return
             fi
-            magnet_link="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$choice\" )" | jq --raw-output ".magnet")"
+            magnet_link="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$nya_res_choice\" )" | jq --raw-output ".magnet")"
         fi
         select_magnet_file
         [ "$file_index" = "◂" ] && play_status=$PLAY_STATUS_OKPLAYING && return
@@ -1396,16 +1583,19 @@ play_anime() {
                     return
                 fi
             else
-                [ -z "$animdl_search_index" ] && exit 1
+                [ -z "$animdl_search_index" ] && kill $$
                 # TODO: can't stream with iina
                 MEDIA_PLAYER_APP="mpv"
+                play_episode_stream_fifo_write="$(get_temp_filename)"
+                mkfifo -m 600 "$play_episode_stream_fifo_write"
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --index "$animdl_search_index" --range "$anime_ep" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
+                exec 4>"$play_episode_stream_fifo_write"
                 animdl_pid="$(cat "$stream_pid_file")"
                 stream_health=10
                 while [ $stream_health -gt 0 ]; do
@@ -1475,48 +1665,112 @@ EOF
     fi
 }
 
-paint_logo() {
-    LOGO_MONOCHROME="H4sIABHP2WMAA+NSAINH0zoeTWsAow5kTguQMxHMmggXbkFXpvC4oQG3LBYTscs0IJmIrIYLyYktYATVNhGMQJwGiHq4cANcBsOJ6LI4TMQig+ZpJDUNcCc2wMxowMJpQBNGk4E4EYsskRwUG1DsAnMScwoyEnUN9Ez0TACxErjy9QEAAA=="
-    LOGO_DEFAULT_B64="H4sIABHP2WMAA8XYO27cMBAA0N5XcKMLJOCfIuYgKVIFQYAUWThFDqDCxbZqXOUAOZdzkQyXa2k+lLUOdpPCsfEwnCHFkUjk/qMfwYGL8fRjDnf3UoY3i/1r+aDkC5WQUb4p+azkQclBCc/s5HxO8kPJwwWjmOBf/1PCzcTcSpzqqKuJ6rp/KTbfTPytxKiOupqojrqqPP/8pYx924zquyuJLakrz0/Hjk0XGh8re6tJL0pm27ZHaqPssSbPT3PHpovietmOu9l8Z25+M+6obNiLykVn27RBye9pLyp0aoZO/qBX+kocz6d68CS9KJlt23YqpE5fpk7/vmKPyvYruE62bdNjh72o2OnCN9nQieIVOv27aUMn6q+yhaLHnuxOyfBmkSft5SJnFHVnBLNpR2XDRVHi++QTWGUZnByL5nkF/CvIJ413pahGRkgqLkIW2RyMaqSDoubmwaoNrqhXYcDqZSCKdTh8AkHGuYytJMtUVEtxAT8RIuOJxOfR1Y+wiKsnkKqMv9UuveAkUa3aFrx/yZwNeW2D909V+4ys32zCu71CbBG10w1ZGRvAJRV3xlliVmgbHiWKJ9lIxuHvIieOt7EOFvDqbWnIypgE3qq4M84Sndww4xseJYqObETjsKHwGuf5+1bRbOLAyILn2+VXfCRYRvBpw9Yi+F7mandUcH70PdBioUTwIxe7JwaKA186QmdkYCwQ+HvTMfx+v9hELUGwa4VFaNS42EwtQ3DMMuBVK7C9X2ygYiF4FpVgDB0zHcOxZIfx5MhjFRq12iwsMgt9i80marj+RKr6s9AoNCfNQcbVZ2mm2qCEfDaDhYwrJd2wCM1lIOVmMzVcVZEWhfmy2KRsqYr/Jg+RdQ2x+VXLkAxE1kuLrRVSJyoBXqEi6zg8N+MI0UmLzSZlawU8mTEh66RqvtmazffNyQoIFiLpwipGVsBmKDgVZnUD60hhuFbWN3hUY6tHcqBUiWKkw9c5iJHVvKjqsB1wgqTjqlg5Ej9r5/nO1MY6ksbh513OtxrOl3Qrnu91I/LhE5WAW73+Tx7eFerjHQ/fqdg66isVfLKF5PF4itVR76jUtjqYRfAn1VHvqdQGOoRF8Nz0PAbF8Ri8FJia+Q/Plpg/MRUAAA=="
-    LOGO_XMAS_B64="H4sIABLP2WMAA8XYvW7UQBAA4D6vkGZ5AND+29Y8AzVIVAhFouAUBDR0Lq64AiG5oc27wQvkEZi1fb75WccGElFccvo0M7trj3edXL8JLXjwKY0fe7i6lmL+WNxfyyslN1Rig/JByTslt0oOSnhlL+czyhcltzuymOC3/ynxycQ+lXjVUY8mquueTlzziHJ/9/24ERZQXiq5UfJph3ylYlVTjfJayUHJWyWfmZSmeqbEKLm/+3an8GpHIhfVaf8gP3+ciLkuj9bvNJ1rNqNcpdq6HZWZStRArW10tdl0nKlEnXZWO27GhUq9oEZdi6pXY9Z0stoov/o9UWLM2Xhm1CudrRZ3UmY2o2yl2rrpXLMrSlTLlZ6e7ajMVKJOm9X8qp2UmV1RolqqdNyqmUrUaTOz0nFJ9W+q9O9qZt10Lt0VXVT9+2giz9ZJxIxmO+40nqt6NFZ6dLZh0xw4mRsa8HwElCCvNH6LKjNCUnEJsqiWoFGZHlo5N7ROVQvg1CIK6lVYcHIZSEHG+YxXQQ7jG2ybGoqlTCR2Rx9xjxBxZbtVI5fzRq4FX5icWrXH32rVBdWqXVuQje06fA1TY1t8w5TtVkWX8e1dDTMiHwa7Jqm4CD7Lia+i6grnChpJ6kqekU8cf3cS8WVrRJZuOwjimZpIxmUITk78jL1Edc1tKGgkqY4846UiNhS+toWo0BY0mmjFgg5CYpci1LFrIWQ2ytku+yc+lTgXelv2iIMuQWi5OCUeQkfEzkJndLGBWNtBZI8I7s1n65UZKhkiu4GxXWyg1kD0K3bJbQBfqyK5zUUixCCjnLQMra0YxpFbvAiNwv20nWwQlpjFuqXJemq4frLVxTALjVoxXH3DzM9mqNgiZN/Ec6jBdZFuWITWcpCbyS4rsHXDlbIeCR3kNFmvzFAJkFjX4M+zDQ9aA9lCYr20mHkwKi82EEstJNZxeHKeraeWil1GiLPQKDScb2DVQt28zEVzkEgX4smMj1xivYqGD1NinRTKDSyZwhpIrG/wYMbGxlxDJYlMj49uFJnFghjV463HCZKOK+JkJjaNnWwghg2QWM/h+0GQ8y1Wbg8ZASWVMZc/7fF0x4ueyf/liuBcu8PHRXCTdCXrPRVbYi51Ap5YZaznVNpS2S6Cn1yyXlApzXKIi+AZGXgMiucx+AJgS+Xf4OOETf8UAAA="
-    LOGO_HALLOWEEN_B64="H4sIABPP2WMAA8XYO47UQBAA0HyvsElzAFD/basuwA0IiBBaiYBlCZAQ2UhMMBGSE9I9CLeBC+wRqPa3Pu0dA7MimN3RU1V1t11ut+b6dWjBg09p+Njbq2sp5o/F/bW8UnJDJTYo75W8VXKn5FYJr+zlfAb5pORuRxYT/PY/JT6Z2KcSrzrqYqK67qLycP/tK0XXyLBBXip5o+TjDvnCJKixghorqLGCfKC02Fa2/SCfldzskA9MSlM9U2KUPNz3PxRe7UjkojrtH+Tn9xMx1+XBDjtN55qzUa5SbduOykwlqqfWNrraZDrOVKJOO6sdz8aFSj3Z4NtR9WrMmk5WG+TXYU+UGHMynhn1SierxZ2UmbNRtlJt23Su2RUlquVKT092VGYqUaez1fymnZSZXVGiWqp03KaZStTpbGal45Lq31Tp383Muulcuiu6qPr3YiLfraOIGU123Gk8V/VorPToZP1Zc+BkbmjA8xFQgrzS+C2qzAhJxSXIolqCRmV6aOXc0DpVLYBTiyioV2HByWUgBRnnM14FOYxvsG1qKJYyktgdfcQ9QsSV7VaNXN43ci14YHJq1R7/q1UXVKt2bUE2tuvwGKbGtnjClO1WRZfx9K6GGZAPg12TVFwEn+XEN1F1hXMFjSR1JWfkE8f/nUQ8bA3I0m0HQTxTI8m4DMHJic94kKiuuQ0FjSTVkTOuFbGh8NgWokJb0GiiFQs6CIldilDHroWQ2SizrfsnPpU4F3pb9oiDLkFouTglHkJHxE5CZ7RaT6ztILJHBPfm2Q7KDJUMkd3A2C7WU2sg+g1bcxvAY1Ukt7lIhBhklJOWobUVwzhyixehUbiftqP1whKzWLc02oEarp9sdTFMQqM2DFffMPOTGSq2CNk38T3U4LpINyxCaznIzWjrCmzdcKWsR0IHOY12UGaoBEisa/DvbP2j1kC2kFgvLWYejcqL9cRSC4l1HL45ZztQS8XWEeIkNAoN5xtYtVA3L3PRHCTShfhmxkcusV5Fw4cpsU4K5QaWTGENJNY3+GLGxsZcQyWJTI+PbhSZxYIY1eOtxwmSjiviZCY2jR2tJ4YNkFjP4fkgyPkWK7eHjICSypjLzwj4dseLnsmPBkVwrt36kwWeFPByYNY7KrbErHUCvrHKWM+ptKWyXQQ/uWS9oFKa5TYugu/IwGNQPI/BA4AtlX8DK2sCf/8UAAA="
-
-    # print the logos
-    LOGO_B64=$LOGO_DEFAULT_B64
-    # special dates
-    if [ "$DATE_MONTH" -eq 10 ] && [ "$DATE_DAY" -eq 31 ]; then
-        LOGO_B64=$LOGO_HALLOWEEN_B64
+#* INCOGNITO MENU
+#
+# The menu that is presented when the user switches incognito mode on.
+incognito_menu() {
+    tput clear
+    INCOGNITO_MENU_HELPTEXT="
+👤  Switch Incognito Mode off.
+───
+💡  Stream with animdl. You will need to type a search query and episode number. This option uses streaming for playing content.
+───
+😺  Search Nyaa Torrents. You will need to type a search query, type and episode number and select a search result to play it. This option uses torrenting for playing content.
+"
+    INCOGNITO_MENU_ENTRIES="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_STREAMING\n$EXIT_INCOGNITO_MODE"
+    MAINMENU_TITLE="MAIN MENU"
+    menu_entries=$INCOGNITO_MENU_ENTRIES
+    menu_title=$MAINMENU_TITLE
+    menu_help_text=$INCOGNITO_MENU_HELPTEXT
+    prompt=""
+    CHECKPOINTFILE="$TMP_PATH/tmp-checkpoint"
+    # always remove checkpoint file for every incognito user
+    if [ -s "$CHECKPOINTFILE" ]; then
+        rm -f "$CHECKPOINTFILE"
     fi
-    if [ "$DATE_MONTH" -eq 12 ]; then
-        if [ "$DATE_DAY" -eq 24 ] || [ "$DATE_DAY" -eq 25 ]; then
-            LOGO_B64=$LOGO_XMAS_B64
+    print_readme_first_msg
+    [ "$MINIMAL" -eq 0 ] && paint_logo
+    [ "$MINIMAL" -eq 0 ] && print_incognito_msg
+    while true; do
+        if [ -z "$prompt" ]; then
+            FZF_PREVIEW_WINDOW_CMD="printf \"%s\n\" \"$menu_help_text\""
+            clear_modifiers
+            prompt=$(
+                printf "%b" "$menu_entries" |
+                    $FZF -i --prompt="Choose an action: " \
+                        --border-label "╢ ♣  $menu_title ♣  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" \
+                        --header-first \
+                        --preview-window "$PREVIEW_WINDOW_OPTS" \
+                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                        --bind "ctrl-l:toggle-preview" \
+                        --preview-label " Help "
+            )
         fi
-    fi
-    [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME
-    if [ "$DEBUG" -eq 0 ]; then
-        tput clear
-        printf "%b\n" "$(
-            base64 -d <<EOF | gunzip
-$LOGO_B64
-EOF
-        )"
-    fi
-    printf "$TITLE_COLOR%s$RESET" "      🍿 Watch and Sync Anime from Your Terminal"
-    printf "$MSG_HELP_COLOR%s$RESET" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
-
+        case $prompt in
+        "$PLAY_METHOD_TORRENTING")
+            player_source="torrenting"
+            incognito_play_msg_emoji="😺"
+            prompt="PLAY"
+            ;;
+        "$PLAY_METHOD_STREAMING")
+            player_source="streaming"
+            incognito_play_msg_emoji="💡"
+            prompt="PLAY"
+            ;;
+        "PLAY")
+            echo && line_to_remove
+            printf "$MSG_INFO_COLOR      %s What anime do you want to watch❔$RESET" "$incognito_play_msg_emoji" && line_to_remove
+            printf "         👉 " && line_to_remove
+            read -r anime_title
+            clear_lines
+            [ -z "$anime_title" ] && clear_modifiers && continue
+            anime_title="$(printf "%s" "$anime_title" | sed -E 's/[^a-zA-Z0-9 ]//g' | sed "s/[[:space:]]*$//g" | sed "s/^[[:space:]]*//g")"
+            echo && line_to_remove
+            printf "      %s Enter an episode number if applicable\n" "$incognito_play_msg_emoji" && line_to_remove
+            printf "         👉 " && line_to_remove
+            read -r anime_ep
+            clear_lines
+            anime_ep="$(printf "%s" "$anime_ep" | sed -E 's/[^0-9]//g')"
+            if [ -z "$anime_ep" ]; then
+                anime_ep=1
+                show_type="movie"
+            else
+                show_type="tv"
+            fi
+            last_show_episode=0
+            while true; do
+                play_anime "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
+                if [ "$play_status" = "$PLAY_STATUS_SELECT_SOURCE" ]; then
+                    clear_modifiers
+                    break # go to main menu
+                elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
+                    clear_modifiers
+                    break # go to main menu
+                fi
+                media_player_menu
+                clear_lines
+                if [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
+                    # new state already set by media_player_menu function
+                    continue
+                elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
+                    clear_modifiers
+                    break # go to main menu
+                fi
+            done
+            ;;
+        "$EXIT_INCOGNITO_MODE")
+            INCOGNITO_MODE=0
+            line_to_remove # remove incognito label
+            clear_lines    # remove incognito label
+            break
+            ;;
+        esac
+    done
 }
 
-print_account() {
-    clear_lines
-    printf "$SUBTITLE_COLOR%s$RESET" "      👤 Account ─ ${USERNAME} │"
-}
-
-print_incognito_msg() {
-    clear_lines
-    printf "      "
-    printf "$INCOGNITO_MODE_COLORS%s$RESET" "🕵  INCOGNITO MODE "
-}
-
+# Timeout the torrent process if the content is not readily available.
 check_torrent_health() {
     # allow it to start first
     sleep 2
@@ -1546,44 +1800,10 @@ check_torrent_health() {
     fi
 }
 
+#* ACCOUNT MENU
+#
+# The menu that is presented when the user selects a Trackma account.
 account_menu() {
-    MAIN_MENU_HELPTEXT="
-🕵️  Switch Incognito Mode on. Browse and watch without syncing your activity with any account.
-───
-👍  Score an anime or change an anime score.
-───
-🔄  Update the status of your anime.
-───
-📙  Browse all your lists. It can also play anime.
-───
-🧩  Add a new anime to your Plan to Watch list.
-───
-🔀  Select one random anime from your watching lists (watching, rewatching) and play it.
-───
-📺  Open your watching lists (watching, rewatching) for playing an anime.
-───
-👁️  Your watching history with anime and episode count.
-"
-
-    SUB_MENU_HELPTEXT="
-🌟  Display your lists in descending order by score.
-───
-↑  Upload your local progress to your tracking service.
-───
-↓  Download your remote progress and update your local lists.
-───
-📝  Set the alternative name for an anime.
-───
-🔄  Update your watching progress on an anime.
-───
-📣  Display your lists by showing currently airing anime only.
-───
-📣  Play one random, currently airing anime from your watching lists (watching, rewatching).
-───
-🗑️  Delete an anime from your lists. You will lose all your progress on that anime.
-───
-👤  Switch between the various accounts connected to Trackma.
-"
     prompt=""
     MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
     SUBMENU_ENTRIES="$SWITCH_ACCOUNTS\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
@@ -1704,7 +1924,7 @@ account_menu() {
                 full_info=$(get_watching_shows)
                 if [ ! "$full_info" ]; then
                     full_info="Your watching list is empty"
-                    choice=$(
+                    watch_choice=$(
                         printf "%s\n%s" "$full_info" "$TO_MAIN_MENU" |
                             $FZF -i --prompt "Choose an anime to watch: " \
                                 --border-label "╢ ♣  YOUR $(
@@ -1721,13 +1941,13 @@ account_menu() {
                     continue
                 fi
                 if [ "$random_anime" -eq 1 ]; then
-                    choice=$(printf "%s" "$full_info" | shuf -n 1)
+                    watch_choice=$(printf "%s" "$full_info" | shuf -n 1)
                 elif [ "$random_airing" -eq 1 ]; then
                     # format and filter airing shows, select one randomly
-                    choice=$(printf "%s" "$full_info" | sed -n "/📣/p" | shuf -n 1)
+                    watch_choice=$(printf "%s" "$full_info" | sed -n "/📣/p" | shuf -n 1)
                 else
                     full_info="$(printf "%s" "$full_info")"
-                    choice=$(
+                    watch_choice=$(
                         printf "%s\n%s" "$TO_MAIN_MENU" "$full_info" |
                             $FZF -i --prompt "Choose an anime to watch: " \
                                 --border-label "╢ ♣  YOUR $(
@@ -1741,8 +1961,8 @@ account_menu() {
                                 --header-first --tac
                     )
                 fi
-                [ "$choice" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
-                if [ ! "$choice" ]; then
+                [ "$watch_choice" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
+                if [ ! "$watch_choice" ]; then
                     echo && line_to_remove
                     printf "$MSG_WARN_COLOR%s$RESET" "      Nothing found!" && line_to_remove
                     sleep 2
@@ -1750,12 +1970,12 @@ account_menu() {
                     clear_modifiers
                     continue
                 fi
-                choice="$(clean_trackma_entry "$choice")"
-                trackma_entry_index="$(printf "%s" "$choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-                anime_title_trackma=$(get_show_title "$choice")
+                watch_choice="$(clean_trackma_entry "$watch_choice")"
+                trackma_entry_index="$(printf "%s" "$watch_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                anime_title_trackma=$(get_show_title "$watch_choice")
                 status="$(get_show_status "$anime_title_trackma")"
-                trackma_entry_index=$(printf "%s" "$choice" | cut -d " " -f1)
-                last_watched_ep="$(printf "%s" "$choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
+                trackma_entry_index=$(printf "%s" "$watch_choice" | cut -d " " -f1)
+                last_watched_ep="$(printf "%s" "$watch_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
                 last_show_episode="$(get_last_show_ep "$anime_title_trackma")"
                 # if we just don't know what the last episode is we increment anyways and give it a try
                 [ "$last_show_episode" = "?" ] || [ "$last_watched_ep" -lt "$last_show_episode" ] && anime_ep=$((last_watched_ep + 1)) || anime_ep="1"
@@ -1818,7 +2038,7 @@ account_menu() {
             if has_cached_link; then
                 PLAY_METHOD_MENU="$PLAY_METHOD_SAVED_LINK\n$PLAY_METHOD_MENU"
             fi
-            # source select loop
+            #* SOURCE SELECT LOOP
             while true; do
                 if [ -z "$player_source" ]; then
                     if [ "$random_anime" -eq 1 ]; then
@@ -1865,7 +2085,7 @@ account_menu() {
                         fi
                     fi
                 fi
-                show_info="$(get_show_info "$choice" "$status")"
+                show_info="$(get_show_info "$watch_choice" "$status")"
                 if [ -z "$show_type" ]; then
                     if printf "%s" "$show_info" | grep "Type: " >/dev/null 2>&1; then
                         show_type="$(printf "%b" "$show_info" | grep "Type: " | awk -F": " '{print $2}')"
@@ -1944,7 +2164,7 @@ account_menu() {
             clear_lines
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
             [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
-            choice="$(
+            add_anime_choice="$(
                 printf "%b" "$TO_MAIN_MENU\n$results" |
                     $FZF --prompt="Choose the anime to add: " \
                         --border-label "╢ ♣  ADD NEW ANIME ($status list) ♣  ╟" \
@@ -1952,12 +2172,12 @@ account_menu() {
                         --header-first --tac
             )"
             [ -z "$results" ] && clear_modifiers && continue
-            if [ "$choice" = "$TO_MAIN_MENU" ]; then
+            if [ "$add_anime_choice" = "$TO_MAIN_MENU" ]; then
                 printf "\n" >"$GLOBAL_TRACKMA_FIFO"
                 clear_modifiers && continue
             fi
-            choice_id=$(printf "%s" "$choice" | cut -d ':' -f1)
-            printf "%b\n" "$choice_id" >"$GLOBAL_TRACKMA_FIFO"
+            add_anime_choice_id=$(printf "%s" "$add_anime_choice" | cut -d ':' -f1)
+            printf "%b\n" "$add_anime_choice_id" >"$GLOBAL_TRACKMA_FIFO"
             clear_modifiers
             ;;
         "$DELETE_ANIME")
@@ -2033,22 +2253,22 @@ account_menu() {
                             --header-first
                         continue
                     fi
-                    choice="$(
+                    update_choice="$(
                         printf "%b" "$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$res" |
                             $FZF -i --prompt="Choose an anime to update: " \
                                 --border-label "╢ ♣  ${update_op_menu_label} ($status list) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                                 --header-first --tac
                     )"
-                    if [ "$choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
+                    if [ "$update_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
                         break
-                    elif [ "$choice" = "$menuitem" ] || [ -z "$choice" ]; then
+                    elif [ "$update_choice" = "$menuitem" ] || [ -z "$update_choice" ]; then
                         prompt=$menuitem
                         break 2
                     fi
-                    trackma_entry_index="$(printf "%s" "$choice" | cut -d" " -f1)"
-                    anime_title_trackma="$(get_show_title "$choice")"
-                    last_watched_ep="$(printf "%s" "$choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
+                    trackma_entry_index="$(printf "%s" "$update_choice" | cut -d" " -f1)"
+                    anime_title_trackma="$(get_show_title "$update_choice")"
+                    last_watched_ep="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
                     if [ "$prompt" = "$UPDATE_EPISODES" ]; then
                         echo && line_to_remove
                         printf "$MSG_INFO_COLOR%s$RESET" "      How many episodes of this anime have you watched so far❔" && line_to_remove
@@ -2069,20 +2289,20 @@ account_menu() {
                             printf "%s\n" "$new_hist_content" >"$WATCH_HISTORY_FILE"
                         fi
                     elif [ "$prompt" = "$UPDATE_STATUS" ]; then
-                        choice=$(
+                        update_choice=$(
                             printf "%b" "$TRACKMA_STATUS_MENU_ENTRIES\n$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY" |
                                 $FZF -i --prompt="Choose the new status: " \
                                     --border-label "╢ ♣  ${update_op_menu_label} ♣  ╟" \
                                     --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                                     --header-first
                         )
-                        if [ "$choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
+                        if [ "$update_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
                             break
-                        elif [ "$choice" = "$menuitem" ] || [ -z "$choice" ]; then
+                        elif [ "$update_choice" = "$menuitem" ] || [ -z "$update_choice" ]; then
                             prompt=$menuitem
                             break 2
                         fi
-                        new_status="$(get_trackma_status_code "$choice")"
+                        new_status="$(get_trackma_status_code "$update_choice")"
                         if [ -n "$trackma_entry_index" ]; then
                             trackma_update_id="$trackma_entry_index"
                         else
@@ -2114,27 +2334,27 @@ account_menu() {
                     full_info="$(format_trackma_list "$full_info")"
                     full_info="$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
                     # anime selection loop
-                    anime_choice="$(
+                    score_anime_choice="$(
                         printf "%b" "$full_info" |
                             $FZF -i --prompt="Choose an anime to score: " \
                                 --border-label "╢ ♣  SCORE ANIME ($status) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                                 --header-first --tac
                     )"
-                    [ "$anime_choice" = "$TO_MAIN_MENU" ] && clear_modifiers && break 2
-                    [ "$anime_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
-                    anime_choice_id="$(printf "%s" "$anime_choice" | cut -d" " -f1)"
-                    anime_choice_name=$(get_show_title "$anime_choice")
+                    [ "$score_anime_choice" = "$TO_MAIN_MENU" ] && clear_modifiers && break 2
+                    [ "$score_anime_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
+                    score_anime_choice_id="$(printf "%s" "$score_anime_choice" | cut -d" " -f1)"
+                    scor_anime_choice_name=$(get_show_title "$score_anime_choice")
                     SCORE_MENU="(10) Masterpiece\n(9) Great\n(8) Very Good\n(7) Good\n(6) Fine\n(5) Average\n(4) Bad\n(3) Very Bad\n(2) Horrible\n(1) Appalling"
                     score=$(
                         printf "%b" "$SCORE_MENU" | $FZF -i --prompt="Select a score: " \
-                            --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_choice_name") ♣  ╟" \
+                            --border-label "╢ ♣  SCORING ANIME: $(trim "$scor_anime_choice_name") ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --pointer 🌟 \
                             --header-first --tac | sed -En "s/\(([[:digit:]]+)\).*/\1/p"
                     )
                     clear_lines
-                    printf "filter %s\nscore %s %s\n" "$status" "$anime_choice_id" "$score" | trackma_query >/dev/null 2>&1
+                    printf "filter %s\nscore %s %s\n" "$status" "$score_anime_choice_id" "$score" | trackma_query >/dev/null 2>&1
                 done
             done
             ;;
@@ -2154,16 +2374,16 @@ account_menu() {
                     full_info=$(format_trackma_list "$full_info")
                     [ -z "$full_info" ] && full_info="No entries in this list."
                     full_info="$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
-                    choice="$(
+                    altname_choice="$(
                         printf "%b" "$full_info" |
                             $FZF -i --prompt="Choose an anime: " \
                                 --border-label "╢ ♣  SET ALTERNATIVE NAME ($status list) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                                 --header-first --tac
                     )"
-                    [ "$choice" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break 2
-                    [ "$choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
-                    trackma_entry_index=$(printf "%s" "$choice" | cut -d" " -f1)
+                    [ "$altname_choice" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break 2
+                    [ "$altname_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
+                    trackma_entry_index=$(printf "%s" "$altname_choice" | cut -d" " -f1)
                     echo && line_to_remove
                     printf "%b" "      What is the altname❔ (leave blank to clear it)\n      👉 " && line_to_remove
                     read -r altname
@@ -2328,169 +2548,37 @@ account_menu() {
     done
 }
 
-incognito_menu() {
-    tput clear
-    INCOGNITO_MENU_HELPTEXT="
-👤  Switch Incognito Mode off.
-───
-💡  Stream with animdl. You will need to type a search query and episode number. This option uses streaming for playing content.
-───
-😺  Search Nyaa Torrents. You will need to type a search query, type and episode number and select a search result to play it. This option uses torrenting for playing content.
-"
-    INCOGNITO_MENU_ENTRIES="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_STREAMING\n$EXIT_INCOGNITO_MODE"
-    MAINMENU_TITLE="MAIN MENU"
-    menu_entries=$INCOGNITO_MENU_ENTRIES
-    menu_title=$MAINMENU_TITLE
-    menu_help_text=$INCOGNITO_MENU_HELPTEXT
-    prompt=""
-    CHECKPOINTFILE="$TMP_PATH/tmp-checkpoint"
-    # always remove checkpoint file for every incognito user
-    if [ -s "$CHECKPOINTFILE" ]; then
-        rm -f "$CHECKPOINTFILE"
+#*********************************
+#* ENTRYPOINT
+#*********************************
+
+# Script entry point function
+main() {
+    check_setup
+    # common fzf args
+    PREVIEW_WINDOW_OPTS="right,70%,hidden,wrap"
+    MENU_PREVIEW_POS_MODES="down,70%|left,70%|top,70%|"
+    if [ "$MINIMAL" -eq 1 ]; then
+        # initial preview options
+        FZF="fzf -0 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top --layout=reverse --info inline --no-separator --bind change:first --no-sort"
+    else
+        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1 --bind change:first --no-sort"
     fi
-    print_readme_first_msg
-    [ "$MINIMAL" -eq 0 ] && paint_logo
-    [ "$MINIMAL" -eq 0 ] && print_incognito_msg
     while true; do
-        if [ -z "$prompt" ]; then
-            FZF_PREVIEW_WINDOW_CMD="printf \"%s\n\" \"$menu_help_text\""
-            clear_modifiers
-            prompt=$(
-                printf "%b" "$menu_entries" |
-                    $FZF -i --prompt="Choose an action: " \
-                        --border-label "╢ ♣  $menu_title ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" \
-                        --header-first \
-                        --preview-window "$PREVIEW_WINDOW_OPTS" \
-                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
-                        --bind "ctrl-l:toggle-preview" \
-                        --preview-label " Help "
-            )
+        if [ "$INCOGNITO_MODE" -eq 0 ]; then
+            spawn_trackma
+            check_trackma_config
         fi
-        case $prompt in
-        "$PLAY_METHOD_TORRENTING")
-            player_source="torrenting"
-            incognito_play_msg_emoji="😺"
-            prompt="PLAY"
-            ;;
-        "$PLAY_METHOD_STREAMING")
-            player_source="streaming"
-            incognito_play_msg_emoji="💡"
-            prompt="PLAY"
-            ;;
-        "PLAY")
-            echo && line_to_remove
-            printf "$MSG_INFO_COLOR      %s What anime do you want to watch❔$RESET" "$incognito_play_msg_emoji" && line_to_remove
-            printf "         👉 " && line_to_remove
-            read -r anime_title
-            clear_lines
-            [ -z "$anime_title" ] && clear_modifiers && continue
-            anime_title="$(printf "%s" "$anime_title" | sed -E 's/[^a-zA-Z0-9 ]//g' | sed "s/[[:space:]]*$//g" | sed "s/^[[:space:]]*//g")"
-            echo && line_to_remove
-            printf "      %s Enter an episode number if applicable\n" "$incognito_play_msg_emoji" && line_to_remove
-            printf "         👉 " && line_to_remove
-            read -r anime_ep
-            clear_lines
-            anime_ep="$(printf "%s" "$anime_ep" | sed -E 's/[^0-9]//g')"
-            if [ -z "$anime_ep" ]; then
-                anime_ep=1
-                show_type="movie"
-            else
-                show_type="tv"
-            fi
-            last_show_episode=0
-            while true; do
-                play_anime "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
-                if [ "$play_status" = "$PLAY_STATUS_SELECT_SOURCE" ]; then
-                    clear_modifiers
-                    break # go to main menu
-                elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
-                    clear_modifiers
-                    break # go to main menu
-                fi
-                media_player_menu
-                clear_lines
-                if [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
-                    # new state already set by media_player_menu function
-                    continue
-                elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
-                    clear_modifiers
-                    break # go to main menu
-                fi
-            done
-            ;;
-        "$EXIT_INCOGNITO_MODE")
-            INCOGNITO_MODE=0
-            line_to_remove # remove incognito label
-            clear_lines    # remove incognito label
-            break
-            ;;
-        esac
+        if [ "$INCOGNITO_MODE" -eq 0 ]; then
+            account_menu
+        else
+            incognito_menu
+        fi
     done
 }
 
-export BACK_MSG
-export TO_MAIN_MENU
-export SWITCH_STATUS_MSG_MENU_ENTRY
-export TRACKMA_ENTRY_REGEX
-export TRACKMA_LOGFILE
-
-# fzf colors
-export FZF_DEFAULT_OPTS='--color=fg:#ffffff,bg:-1,hl:#ba9c41 --color=fg+:#ffbf00,bg+:#262626,hl+:#5fd7ff --color=info:#ffffff,prompt:#ffbf00,pointer:#af5fff --color=marker:#87ff00,spinner:#af5fff,header:#d7005f --color=label:#ffbf00'
-
-# regex for extracting trackma results
-# gets the whole series list
-TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:space:]]+[0-9?]+[[:space:]]+[0-9]+).*\|$"
-# gets the multiple parts of an entry, by matching groups
-#	1- list index
-#	2- series title
-#	3- unused
-#	4- last watched ep
-#	5- end episode
-#	6- series score
-# Caveat: removing possesive quantifier makes the \2 match to end
-# with a residual dot, we will have to remove it with sed.
-# We also have no way of making a distinction between series that
-# actually end with a dot from a residual dot.
-TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
-# mainmenu entries
-WATCH_HISTORY="👁️  Watch History"
-WATCH="📺 Watch"
-WATCH_RANDOM="🔀 Watch Random"
-ADD_SHOW="🧩 Add Anime"
-LIST="📙 Lists"
-UPDATE_STATUS="🔄 Update Anime Status"
-SCORE_SHOW="👍 Score Anime"
-EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
-ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
-TO_SUBMENU="MORE OPTIONS ▸"
-BACK_TO_SUBMENU="◂ BACK"
-# submenu entries
-SWITCH_ACCOUNTS="Switch Accounts 👤"
-DELETE_ANIME="Delete Anime 🗑️"
-WATCH_RAND_AIRING="Watch Random Anime (Currently Airing 📣)"
-LIST_AIRING="List Anime (Currently Airing 📣)"
-UPDATE_EPISODES="Update Anime Episodes 🔄"
-SET_ALTNAME="Set Alternative Name 📝"
-PULL="Pull Lists from Remote ↓"
-PUSH="Push Local Lists to Remote ↑"
-LIST_BY_SCORE="List Anime (Sort by Rating 🌟)"
-TO_MAIN_MENU="◂ MAIN MENU"
-SELECT_SOURCE="◂ SELECT SOURCE"
-SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
-# used in account_menu, incognito_menu
-PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
-PLAY_METHOD_SAVED_LINK="🔖 Load from Bookmarks (torrenting)"
-PLAY_METHOD_STREAMING="💡 Play with animdl (streaming)"
-PLAY_METHOD_MAGNET="🧲 Play a magnet link (torrenting)"
-NYAA_SEARCH_SYNONYM="🔎 Search again using a title synonym"
-# used in media_player_menu
-PLAYER_MENU_FILE_SELECT_CODE=0
-PLAYER_MENU_END_CODE=1
-PLAYER_MENU_SELECT_SEARCH_RES_CODE=2
-PLAYER_MENU_SEARCH_SYNONYM=3
-
+# Gracefully exit the script
+#* Needs to be at the end of the script
 on_exit() {
     onexit_last_exit_status="$?"
     onexit_parent_lineno="$1"
@@ -2516,30 +2604,6 @@ on_exit() {
     clear_modifiers
     exit "$onexit_exit_code"
 }
-
+#* Must go before main function call
 trap 'on_exit ${LINENO}' EXIT
-
-main() {
-    check_setup
-    # common fzf args
-    PREVIEW_WINDOW_OPTS="right,70%,hidden,wrap"
-    MENU_PREVIEW_POS_MODES="down,70%|left,70%|top,70%|"
-    if [ "$MINIMAL" -eq 1 ]; then
-        # initial preview options
-        FZF="fzf -0 --ansi --cycle --ellipsis (...) --color dark --pointer > --border-label-pos 1 --reverse --border top --layout=reverse --info inline --no-separator --bind change:first --no-sort"
-    else
-        FZF="fzf -0 --ansi --cycle --ellipsis (...) --height 70% --border rounded --pointer 👉 --margin 5% --padding=1,0,0,0 --border-label-pos -1 --bind change:first --no-sort"
-    fi
-    while true; do
-        if [ "$INCOGNITO_MODE" -eq 0 ]; then
-            spawn_trackma
-            check_trackma_config
-        fi
-        if [ "$INCOGNITO_MODE" -eq 0 ]; then
-            account_menu
-        else
-            incognito_menu
-        fi
-    done
-}
 main
