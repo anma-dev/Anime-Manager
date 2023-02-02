@@ -625,7 +625,7 @@ get_anime_title() {
 }
 
 # Get a cleaned title fragment.
-get_show_title_function_code='get_show_title() {
+get_title_fragment_function_code='get_title_fragment() {
     if [ -n "$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p")" ]; then
         # raw entry
         printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s/📣 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
@@ -633,7 +633,7 @@ get_show_title_function_code='get_show_title() {
         printf "%s" "$1"
     fi
 }'
-eval "$get_show_title_function_code"
+eval "$get_title_fragment_function_code"
 
 # gets the index of an entry
 get_entry_index_function_code='get_entry_index() {
@@ -710,7 +710,6 @@ get_show_info_function_code='get_show_info() {
     elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
         printf "%s\n" "Switch to another list"
     else
-        get_show_info_show_title="$(get_show_title "$1")"
         get_show_info_status="$(get_trackma_status_code "$2")"
         trackma_entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
         printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$trackma_entry_index" | trackma_query >/dev/null 2>&1
@@ -1996,7 +1995,7 @@ account_menu() {
                 watch_choice="$(clean_trackma_entry "$watch_choice")"
                 #* set index and status before getting title
                 #* get index and fragment before getting status
-                trackma_title_fragment="$(get_show_title "$watch_choice")"
+                trackma_title_fragment="$(get_title_fragment "$watch_choice")"
                 trackma_entry_index="$(printf "%s" "$watch_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                 status="$(get_show_status)"
                 anime_title_trackma=$(get_anime_title)
@@ -2358,11 +2357,11 @@ account_menu() {
                 )
                 status=$(get_trackma_status_code "$status")
                 [ "$status" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && clear_modifiers && break
+                # anime selection loop
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
                     full_info="$(format_trackma_list "$full_info")"
                     full_info="$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
-                    # anime selection loop
                     score_anime_choice="$(
                         printf "%b" "$full_info" |
                             $FZF -i --prompt="Choose an anime to score: " \
@@ -2372,18 +2371,18 @@ account_menu() {
                     )"
                     [ "$score_anime_choice" = "$TO_MAIN_MENU" ] && clear_modifiers && break 2
                     [ "$score_anime_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
-                    score_anime_choice_id="$(printf "%s" "$score_anime_choice" | cut -d" " -f1)"
-                    scor_anime_choice_name=$(get_show_title "$score_anime_choice")
+                    trackma_entry_index="$(printf "%s" "$score_anime_choice" | cut -d" " -f1)"
+                    anime_title_trackma=$(get_anime_title)
                     SCORE_MENU="(10) Masterpiece\n(9) Great\n(8) Very Good\n(7) Good\n(6) Fine\n(5) Average\n(4) Bad\n(3) Very Bad\n(2) Horrible\n(1) Appalling"
                     score=$(
                         printf "%b" "$SCORE_MENU" | $FZF -i --prompt="Select a score: " \
-                            --border-label "╢ ♣  SCORING ANIME: $(trim "$scor_anime_choice_name") ♣  ╟" \
+                            --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_title_trackma") ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --pointer 🌟 \
                             --header-first --tac | sed -En "s/\(([[:digit:]]+)\).*/\1/p"
                     )
                     clear_lines
-                    printf "filter %s\nscore %s %s\n" "$status" "$score_anime_choice_id" "$score" | trackma_query >/dev/null 2>&1
+                    printf "filter %s\nscore %s %s\n" "$status" "$trackma_entry_index" "$score" | trackma_query >/dev/null 2>&1
                 done
             done
             ;;
@@ -2531,7 +2530,7 @@ account_menu() {
             fi
             export status
             while true; do
-                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_show_title_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
+                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_title_fragment_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
                 # watch choice is global state and will be used by the watch prompt
                 list_choice=$(
                     printf "%s\n%s\n%s" "$top_menu_entry" "$SWITCH_STATUS_MSG_MENU_ENTRY" "$msg" |
