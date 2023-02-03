@@ -1145,20 +1145,15 @@ check_trackma_config() {
 }
 
 #* BOOKMARKS
-# Prints a deterministic normalized cache filename
-# Uses the entry status and index in the list to avoid collisions
+
+# Generate and return a bookmark's filename from the anime title
 get_cache_filename() {
-    # use constant anime title from trackma list
-    # use normalized status code
-    # do not use title synonyms because they can change
-    if [ -z "$status" ] || [ -z "$anime_title" ] || [ -z "$entry_index" ]; then
-        printf "💥 ERROR: unable to get bookmark file.\n"
+    if [ -z "$anime_title" ]; then
+        printf "💥 ERROR: unable to get bookmark file (no title).\n"
         kill $$
     fi
-    get_cache_filename_status="$(get_trackma_status_code "$status")"
-    get_cache_filename_title="$(printf "%s" "$anime_title" | sed -E 's/[^A-Za-z0-9._-]/_/g' | cut -c 1-10)"
     get_xxhash "$(
-        printf "%s" "$get_cache_filename_status////$entry_index////$get_cache_filename_title"
+        printf "%s" "$anime_title"
     )"
 }
 
@@ -2339,10 +2334,6 @@ account_menu() {
                             # anime last episode = updated watched episode
                             # and if the user already scored the anime
                             printf "filter %s\nupdate '%s' %s\n" "$status" "$entry_index" "$new_episode_count" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
-                            # update watch history
-                            # it will update episode count only if it finds an existing entry for that anime
-                            new_hist_content="$(sed -E "s,($(sanitize_ext_regex "$anime_title"))////.*,\1////$new_episode_count,g" "$WATCH_HISTORY_FILE" | sed -E '/^\s*$/d')"
-                            printf "%s\n" "$new_hist_content" >"$WATCH_HISTORY_FILE"
                         fi
                     elif [ "$prompt" = "$UPDATE_STATUS" ]; then
                         update_choice=$(
