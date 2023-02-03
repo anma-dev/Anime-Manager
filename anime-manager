@@ -794,7 +794,7 @@ get_show_info_function_code='get_show_info() {
 eval "$get_show_info_function_code"
 
 #*********************************
-# SYSTEM_SETUP - Detect environment, autoinstall
+#* SYSTEM SETUP - Detect environment, autoinstall
 #*********************************
 
 # set the default media player
@@ -823,7 +823,7 @@ auto_compat() {
     elif [ "$OSTYPE" = "Darwin" ]; then
         true
     else
-        log "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\n\nMORE INFO: https://github.com/anma-dev/Anime-Manager#dependencies"
+        log "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\nhttps://github.com/anma-dev/Anime-Manager#dependencies"
         exit 0
     fi
 }
