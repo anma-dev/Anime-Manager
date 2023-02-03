@@ -101,11 +101,6 @@ reset_logs() {
     echo >"$NYAA_FE_LOGFILE"
 }
 
-# formats and prints a string
-log() {
-    printf "%b\n" "$1"
-}
-
 # returns a substring of a string
 # starting from the beginning
 start_substring() {
@@ -180,14 +175,14 @@ get_xxhash() {
 # Prints the account currently in use by Trackma
 print_account() {
     clear_lines
-    printf "$SUBTITLE_COLOR%s$RESET" "      👤 Account ─ ${USERNAME} │"
+    printf "$SUBTITLE_COLOR%s$RESET\n" "      👤 Account ─ ${USERNAME} │"
 }
 
 # Prints a message to inform the user that they are in incognito mode
 print_incognito_msg() {
     clear_lines
     printf "      "
-    printf "$INCOGNITO_MODE_COLORS%s$RESET" "🕵  INCOGNITO MODE "
+    printf "$INCOGNITO_MODE_COLORS%s$RESET\n" "🕵  INCOGNITO MODE "
 }
 
 # Print the application logo.
@@ -213,8 +208,8 @@ $LOGO_B64
 EOF
         )"
     fi
-    printf "$TITLE_COLOR%s$RESET" "      🍿 Watch and Sync Anime from Your Terminal"
-    printf "$MSG_HELP_COLOR%s$RESET" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
+    printf "$TITLE_COLOR%s$RESET\n" "      🍿 Watch and Sync Anime from Your Terminal"
+    printf "$MSG_HELP_COLOR%s$RESET\n" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
 
 }
 
@@ -274,15 +269,15 @@ DEFAULT_DARWIN_PLAYER="iina"
 lines_to_remove=0
 LINENO=0
 # Message color palette
-RESET="\033[0m\n"
-MSG_INFO_COLOR="\033[38;2;255;255;224m" # lightyellow
-MSG_WARN_COLOR="\033[38;2;255;165;0m"   # orange
-MSG_ERR_COLOR="\033[31m"                # red
-MSG_HELP_COLOR="\033[1;34m"             # lightblue, bold
-TITLE_COLOR="\033[33m"                  # yellow
-SUBTITLE_COLOR="\033[1;34m"             # lightblue, bold
-INCOGNITO_MODE_COLORS="\033[37;45m"     # magenta bg, white fg
-OVERWRITE='\r\033[1A\033[0K'
+RESET="\x1b[0m"
+MSG_INFO_COLOR="\x1b[38;2;255;255;224m" # lightyellow
+MSG_WARN_COLOR="\x1b[38;2;255;165;0m"   # orange
+MSG_ERR_COLOR="\x1b[31m"                # red
+MSG_HELP_COLOR="\x1b[1;34m"             # lightblue, bold
+TITLE_COLOR="\x1b[33m"                  # yellow
+SUBTITLE_COLOR="\x1b[1;34m"             # lightblue, bold
+INCOGNITO_MODE_COLORS="\x1b[37;45m"     # magenta bg, white fg
+OVERWRITE='\r\x1b[1A\x1b[0K'
 
 DATE_MONTH=$(date "+%m")
 DATE_DAY=$(date "+%d")
@@ -554,6 +549,28 @@ EOF
     printf "%s" "$get_entry_from_title_entry"
 }
 
+# Format anime info.
+format_anime_info_function_code='format_anime_info() {
+    ENTRY_TEXT="\x1b[38;2;255;255;224m" # lightyellow
+    ENTRY_NAME="\x1b[38;2;255;165;0m"   # orange
+    RESET="\x1b[0m"
+    formatted_info="$1"
+    formatted_info="$(printf "$formatted_info" | sed -E "s/^(.*):[[:space:]]\[\]/\1: N\/A/g")"
+    formatted_info="$(printf "$formatted_info" | sed -E "s/\[(.*)\]/\1/g")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "1,3 s/^(.*)/${ENTRY_NAME}\1${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(English):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Japanese):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Romaji):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Synonyms):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Synopsis):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Type):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Mean score):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Status):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "/^(Mean score|Status|Type|Synopsis|Synonyms|Romaji|Japanese|English):(.*)/! s/(.*)/${ENTRY_TEXT}\1${RESET}/")"
+    printf "%s\n" "$formatted_info"
+}'
+eval "$format_anime_info_function_code"
+
 # returns a status code that trackma understands
 get_trackma_status_code_function_code='get_trackma_status_code() {
     get_trackma_status_code_status_status="$1"
@@ -739,11 +756,13 @@ get_mixed_anime_info_function_code='get_mixed_anime_info() {
             get_mixed_anime_info_title_fragment="$(get_title_fragment "$1")"
             get_mixed_anime_info_entry_index="$(get_entry_index "$1")"
             printf "filter %s" "$(get_trackma_status_code "$get_mixed_anime_info_status")" | trackma_query >/dev/null 2>&1
-            printf "info '\''%s'\''\n" "$(printf "%s" "$get_mixed_anime_info_title_fragment" | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
-            while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+            printf "search '\''%s'\''\n" "$(printf "%s" "$get_mixed_anime_info_title_fragment" | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
             # Filter by index because we may get more than one match by fragment.
-            get_mixed_anime_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
+            get_mixed_anime_info_info="$(filter_trackma_list "$(cat "$GLOBAL_TRACKMA_TMPFILE")" | sed -En "/^$get_mixed_anime_info_entry_index/p")"
             if [ -n "$get_mixed_anime_info_info" ]; then
+                printf "info '\''%s'\''\n" "$get_mixed_anime_info_entry_index" | trackma_query >/dev/null 2>&1
+                while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+                get_mixed_anime_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
                 break
             fi
         done <<EOF
@@ -753,9 +772,8 @@ EOF
     if [ -z "$get_mixed_anime_info_info" ]; then
         printf "%s\n" "💥 ERROR getting anime info."
     else
-        printf "%s" "$get_mixed_anime_info_info"
+        format_anime_info "$get_mixed_anime_info_info"
     fi
-
 }'
 eval "$get_mixed_anime_info_function_code"
 
@@ -788,7 +806,7 @@ get_show_info_function_code='get_show_info() {
         printf "info '\''%s'\''\n" "$(printf "%s" "$entry_index" | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
         while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
         get_show_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
-        printf "\n%b" "$get_show_info_info"
+        format_anime_info "$get_show_info_info"
     fi
 }'
 eval "$get_show_info_function_code"
@@ -823,7 +841,7 @@ auto_compat() {
     elif [ "$OSTYPE" = "Darwin" ]; then
         true
     else
-        log "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\nhttps://github.com/anma-dev/Anime-Manager#dependencies"
+        printf "%s" "Automatic installation does not support your platform yet\nbut we may add support for it in the future.\n\nPlease install the dependencies manually.\nhttps://github.com/anma-dev/Anime-Manager#dependencies"
         exit 0
     fi
 }
@@ -833,7 +851,7 @@ install_dependencies() {
     shell_cfg="$(get_shell_config_file)"
     install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
     if ! which fzf bat animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/webtorrent-cli/node_modules" ]; then
-        log "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
+        printf "%s" "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!" && line_to_remove
         AUTOINSTALL=1
         AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
         printf "%s\n" "$AM_SHELL_CFG_MSG"
@@ -851,9 +869,9 @@ install_dependencies() {
         fi
         # begin installation
         if [ "$OSTYPE" = "Linux" ]; then
-            log "🐧 Installing Linux dependencies."
+            printf "%s" "🐧 Installing Linux dependencies."
             if ! sudo -v; then
-                log "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
+                printf "%s" "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
             fi
             sudo apt update
             sudo apt -y install build-essential procps curl wget file git python3-setuptools python3-pip bat jq xxhash
@@ -930,7 +948,7 @@ install_dependencies() {
                 pip3 install Trackma==0.8.5
             fi
         elif [ "$OSTYPE" = "Darwin" ]; then
-            log "🍏 Installing macOS dependencies."
+            printf "%s" "🍏 Installing macOS dependencies."
             if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | grep version >/dev/null 2>&1; then
                 # xcode command line tools is a dependency of nvm and homebrew
                 xcode-select --install
@@ -990,7 +1008,7 @@ install_dependencies() {
             fi
         fi
         echo
-        log "$install_dep_msg"
+        printf "%s" "$install_dep_msg"
         exit 0
     fi
 }
@@ -1236,9 +1254,9 @@ media_player_menu() {
         # fatal error, go back to mainmenu
         echo && line_to_remove
         if [ "$player_source" = "streaming" ]; then
-            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play (streaming)." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 Unable to play (streaming)." && line_to_remove
         else
-            printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to play (torrenting)." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 Unable to play (torrenting)." && line_to_remove
         fi
         printf "%s\n" "      [Enter]  ◂ MAIN MENU" && line_to_remove
         # recovery menu loop
@@ -1384,10 +1402,10 @@ torrent_magnet_link() {
     # printf "%s" "$episode_data" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
     # remove from job queue to avoid info messages if we have to end the process with kill
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
     play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
     if [ "$play_episode_torrent_status" -eq "$TORRENT_STATUS_ERRORED" ]; then
-        printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to play (torrenting)" && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to play (torrenting)" && line_to_remove
         magnet_link=""
         play_status=$PLAY_STATUS_ERRORED
     else
@@ -1400,7 +1418,7 @@ torrent_magnet_link() {
 # gets info from a magnet link
 get_magnet_info() {
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET" "      🗃️  Searching for matching file..." && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      🗃️  Searching for matching file..." && line_to_remove
     get_magnet_info_data="$(python3 "$NYAA_FE_BIN" --title "$play_episode_anime_title" --synonyms "$(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$play_episode_anime_episode" --type "$show_type")"
     episode_data="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $1}' | sed "s/'/'\"'\"'/g")"
     file_list="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $2}')"
@@ -1419,7 +1437,7 @@ select_magnet_file() {
     [ "$file_index" = "$NYAA_FID_CODE_CONTENT_MISMATCH" ] && play_status="$PLAY_STATUS_FILE_SEL"
     if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
         if [ "$file_list" = "None" ]; then
-            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Could not find any matching files in this magnet" && line_to_remove
+            printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Could not find any matching files in this magnet" && line_to_remove
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
@@ -1449,8 +1467,8 @@ play_anime() {
     set_media_player
     while ! connectivity_check; do
         echo && line_to_remove
-        printf "$MSG_WARN_COLOR%s$RESET" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
-        printf "$MSG_WARN_COLOR%s$RESET" "      Please check your connection and press [Enter]" && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET\n" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET\n" "      Please check your connection and press [Enter]" && line_to_remove
         read -r key
         key="$(start_substring "$key" 1)"
         [ "$key" = "" ] && clear_lines && continue
@@ -1468,7 +1486,7 @@ play_anime() {
             # get magnet link and play it with webtorrent-cli
             if [ -z "$nyaa_search_res" ]; then
                 echo && line_to_remove
-                printf "$MSG_INFO_COLOR%s$RESET" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_BIN --title "$play_episode_anime_title" --episode "$play_episode_anime_episode" --quality 1080 --show-type "$show_type")"
                 if printf "%s" "$nyaa_search_res" | grep "////" >/dev/null 2>&1; then
                     nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
@@ -1478,7 +1496,7 @@ play_anime() {
                     nyaa_search_res="{\"name\": \"$nyaa_search_ret_msg\"}"
                 elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 $nyaa_search_ret_msg" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 $nyaa_search_ret_msg" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     return
                 fi
@@ -1547,7 +1565,7 @@ play_anime() {
             return
         fi
         if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
-            printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR!" && line_to_remove
+            printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 FATAL ERROR!" && line_to_remove
             magnet_link=""
             file_list=""
             play_status=$PLAY_STATUS_ERRORED
@@ -1562,7 +1580,7 @@ play_anime() {
     elif [ "$player_source" = "streaming" ]; then
         stream_providers=$(array "animepahe" "allanime" "zoro" "animeout" "gogoanime" "tenshi")
         echo && line_to_remove
-        printf "$MSG_INFO_COLOR%s$RESET" "      💡 Streaming (animdl)" && line_to_remove
+        printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do
             d_provider=$(printf '%s\n' "$provider" | array_element_decode)
             if [ "$animdl_playthrough" -eq 0 ]; then
@@ -1579,7 +1597,7 @@ play_anime() {
                 set -m
                 animdl_pid="$(cat "$stream_pid_file")"
                 exec 4>"$play_episode_stream_fifo_write"
-                printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
                 stream_health=10
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
@@ -1589,7 +1607,7 @@ play_anime() {
                         else
                             # stream started automatically
                             play_status=$PLAY_STATUS_OKPLAYING
-                            printf "$MSG_INFO_COLOR%s$RESET" "      🚀 The stream is starting (please wait...)" && line_to_remove
+                            printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The stream is starting (please wait...)" && line_to_remove
                             return
                         fi
                     else
@@ -1598,7 +1616,7 @@ play_anime() {
                     sleep 1
                 done
                 if [ $stream_health -eq 0 ]; then
-                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 No results found ($d_provider), next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 No results found ($d_provider), next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     echo >"$ANIMDL_LOGFILE"
@@ -1632,7 +1650,7 @@ play_anime() {
                 4>&-
                 sleep 2 # wait for the stream to start
                 stream_health=15
-                printf "$MSG_INFO_COLOR%s$RESET" "      Trying to stream with $d_provider" && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      Trying to stream with $d_provider" && line_to_remove
                 while [ $stream_health -gt 0 ]; do
                     if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))
@@ -1643,7 +1661,7 @@ play_anime() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to stream with $d_provider, next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $d_provider, next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     echo "" >"$ANIMDL_LOGFILE"
@@ -1652,7 +1670,7 @@ play_anime() {
                     rm "$play_episode_stream_fifo_write"
                     unset stream_tmpfile
                     unset stream_fifo_write
-                    printf "$MSG_INFO_COLOR%s$RESET" "      🚀 The stream is starting (please wait...)" && line_to_remove
+                    printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The stream is starting (please wait...)" && line_to_remove
                     play_status=$PLAY_STATUS_OKPLAYING
                     return
                 fi
@@ -1682,7 +1700,7 @@ play_anime() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET" "      🚫 Unable to stream with $d_provider" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $d_provider" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     continue
@@ -1696,7 +1714,7 @@ $stream_providers
 EOF
     elif [ "$player_source" = "self_magnet" ]; then
         echo && line_to_remove
-        printf "$MSG_INFO_COLOR%s$RESET" "      🧲 Paste your magnet link and press Enter (silent input): " && line_to_remove
+        printf "$MSG_INFO_COLOR%s$RESET\n" "      🧲 Paste your magnet link and press Enter (silent input): " && line_to_remove
         stty_orig=$(stty -g)
         stty -echo
         read -r magnet_link
@@ -1715,15 +1733,15 @@ EOF
             # check for cached data
             if [ "$play_status" != "$PLAY_STATUS_FILE_SEL" ]; then
                 echo && line_to_remove
-                printf "$MSG_INFO_COLOR%s$RESET" "      🔖 Loading bookmark..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔖 Loading bookmark..." && line_to_remove
             fi
             cached_playback=1
             magnet_link="$(get_cached_link)"
             select_magnet_file
             [ "$file_index" = "◂" ] && play_status=$PLAY_STATUS_OKPLAYING && return
             if [ "$file_index" = "$NYAA_SEARCH_CODE_FATAL_ERROR" ]; then
-                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 FATAL ERROR: please contact development" && line_to_remove
-                printf "$MSG_WARN_COLOR%s$RESET" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 FATAL ERROR: please contact development" && line_to_remove
+                printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 https://github.com/anma-dev/Anime-Manager#support" && line_to_remove
                 magnet_link=""
                 file_list=""
                 play_status=$PLAY_STATUS_ERRORED
@@ -1795,7 +1813,7 @@ incognito_menu() {
             ;;
         "PLAY")
             echo && line_to_remove
-            printf "$MSG_INFO_COLOR      %s What anime do you want to watch❔$RESET" "$incognito_play_msg_emoji" && line_to_remove
+            printf "$MSG_INFO_COLOR      %s What anime do you want to watch❔$RESET\n" "$incognito_play_msg_emoji" && line_to_remove
             printf "         👉 " && line_to_remove
             read -r anime_title
             clear_lines
@@ -1902,6 +1920,7 @@ account_menu() {
     else
         TRACKMA_STATUS_MENU_ENTRIES="$(printf "%b" "Watching\nCompleted\nOn Hold\nDropped\nPlan to Watch" | sort -r)"
     fi
+    # menu loop
     while true; do
         if [ -z "$prompt" ]; then
             clear_modifiers
@@ -2021,7 +2040,7 @@ account_menu() {
                     watch_choice=$(printf "%s" "$full_info" | sed -n "/📣/p" | shuf -n 1)
                 else
                     full_info="$(printf "%s" "$full_info")"
-                    WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {} | bat --style=plain --color=always --language=yaml"
+                    WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {} | bat --style=plain --color=always"
                     watch_choice=$(
                         printf "%s\n%s" "$TO_MAIN_MENU" "$full_info" |
                             $FZF -i --prompt "Choose an anime to watch: " \
@@ -2044,7 +2063,7 @@ account_menu() {
                 [ "$watch_choice" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
                 if [ ! "$watch_choice" ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET" "      Nothing found!" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      Nothing found!" && line_to_remove
                     sleep 2
                     clear_lines
                     clear_modifiers
@@ -2246,7 +2265,7 @@ account_menu() {
                 continue
             fi
             results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$status")" "$series_title" | trackma_query)"
-            printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
+            printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
             while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
             clear_lines
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
@@ -2359,7 +2378,7 @@ account_menu() {
                     last_watched_ep="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
                     if [ "$prompt" = "$UPDATE_EPISODES" ]; then
                         echo && line_to_remove
-                        printf "$MSG_INFO_COLOR%s$RESET" "      How many episodes of this anime have you watched so far❔" && line_to_remove
+                        printf "$MSG_INFO_COLOR%s$RESET\n" "      How many episodes of this anime have you watched so far❔" && line_to_remove
                         printf "%s" "         👉 " && line_to_remove
                         read -r new_episode_count
                         new_episode_count="$(start_substring "$new_episode_count" 4)"
@@ -2586,7 +2605,7 @@ account_menu() {
             fi
             export status
             while true; do
-                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_title_fragment_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
+                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_title_fragment_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $format_anime_info_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
                 # watch choice is global state and will be used by the watch prompt
                 list_choice=$(
                     printf "%s\n%s\n%s" "$top_menu_entry" "$SWITCH_STATUS_MSG_MENU_ENTRY" "$msg" |
