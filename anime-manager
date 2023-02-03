@@ -1486,7 +1486,7 @@ play_anime() {
                     # incognito mode source selection menu is the same as the main menu
                     # so we do not need two options in that case
                     # incognito mode does not know about synonyms either
-                    nyaa_search_res="{\"name\": \"$TO_MAIN_MENU\"}\n{\"name\": \"$SELECT_SOURCE\"}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n${nyaa_search_res}"
+                    nyaa_search_res="{\"name\": \"$SELECT_SOURCE\"}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n${nyaa_search_res}"
                     # replace simple quotes with 'smart quotes' to avoid filtering command failure
                     # and to not disrupt the user experience
                     nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
@@ -1496,7 +1496,7 @@ play_anime() {
             FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'"
             PROMPT_TEXT="Choose a search result: "
             nya_res_choice=$(
-                printf "%b" "$nyaa_search_res" | jq --raw-output '.name' |
+                printf "%b" "{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
                         --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$play_episode_anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
@@ -1509,7 +1509,7 @@ play_anime() {
                         --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
                         --bind "ctrl-l:toggle-preview" \
                         --bind "ctrl-b:change-prompt($(printf "\033[44;37m BLU-RAY: \033[0m"))+reload:printf \"%b\" '$nyaa_search_res' | jq --raw-output '.name' | sed -En '/[bB][dD]|[bB][lL][uU][\-]*[rR][aA][yY]/p'" \
-                        --bind "tab:change-prompt($PROMPT_TEXT)+reload:printf \"%b\" '$nyaa_search_res' | jq --raw-output '.name'" \
+                        --bind "tab:change-prompt($PROMPT_TEXT)+reload:printf \"%b\" '{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res' | jq --raw-output '.name'" \
                         --bind "ctrl-a:change-prompt($(printf "\033[43;37m DUAL-AUDIO: \033[0m"))+reload:printf \"%b\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[dD][uU][aA][lL]/p'" \
                         --bind "ctrl-d:change-prompt($(printf "\033[46;37m DUBBED: \033[0m"))+reload:printf \"%b\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[dD][uU][bB]/p'" \
                         --bind "ctrl-r:change-prompt($(printf "\033[101;37m RAW: \033[0m"))+reload:printf \"%b\" '$nyaa_search_res' | jq --raw-output '.name' | sed -n '/[rR][aA][wW]/p'" \
