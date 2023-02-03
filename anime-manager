@@ -487,9 +487,10 @@ fi
 #* TRACKMA UTILITIES =====
 
 # Returns the index of a Trackma entry.
-get_entry_index() {
+get_entry_index_function_code='get_entry_index() {
     printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p"
-}
+}'
+eval "$get_entry_index_function_code"
 
 # Returns the last episode from a Trackma entry
 get_last_show_episode() {
@@ -678,7 +679,7 @@ get_last_show_ep_from_title() {
         printf "%s" "$status"
     else
         while read -r trackma_code; do
-            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$trackma_title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
             while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
             # Filter by index because we may get more than one match by fragment.
             res_title="$(filter_trackma_list "$(cat "$GLOBAL_TRACKMA_TMPFILE")")"
@@ -701,7 +702,7 @@ EOF
 # and we want to know the status of a particular entry.
 get_show_status() {
     [ -z "$entry_index" ] && printf "💥 Unable to get status (no index)" && kill $$
-    [ -z "$trackma_title_fragment" ] && printf "💥 Unable to get status (no title fragment)" && kill $$
+    [ -z "$title_fragment" ] && printf "💥 Unable to get status (no title fragment)" && kill $$
     if [ -n "$status" ]; then
         status="$(get_trackma_status_code "$status")"
         printf "%s" "$status"
@@ -709,7 +710,7 @@ get_show_status() {
         while read -r trackma_code; do
             # Filter by title fragment. Escape single quotes in title for search
             # query
-            printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$trackma_title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+            printf "filter %s\nsearch '%s'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
             while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
             # Filter by index because we may get more than one match by fragment.
             res_title="$(filter_trackma_list "$(cat "$GLOBAL_TRACKMA_TMPFILE")")"
@@ -728,6 +729,35 @@ EOF
         printf "%s" "$status"
     fi
 }
+
+# Get anime info for an entry from a mixed list.
+get_mixed_anime_info_function_code='get_mixed_anime_info() {
+    if [ "$1" = "$TO_MAIN_MENU" ]; then
+        get_mixed_anime_info_info="Go back to the main menu"
+    else
+        while read -r get_mixed_anime_info_status; do
+            get_mixed_anime_info_title_fragment="$(get_title_fragment "$1")"
+            get_mixed_anime_info_entry_index="$(get_entry_index "$1")"
+            printf "filter %s" "$(get_trackma_status_code "$get_mixed_anime_info_status")" | trackma_query >/dev/null 2>&1
+            printf "info '\''%s'\''\n" "$(printf "%s" "$get_mixed_anime_info_title_fragment" | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
+            while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+            # Filter by index because we may get more than one match by fragment.
+            get_mixed_anime_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
+            if [ -n "$get_mixed_anime_info_info" ]; then
+                break
+            fi
+        done <<EOF
+$TRACKMA_STATUS_MENU_ENTRIES
+EOF
+    fi
+    if [ -z "$get_mixed_anime_info_info" ]; then
+        printf "%s\n" "💥 ERROR getting anime info."
+    else
+        printf "%s" "$get_mixed_anime_info_info"
+    fi
+
+}'
+eval "$get_mixed_anime_info_function_code"
 
 # get anime series across lists or from a particular list
 # this is used to play any episode from the watch history
@@ -1874,16 +1904,16 @@ account_menu() {
     while true; do
         if [ -z "$prompt" ]; then
             clear_modifiers
-            FZF_PREVIEW_WINDOW_CMD="printf \"%s\" \"$menu_help_text\""
+            FZF_MAIN_MENU_PREVIEW_WINDOW_CMD="printf \"%s\" \"$menu_help_text\""
             prompt=$(
                 printf "%b" "$menu_entries" |
                     $FZF -i --prompt="Choose an action: " \
                         --border-label "╢ ♣  $menu_title ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Help ─ [Enter] Select" \
                         --header-first \
-                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                        --preview "$FZF_MAIN_MENU_PREVIEW_WINDOW_CMD" \
                         --preview-window "$PREVIEW_WINDOW_OPTS" \
-                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_MAIN_MENU_PREVIEW_WINDOW_CMD" \
                         --bind "ctrl-l:toggle-preview" \
                         --preview-label " Help "
             )
@@ -1940,7 +1970,7 @@ account_menu() {
                 anime_title="$(printf "%s" "$watch_hist_choice" | sed -En "s/^.*[AP]M[[:space:]]*\|[[:space:]]*[[:digit:]]*[[:space:]]*(.*)/\1/p")"
                 watch_hist_entry="$(get_entry_from_title)"
                 entry_index="$(get_entry_index "$watch_hist_entry")"
-                trackma_title_fragment="$anime_title"
+                title_fragment="$anime_title"
                 status="$(get_show_status)"
                 last_watched_ep="$(get_last_watched_episode "$watch_hist_entry")"
                 last_show_episode="$(get_last_show_episode "$watch_hist_entry")"
@@ -1990,9 +2020,14 @@ account_menu() {
                     watch_choice=$(printf "%s" "$full_info" | sed -n "/📣/p" | shuf -n 1)
                 else
                     full_info="$(printf "%s" "$full_info")"
+                    WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {} | bat --style=plain --color=always --language=yaml"
                     watch_choice=$(
                         printf "%s\n%s" "$TO_MAIN_MENU" "$full_info" |
                             $FZF -i --prompt "Choose an anime to watch: " \
+                                --preview "$WATCH_MENU_PREVIEW_CMD" \
+                                --preview-window "$PREVIEW_WINDOW_OPTS" \
+                                --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$WATCH_MENU_PREVIEW_CMD" \
+                                --preview-label ' Info ' \
                                 --border-label "╢ ♣  YOUR $(
                                     if [ "$TRACKER_SERVICE" = "anilist" ]; then
                                         printf "%s" "(RE)WATCHING LISTS"
@@ -2000,7 +2035,8 @@ account_menu() {
                                         printf "%s" "WATCHING LIST"
                                     fi
                                 ) ♣  ╟" \
-                                --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
+                                --header "⇅ Navigation ─ [Ctrl-L] Toggle info ─ [ESC] Exit ─ [Enter] Play ▶" \
+                                --bind "ctrl-l:toggle-preview" \
                                 --header-first --tac
                     )
                 fi
@@ -2014,7 +2050,7 @@ account_menu() {
                     continue
                 fi
                 watch_choice="$(clean_trackma_entry "$watch_choice")"
-                trackma_title_fragment="$(get_title_fragment "$watch_choice")"
+                title_fragment="$(get_title_fragment "$watch_choice")"
                 #* we need to get the status and index before we get the full title.
                 entry_index="$(get_entry_index "$watch_choice")"
                 status="$(get_show_status)"
@@ -2540,7 +2576,7 @@ account_menu() {
                                 printf " SHOWS"
                             fi
                         ) ($status list) ♣  " \
-                            --header "⇅ Navigation - [Enter] Go back" \
+                            --header "⇅ Navigation ─ [Enter] Go back" \
                             --header-first \
                             --prompt ""
                 )
@@ -2567,7 +2603,7 @@ account_menu() {
                                     printf " SHOWS"
                                 fi
                             ) ($status list) ♣  " \
-                            --header "⇅ Navigation - [Ctrl-L] Toggle info - [ESC] Exit - [Enter] Play ▶" \
+                            --header "⇅ Navigation ─ [Ctrl-L] Toggle info ─ [ESC] Exit ─ [Enter] Play ▶" \
                             --header-first \
                             --prompt "" \
                             --tac
