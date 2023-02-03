@@ -784,9 +784,10 @@ get_show_info_function_code='get_show_info() {
     else
         get_show_info_status="$(get_trackma_status_code "$2")"
         entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-        printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$entry_index" | trackma_query >/dev/null 2>&1
+        printf "filter %s" "$(get_trackma_status_code "$get_show_info_status")" | trackma_query >/dev/null 2>&1
+        printf "info '\''%s'\''\n" "$(printf "%s" "$entry_index" | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
         while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
-        get_show_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
+        get_show_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
         printf "\n%b" "$get_show_info_info"
     fi
 }'
