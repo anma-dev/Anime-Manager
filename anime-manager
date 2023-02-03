@@ -18,6 +18,11 @@ VERSION="v0.4.5-alpha"
 #* GENERAL UTILITIES
 #*********************************
 
+# Empties the watch history file
+delete_watch_history() {
+    printf "" >"$WATCH_HISTORY_FILE"
+}
+
 # Internet connectivity check with random selection of hosts
 connectivity_check() {
     connectivity_check_tmout=3
@@ -373,6 +378,7 @@ PUSH="Push Local Lists to Remote ↑"
 LIST_BY_SCORE="List Anime (Sort by Rating 🌟)"
 TO_MAIN_MENU="◂ MAIN MENU"
 SELECT_SOURCE="◂ SELECT SOURCE"
+DELETE_HIST="🗑️  Delete watch history"
 SWITCH_STATUS_MSG_MENU_ENTRY="🔄 SWITCH STATUS"
 # used in account_menu, incognito_menu
 PLAY_METHOD_TORRENTING="😺 Search Nyaa Torrents (torrenting)"
@@ -1979,7 +1985,7 @@ account_menu() {
                 )
             else
                 HIST=$(column -t -s "🔴" "$WATCH_HISTORY_FILE")
-                HIST="$TO_MAIN_MENU\n$HIST"
+                HIST="$TO_MAIN_MENU\n$DELETE_HIST\n$HIST"
                 watch_hist_choice=$(
                     printf "%b" "$HIST" |
                         $FZF -i --prompt="Select an anime: " \
@@ -1988,6 +1994,7 @@ account_menu() {
                             --header-first --tac
                 )
                 [ "$watch_hist_choice" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
+                [ "$watch_hist_choice" = "$DELETE_HIST" ] && delete_watch_history && continue
                 anime_title="$(printf "%s" "$watch_hist_choice" | sed -En "s/^.*[AP]M[[:space:]]*\|[[:space:]]*[[:digit:]]*[[:space:]]*(.*)/\1/p")"
                 watch_hist_entry="$(get_entry_from_title)"
                 entry_index="$(get_entry_index "$watch_hist_entry")"
