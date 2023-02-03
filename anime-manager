@@ -71,9 +71,9 @@ clear_modifiers() {
     sort_airing=0
     sort_score=0
     anime_title=""
-    anime_title_trackma=""
-    trackma_entry_index=""
-    anime_ep=""
+    anime_title=""
+    entry_index=""
+    cur_anime_episode=""
     status=""
     new_status=""
     last_watched_ep=""
@@ -88,6 +88,8 @@ clear_modifiers() {
     animdl_playthrough=0
     animdl_search_index=1
     nyaa_search_ret_code=""
+    watch_choice=""
+    list_choice=""
 }
 
 reset_logs() {
@@ -484,6 +486,26 @@ fi
 
 #* TRACKMA UTILITIES =====
 
+# Returns the index of a Trackma entry.
+get_entry_index() {
+    printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p"
+}
+
+# Returns the last episode from a Trackma entry
+get_last_show_episode() {
+    printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p"
+}
+
+# Returns the last watched episode from a Trackma entry
+get_last_watched_episode() {
+    printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p"
+}
+
+# Returns the score from a Trackma entry
+get_score() {
+    printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\6/p"
+}
+
 # get the account in use in Trackma
 get_account_name() {
     while ! grep "using account" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
@@ -507,6 +529,28 @@ get_trackma_tracker_name() {
         printf "Anilist"
         ;;
     esac
+}
+
+# Filter and return an entry from a Trackma list.
+get_entry_from_title() {
+    [ -z "$anime_title" ] && printf "💥 Unable to get entry (no title)." && kill $$
+    while read -r trackma_code; do
+        printf "filter %s\nsearch \"^%s$\"\n" "$status" "$anime_title" | trackma_query >/dev/null 2>&1
+        while ! grep "results" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+        format_trackma_list_res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
+        get_entry_from_title_entry="$(format_trackma_list "$format_trackma_list_res")"
+        if [ -n "$get_entry_from_title_entry" ]; then
+            status="$trackma_code"
+            break
+        fi
+    done <<EOF
+$TRACKMA_STATUS_MENU_ENTRIES
+EOF
+    if [ -z "$status" ]; then
+        printf "%b\n" "💥 ERROR getting show status."
+        kill $$
+    fi
+    printf "%s" "$get_entry_from_title_entry"
 }
 
 # returns a status code that trackma understands
@@ -544,22 +588,14 @@ get_trackma_status_code_function_code='get_trackma_status_code() {
 }'
 eval "$get_trackma_status_code_function_code"
 
-# Update watched episodes
+# Update watched episodes and update watch history
 set_ep_as_watched() {
-    if [ -z "$trackma_entry_index" ] || [ -z "$anime_ep" ]; then
-        printf "ERROR: Could not update episode\n"
-        kill $$
-    fi
+    date="$(date "+%Y/%m/%d %H:%M:%S %p")"
     # avoid 'EngineError: Show already at episode X'
-    if [ "$anime_ep" -ne "$last_watched_ep" ]; then
-        # anime_ep is the currently playing episode there's no need to increment it
-        printf "update %s %s\n" "$trackma_entry_index" "$anime_ep" | trackma_query >/dev/null 2>&1
-        # we check if theres actually something to save
-        # save other shows and replace the new updated registry for this show
-        preserved_history=$(awk "!/^$(sanitize_ext_regex "$anime_title_trackma").*$/" "$WATCH_HISTORY_FILE")
-        # if there is content that is not replaced add a newline for the show to insert, and only in that case.
-        [ -n "$preserved_history" ] && printf "%b" "$preserved_history\n" >"$WATCH_HISTORY_FILE" || printf "%b" "$preserved_history" >"$WATCH_HISTORY_FILE"
-        printf "%s\n" "$anime_title_trackma////$anime_ep" >>"$WATCH_HISTORY_FILE"
+    if [ "$cur_anime_episode" -ne "$last_watched_ep" ]; then
+        printf "update %s %s\n" "$entry_index" "$cur_anime_episode" | trackma_query >/dev/null 2>&1
+        # leave the full title at the end to avoid formatting it :P
+        printf "%s\n" "$date |🔴${cur_anime_episode}🔴${anime_title}" >>"$WATCH_HISTORY_FILE"
     fi
 }
 
@@ -567,7 +603,7 @@ set_ep_as_watched() {
 set_anime_status() {
     set_anime_status_new_status="$(get_trackma_status_code "$1")"
     status="$(get_trackma_status_code "$status")"
-    printf "filter %s\nstatus '%s' %s\n" "$status" "$trackma_entry_index" "$set_anime_status_new_status" | trackma_query >/dev/null 2>&1
+    printf "filter %s\nstatus '%s' %s\n" "$status" "$entry_index" "$set_anime_status_new_status" | trackma_query >/dev/null 2>&1
 }
 
 filter_trackma_list_function_code='filter_trackma_list() {
@@ -612,12 +648,12 @@ get_watching_shows() {
 # information output, including any trailing dots. This title doesn't need
 # cleaning because  we are not getting it from a list.
 get_anime_title() {
-    [ -z "$trackma_entry_index" ] && printf "💥 Unable to get anime title (no index set)." && kill $$
+    [ -z "$entry_index" ] && printf "💥 Unable to get anime title (no index set)." && kill $$
     [ -z "$status" ] && printf "💥 Unable to get anime title (no status set)." && kill $$
     # Split the Trackma commands in two parts otherwise the Trackma prompt gets
     # in the same line as the anime title.
     printf "filter %s\n" "$status" | trackma_query >/dev/null 2>&1
-    printf "info %s\n" "$trackma_entry_index" | trackma_query >/dev/null 2>&1
+    printf "info %s\n" "$entry_index" | trackma_query >/dev/null 2>&1
     while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     get_anime_title_title="$(head -n1 "$GLOBAL_TRACKMA_TMPFILE")"
     [ -z "$get_anime_title_title" ] && printf "💥 Unable to get anime title (no info)." && kill $$
@@ -635,30 +671,36 @@ get_title_fragment_function_code='get_title_fragment() {
 }'
 eval "$get_title_fragment_function_code"
 
-# gets the index of an entry
-get_entry_index_function_code='get_entry_index() {
-    res_title=""
-    anime_title="$1"
-    status="$2"
-    # replace single quotes with escaped single quotes for trackma search
-    # whole pattern escaped because eval'\''d
-    printf "filter %s\nsearch '"'"'^%s$'"'"'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'"'"'/'"'"'\"'"'"'\"'"'"'/g")" | trackma_query >/dev/null 2>&1
-    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
-    res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
-    res="$(filter_trackma_list "$res")"
-    entry_index="$(printf "%s" "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-    if [ -z "$entry_index" ]; then
-        printf "%b\n" "💥 ERROR getting entry index."
-        kill $$
+get_last_show_ep_from_title() {
+    [ -z "$anime_title" ] && printf "💥 Unable to get last episode (no title)" && kill $$
+    if [ -n "$status" ]; then
+        status="$(get_trackma_status_code "$status")"
+        printf "%s" "$status"
+    else
+        while read -r trackma_code; do
+            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$trackma_title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+            while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+            # Filter by index because we may get more than one match by fragment.
+            res_title="$(filter_trackma_list "$(cat "$GLOBAL_TRACKMA_TMPFILE")")"
+            if [ -n "$res_title" ]; then
+                last_show_episode="$(get_last_show_ep "$res_title")"
+                break
+            fi
+        done <<EOF
+$TRACKMA_STATUS_MENU_ENTRIES
+EOF
+        if [ -z "$status" ]; then
+            printf "%b\n" "💥 ERROR getting show status."
+            kill $$
+        fi
+        printf "%s" "$status"
     fi
-    printf "%s" "$entry_index"
-}'
-eval "$get_entry_index_function_code"
+}
 
 # Gets the status of an entry. This is used when we have a menu with mixed lists
 # and we want to know the status of a particular entry.
 get_show_status() {
-    [ -z "$trackma_entry_index" ] && printf "💥 Unable to get status (no index)" && kill $$
+    [ -z "$entry_index" ] && printf "💥 Unable to get status (no index)" && kill $$
     [ -z "$trackma_title_fragment" ] && printf "💥 Unable to get status (no title fragment)" && kill $$
     if [ -n "$status" ]; then
         status="$(get_trackma_status_code "$status")"
@@ -671,7 +713,7 @@ get_show_status() {
             while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
             # Filter by index because we may get more than one match by fragment.
             res_title="$(filter_trackma_list "$(cat "$GLOBAL_TRACKMA_TMPFILE")")"
-            res_title="$(printf "%s" "$res_title" | sed -En "/^$trackma_entry_index/p")"
+            res_title="$(printf "%s" "$res_title" | sed -En "/^$entry_index/p")"
             if [ -n "$res_title" ]; then
                 status="$(get_trackma_status_code "$trackma_code")"
                 break
@@ -693,7 +735,7 @@ EOF
 get_show_entry() {
     status="$(get_show_status)"
     # trackma search uses regex so we need to sanitize it
-    printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+    printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
     while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
     get_show_entry_list="$(filter_trackma_list "$res")"
@@ -711,28 +753,14 @@ get_show_info_function_code='get_show_info() {
         printf "%s\n" "Switch to another list"
     else
         get_show_info_status="$(get_trackma_status_code "$2")"
-        trackma_entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-        printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$trackma_entry_index" | trackma_query >/dev/null 2>&1
+        entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+        printf "filter %s\ninfo \"%s\"\n" "$get_show_info_status" "$entry_index" | trackma_query >/dev/null 2>&1
         while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
         get_show_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "/https/,/Status/p" | sed -e "s/<[^>]*>//g")"
         printf "\n%b" "$get_show_info_info"
     fi
 }'
 eval "$get_show_info_function_code"
-
-# get the last episode from a show in the re/watching list
-# used when the user plays a show from the watch or watch history
-# ARGS in order
-# anime_title the title of the show as trackma sees it
-get_last_show_ep() {
-    [ -z "$anime_title_trackma" ] && printf "💥 Unable to get last episode" && kill $$
-    # removes altname and trailing spaces, trackma cant find shows if the altname is in the query
-    get_last_show_ep_full_entry=$(get_show_entry)
-    [ -z "$get_last_show_ep_full_entry" ] && printf "💥 Error getting last episode!" && exit 1
-    last_episode="$(printf "%b" "$get_last_show_ep_full_entry" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p")"
-    [ -z "$last_episode" ] && printf "Could not get last episode\n" && kill $$
-    printf "%s" "$last_episode"
-}
 
 #*********************************
 # SYSTEM_SETUP - Detect environment, autoinstall
@@ -1123,14 +1151,14 @@ get_cache_filename() {
     # use constant anime title from trackma list
     # use normalized status code
     # do not use title synonyms because they can change
-    if [ -z "$status" ] || [ -z "$anime_title_trackma" ] || [ -z "$trackma_entry_index" ]; then
+    if [ -z "$status" ] || [ -z "$anime_title" ] || [ -z "$entry_index" ]; then
         printf "💥 ERROR: unable to get bookmark file.\n"
         kill $$
     fi
     get_cache_filename_status="$(get_trackma_status_code "$status")"
-    get_cache_filename_title="$(printf "%s" "$anime_title_trackma" | sed -E 's/[^A-Za-z0-9._-]/_/g' | cut -c 1-10)"
+    get_cache_filename_title="$(printf "%s" "$anime_title" | sed -E 's/[^A-Za-z0-9._-]/_/g' | cut -c 1-10)"
     get_xxhash "$(
-        printf "%s" "$get_cache_filename_status////$trackma_entry_index////$get_cache_filename_title"
+        printf "%s" "$get_cache_filename_status////$entry_index////$get_cache_filename_title"
     )"
 }
 
@@ -1211,15 +1239,15 @@ media_player_menu() {
         return
     fi
     clear_lines
-    if [ -z "$anime_title_trackma" ]; then
-        printf "💥 anime_title_trackma is not set"
+    if [ -z "$anime_title" ]; then
+        printf "💥 anime_title is not set"
         kill $$
     fi
-    trimmed_anime_title=$(trim "$anime_title_trackma")
+    trimmed_anime_title=$(trim "$anime_title")
     playing_menu=""
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
         # trackma account entries
-        if [ "$last_show_episode" != "?" ] && [ "$anime_ep" -eq "$last_show_episode" ]; then
+        if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
             playing_menu="🏁 Set as Watched\n"
             [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
         else
@@ -1247,7 +1275,7 @@ media_player_menu() {
     opt=$(printf "%b" "${playing_menu}\n${TO_MAIN_MENU}" |
         $FZF -i --prompt="Choose an action: " \
             --border-label "╢ ♣  📺  NOW PLAYING$([ -n "$show_type" ] && printf "%s" " ($show_type)" |
-                tr '[:lower:]' '[:upper:]') ─ ${trimmed_anime_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ %s" "$anime_ep") ♣  ╟" \
+                tr '[:lower:]' '[:upper:]') ─ ${trimmed_anime_title}$([ -n "$show_type" ] && [ "$show_type" != "movie" ] && printf " ▶ %s" "$cur_anime_episode") ♣  ╟" \
             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
             --header-first \
             --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -1285,7 +1313,7 @@ media_player_menu() {
             animdl_playthrough=1
         fi
         play_method_menu_opt=""
-        anime_ep=$((anime_ep + 1))
+        cur_anime_episode=$((cur_anime_episode + 1))
     elif [ "$opt" = "🏁" ]; then
         set_ep_as_watched
         media_player_exit_code="$PLAYER_MENU_END_CODE"
@@ -1375,7 +1403,7 @@ select_magnet_file() {
         file_index=$(
             printf "%b" "$file_list\n◂ NOW PLAYING" | sed "s/\"//g" |
                 $FZF -i --prompt "Choose a file: " \
-                    --border-label "╢ ♣  🗃️  FILE SELECTION ─ $(trim "$anime_title_trackma") ▶ $play_episode_anime_episode ♣  ╟" \
+                    --border-label "╢ ♣  🗃️  FILE SELECTION ─ $(trim "$anime_title") ▶ $play_episode_anime_episode ♣  ╟" \
                     --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                     --header-first \
                     --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -1519,7 +1547,7 @@ play_anime() {
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$anime_ep" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -1555,7 +1583,7 @@ play_anime() {
                 animdl_search_index="$(
                     printf "%b" "$SELECT_SOURCE\n$TO_MAIN_MENU\n$results" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
-                            --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_anime_title") ▶ Episode $anime_ep ♣  ╟" \
+                            --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_anime_title") ▶ Episode $cur_anime_episode ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first \
                             --tac | cut -d '.' -f1
@@ -1611,7 +1639,7 @@ play_anime() {
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --index "$animdl_search_index" --range "$anime_ep" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$d_provider:$play_episode_anime_title" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -1655,7 +1683,7 @@ EOF
             return
         fi
         player_source="torrenting"
-        play_anime "$anime_title_trackma" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+        play_anime "$anime_title" "$cur_anime_episode" "$player_source" "$status" "$show_type" "$show_synonyms"
     elif [ "$player_source" = "cached_link" ]; then
         if has_cached_link; then
             # check for cached data
@@ -1750,18 +1778,18 @@ incognito_menu() {
             echo && line_to_remove
             printf "      %s Enter an episode number if applicable\n" "$incognito_play_msg_emoji" && line_to_remove
             printf "         👉 " && line_to_remove
-            read -r anime_ep
+            read -r cur_anime_episode
             clear_lines
-            anime_ep="$(printf "%s" "$anime_ep" | sed -E 's/[^0-9]//g')"
-            if [ -z "$anime_ep" ]; then
-                anime_ep=1
+            cur_anime_episode="$(printf "%s" "$cur_anime_episode" | sed -E 's/[^0-9]//g')"
+            if [ -z "$cur_anime_episode" ]; then
+                cur_anime_episode=1
                 show_type="movie"
             else
                 show_type="tv"
             fi
             last_show_episode=0
             while true; do
-                play_anime "$anime_title" "$anime_ep" "$player_source" "" "$show_type" ""
+                play_anime "$anime_title" "$cur_anime_episode" "$player_source" "" "$show_type" ""
                 if [ "$play_status" = "$PLAY_STATUS_SELECT_SOURCE" ]; then
                     clear_modifiers
                     break # go to main menu
@@ -1904,32 +1932,30 @@ account_menu() {
                             --header-first
                 )
             else
-                HIST=$(column -t -s "////" "$WATCH_HISTORY_FILE")
+                HIST=$(column -t -s "🔴" "$WATCH_HISTORY_FILE")
                 HIST="$TO_MAIN_MENU\n$HIST"
-                sel=$(
+                watch_hist_choice=$(
                     printf "%b" "$HIST" |
                         $FZF -i --prompt="Select an anime: " \
                             --border-label "╢ ♣  WATCH HISTORY ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
                             --header-first --tac
                 )
-                [ "$sel" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
-                # TODO: save true anime title to watch history
-                anime_title_trackma=$(printf "%s" "$sel" | sed -En "s/^(.*)[[:space:]]+([[:digit:]]+)$/\1/p" | sed "s/[[:space:]]*$//" | sed "s/\[.*\]//g" | sed "s/ $//g")
-                last_show_episode="$(get_last_show_ep)"
-                last_watched_ep=$(printf "%s" "$sel" | sed -En "s/^(.*)[[:space:]]+([[:digit:]]+)$/\2/p" | sed "s/[[:space:]]*$//")
+                [ "$watch_hist_choice" = "$TO_MAIN_MENU" ] && prompt=$TO_MAIN_MENU && continue
+                anime_title="$(printf "%s" "$watch_hist_choice" | sed -En "s/^.*[AP]M[[:space:]]*\|[[:space:]]*[[:digit:]]*[[:space:]]*(.*)/\1/p")"
+                watch_hist_entry="$(get_entry_from_title)"
+                entry_index="$(get_entry_index "$watch_hist_entry")"
+                trackma_title_fragment="$anime_title"
+                status="$(get_show_status)"
+                last_watched_ep="$(get_last_watched_episode "$watch_hist_entry")"
+                last_show_episode="$(get_last_show_episode "$watch_hist_entry")"
                 # only increment if it's not the last episode of the show
                 # if we don't know the last aired apisode just attempt playing the next episode
                 if [ "$last_show_episode" = "?" ] || [ "$last_watched_ep" -lt "$last_show_episode" ]; then
-                    anime_ep=$((last_watched_ep + 1))
+                    cur_anime_episode=$((last_watched_ep + 1))
                 else
-                    anime_ep="1"
+                    cur_anime_episode="1"
                 fi
-                if [ -z "$status" ]; then
-                    # TODO: this probably fails
-                    status="$(get_show_status)"
-                fi
-                trackma_entry_index="$(get_entry_index "$anime_title_trackma" "$status")"
                 prompt="$WATCH"
             fi
             ;;
@@ -1942,7 +1968,7 @@ account_menu() {
             prompt=$WATCH
             ;;
         "$WATCH")
-            if [ -z "$anime_title_trackma" ] && [ -z "$anime_ep" ]; then
+            if [ -z "$anime_title" ] && [ -z "$cur_anime_episode" ]; then
                 full_info=$(get_watching_shows)
                 if [ ! "$full_info" ]; then
                     full_info="Your watching list is empty"
@@ -1993,17 +2019,19 @@ account_menu() {
                     continue
                 fi
                 watch_choice="$(clean_trackma_entry "$watch_choice")"
-                #* set index and status before getting title
-                #* get index and fragment before getting status
                 trackma_title_fragment="$(get_title_fragment "$watch_choice")"
-                trackma_entry_index="$(printf "%s" "$watch_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                #* we need to get the status and index before we get the full title.
+                entry_index="$(get_entry_index "$watch_choice")"
                 status="$(get_show_status)"
-                anime_title_trackma=$(get_anime_title)
-                trackma_entry_index=$(printf "%s" "$watch_choice" | cut -d " " -f1)
-                last_watched_ep="$(printf "%s" "$watch_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
-                last_show_episode="$(printf "%s" "$watch_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p")"
+                anime_title=$(get_anime_title)
+                last_watched_ep="$(get_last_watched_episode "$watch_choice")"
+                last_show_episode="$(get_last_show_episode "$watch_choice")"
                 # if we just don't know what the last episode is we increment anyways and give it a try
-                [ "$last_show_episode" = "?" ] || [ "$last_watched_ep" -lt "$last_show_episode" ] && anime_ep=$((last_watched_ep + 1)) || anime_ep="1"
+                if [ "$last_show_episode" = "?" ] || [ "$last_watched_ep" -lt "$last_show_episode" ]; then
+                    cur_anime_episode=$((last_watched_ep + 1))
+                else
+                    cur_anime_episode="1"
+                fi
             fi
             if [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Watching")" ] &&
                 [ "$(get_trackma_status_code "$status")" != "$(get_trackma_status_code "Rewatching")" ]; then
@@ -2031,30 +2059,30 @@ account_menu() {
                 elif [ "$selected_play_option" = "🔄" ]; then
                     # update episode before updating the status otherwise the index changes
                     if [ "$reset_episodes" -eq 1 ]; then
-                        printf "filter %s\nupdate '%s' %s\n" "$(get_trackma_status_code "$status")" "$trackma_entry_index" "0" | trackma_query >>"$TRACKMA_LOGFILE"
-                        anime_ep="1"
+                        printf "filter %s\nupdate '%s' %s\n" "$(get_trackma_status_code "$status")" "$entry_index" "0" | trackma_query >>"$TRACKMA_LOGFILE"
+                        cur_anime_episode="1"
                         last_watched_ep="0"
                     fi
                     # Update anime status
-                    printf "filter %s\nstatus %s %s\n" "$(get_trackma_status_code "$status")" "$trackma_entry_index" "$(get_trackma_status_code "$new_status")" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                    printf "filter %s\nstatus %s %s\n" "$(get_trackma_status_code "$status")" "$entry_index" "$(get_trackma_status_code "$new_status")" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                     status=$new_status
                     # update series index after changing lists
-                    printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title_trackma" | sed "s/'/'\\\''/g")" | trackma_query >/dev/null 2>&1
+                    printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'/'\\\''/g")" | trackma_query >/dev/null 2>&1
                     while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
                     res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
-                    trackma_entry_index="$(format_trackma_list "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                    entry_index="$(format_trackma_list "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                 fi
             fi
             # We query trackma again because we want official english and romaji titles
-            show_info=$(printf "filter %s\ninfo %s\n" "$(get_trackma_status_code "$status")" "$trackma_entry_index" | trackma_query)
+            show_info=$(printf "filter %s\ninfo %s\n" "$(get_trackma_status_code "$status")" "$entry_index" | trackma_query)
             while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
             anime_title_ro="$(printf "%s" "$show_info" | sed -n "/Romaji/p" | cut -d ":" -f2 | sed "s/ //")"
             anime_title_en="$(printf "%s" "$show_info" | sed -n "/English/p" | cut -d ":" -f2 | sed "s/ //")"
             # give preference to Romaji, then Japanese, then English titles, as this gives better matching
             if [ -n "$anime_title_ro" ] && [ "$anime_title_ro" != "None" ]; then
-                anime_title=$anime_title_ro
+                anime_title_match=$anime_title_ro
             else
-                anime_title=$anime_title_trackma
+                anime_title_match=$anime_title
             fi
             show_type=""
             show_synonyms=""
@@ -2070,17 +2098,17 @@ account_menu() {
             while true; do
                 if [ -z "$player_source" ]; then
                     if [ "$random_anime" -eq 1 ]; then
-                        menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title") ▶ $cur_anime_episode"
                         top_menu="$TO_MAIN_MENU"
                     elif [ "$random_airing" -eq 1 ]; then
-                        menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        menu_label="SELECT SOURCE: 📣 $(trim "$anime_title") ▶ $cur_anime_episode"
                         top_menu="$BACK_TO_SUBMENU"
                     elif [ -n "$sort_airing" ] && [ "$sort_airing" -eq 1 ]; then
                         # if we come from airing list selection
-                        menu_label="SELECT SOURCE: 📣 $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        menu_label="SELECT SOURCE: 📣 $(trim "$anime_title") ▶ $cur_anime_episode"
                         top_menu="$BACK_TO_SUBMENU"
                     else
-                        menu_label="SELECT SOURCE: $(trim "$anime_title_trackma") ▶ $anime_ep"
+                        menu_label="SELECT SOURCE: $(trim "$anime_title") ▶ $cur_anime_episode"
                         top_menu="$TO_MAIN_MENU"
                     fi
                     # we check the play status otherwise we would never be able to select source
@@ -2121,22 +2149,22 @@ account_menu() {
                 if [ -z "$show_synonyms" ]; then
                     if printf "%s" "$show_info" | grep "Synonyms: " >/dev/null 2>&1; then
                         show_synonyms="$(printf "%b" "$show_info" | grep "Synonyms: " | awk -F": " '{print $2}')"
-                        show_synonyms="$anime_title_trackma, $anime_title_en, $(printf "%s" "$show_synonyms" | sed "s/[]'[]//g")"
+                        show_synonyms="$anime_title, $anime_title_en, $(printf "%s" "$show_synonyms" | sed "s/[]'[]//g")"
                     fi
                 fi
                 # play loop
                 while true; do
-                    play_anime "$anime_title" "$anime_ep" "$player_source" "$status" "$show_type" "$show_synonyms"
+                    play_anime "$anime_title_match" "$cur_anime_episode" "$player_source" "$status" "$show_type" "$show_synonyms"
                     if [ "$play_status" = "$PLAY_STATUS_SEARCH_SYNONYM" ]; then
                         # the user wants to search again with a title synonym
-                        case $anime_title in
+                        case $anime_title_match in
                         "$anime_title_en")
                             [ -z "$anime_title_ro" ] && continue # does not perform a new search
-                            anime_title="$anime_title_ro"
+                            anime_title_match="$anime_title_ro"
                             ;;
                         "$anime_title_ro")
                             [ -z "$anime_title_en" ] && continue # does not perform a new search
-                            anime_title="$anime_title_en"
+                            anime_title_match="$anime_title_en"
                             ;;
                         esac
                         nyaa_search_res="" # does perform a new search
@@ -2294,8 +2322,8 @@ account_menu() {
                         break 2
                     fi
                     #* set index first
-                    trackma_entry_index="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-                    anime_title_trackma="$(get_anime_title)"
+                    entry_index="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                    anime_title="$(get_anime_title)"
                     last_watched_ep="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
                     if [ "$prompt" = "$UPDATE_EPISODES" ]; then
                         echo && line_to_remove
@@ -2310,10 +2338,10 @@ account_menu() {
                             # this will also change the status to completed if
                             # anime last episode = updated watched episode
                             # and if the user already scored the anime
-                            printf "filter %s\nupdate '%s' %s\n" "$status" "$trackma_entry_index" "$new_episode_count" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                            printf "filter %s\nupdate '%s' %s\n" "$status" "$entry_index" "$new_episode_count" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                             # update watch history
                             # it will update episode count only if it finds an existing entry for that anime
-                            new_hist_content="$(sed -E "s,($(sanitize_ext_regex "$anime_title_trackma"))////.*,\1////$new_episode_count,g" "$WATCH_HISTORY_FILE" | sed -E '/^\s*$/d')"
+                            new_hist_content="$(sed -E "s,($(sanitize_ext_regex "$anime_title"))////.*,\1////$new_episode_count,g" "$WATCH_HISTORY_FILE" | sed -E '/^\s*$/d')"
                             printf "%s\n" "$new_hist_content" >"$WATCH_HISTORY_FILE"
                         fi
                     elif [ "$prompt" = "$UPDATE_STATUS" ]; then
@@ -2331,12 +2359,12 @@ account_menu() {
                             break 2
                         fi
                         new_status="$(get_trackma_status_code "$update_choice")"
-                        if [ -n "$trackma_entry_index" ]; then
-                            trackma_update_id="$trackma_entry_index"
+                        if [ -n "$entry_index" ]; then
+                            trackma_update_id="$entry_index"
                         else
-                            trackma_update_id="$anime_title_trackma"
+                            trackma_update_id="$anime_title"
                             # escape single quotes for update query
-                            trackma_update_id="$(printf "%s" "$anime_title_trackma" | sed "s/'/'\"'\"'/g")"
+                            trackma_update_id="$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")"
                         fi
                         printf "filter %s\nstatus '%s' %s\n" "$status" "$trackma_update_id" "$new_status" | trackma_query >/dev/null 2>&1
                         status="$new_status"
@@ -2371,18 +2399,18 @@ account_menu() {
                     )"
                     [ "$score_anime_choice" = "$TO_MAIN_MENU" ] && clear_modifiers && break 2
                     [ "$score_anime_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
-                    trackma_entry_index="$(printf "%s" "$score_anime_choice" | cut -d" " -f1)"
-                    anime_title_trackma=$(get_anime_title)
+                    entry_index="$(printf "%s" "$score_anime_choice" | cut -d" " -f1)"
+                    anime_title=$(get_anime_title)
                     SCORE_MENU="(10) Masterpiece\n(9) Great\n(8) Very Good\n(7) Good\n(6) Fine\n(5) Average\n(4) Bad\n(3) Very Bad\n(2) Horrible\n(1) Appalling"
                     score=$(
                         printf "%b" "$SCORE_MENU" | $FZF -i --prompt="Select a score: " \
-                            --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_title_trackma") ♣  ╟" \
+                            --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_title") ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --pointer 🌟 \
                             --header-first --tac | sed -En "s/\(([[:digit:]]+)\).*/\1/p"
                     )
                     clear_lines
-                    printf "filter %s\nscore %s %s\n" "$status" "$trackma_entry_index" "$score" | trackma_query >/dev/null 2>&1
+                    printf "filter %s\nscore %s %s\n" "$status" "$entry_index" "$score" | trackma_query >/dev/null 2>&1
                 done
             done
             ;;
@@ -2411,13 +2439,13 @@ account_menu() {
                     )"
                     [ "$altname_choice" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break 2
                     [ "$altname_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
-                    trackma_entry_index=$(printf "%s" "$altname_choice" | cut -d" " -f1)
+                    entry_index=$(printf "%s" "$altname_choice" | cut -d" " -f1)
                     echo && line_to_remove
                     printf "%b" "      What is the altname❔ (leave blank to clear it)\n      👉 " && line_to_remove
                     read -r altname
                     line_to_remove # user intro
                     altname="$(printf "%s" "$altname" | sed -E 's/[^a-zA-Z0-9'\''" -]//g' | sed "s/'/'\\\''/g")"
-                    printf "altname %s '%s'\n" "$trackma_entry_index" "$altname" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
+                    printf "altname %s '%s'\n" "$entry_index" "$altname" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
                     clear_lines
                 done
             done
@@ -2530,7 +2558,7 @@ account_menu() {
             fi
             export status
             while true; do
-                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_title_fragment_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $get_entry_index_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
+                FZF_PREVIEW_WINDOW_CMD="TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $sanitize_ext_regex_function_code; $get_title_fragment_function_code; $get_trackma_status_code_function_code; $filter_trackma_list_function_code; $get_show_info_function_code; get_show_info {} $status | bat --style=plain --color=always --language=yaml"
                 # watch choice is global state and will be used by the watch prompt
                 list_choice=$(
                     printf "%s\n%s\n%s" "$top_menu_entry" "$SWITCH_STATUS_MSG_MENU_ENTRY" "$msg" |
@@ -2556,19 +2584,19 @@ account_menu() {
                 [ "$list_choice" = "$top_menu_entry" ] && clear_modifiers && break
                 [ "$list_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
                 #* trackma index needs to be set first!
-                trackma_entry_index="$(printf "%s" "$list_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-                anime_title_trackma=$(get_anime_title)
+                entry_index="$(printf "%s" "$list_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+                anime_title=$(get_anime_title)
                 last_show_episode="$(printf "%s" "$list_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p")"
                 last_watched_ep="$(printf "%s" "$list_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
                 # only increment if it's not the last episode of the show
                 # if we don't know the last aired apisode just attempt playing the next episode
                 # last_show_episode can be a string or integer
                 if [ "$last_show_episode" = "?" ]; then
-                    anime_ep=$((last_watched_ep + 1))
+                    cur_anime_episode=$((last_watched_ep + 1))
                 elif [ "$last_watched_ep" -lt "$last_show_episode" ]; then
-                    anime_ep=$((last_watched_ep + 1))
+                    cur_anime_episode=$((last_watched_ep + 1))
                 else
-                    anime_ep="1"
+                    cur_anime_episode="1"
                 fi
                 prompt="$WATCH"
                 break
