@@ -101,17 +101,13 @@ Restart your shell to start using Anime Manager.
 ````
 Then restart your terminal and run the main script again. You can also download compressed code for a version [here](https://github.com/anma-dev/Anime-Manager/tags). Versions are more stable than master.
 
-Once you are done installing it is recommended that you read the Wiki:
-
-### [📖 Getting Started](https://github.com/anma-dev/Anime-Manager/wiki#getting-started)
-
 ### Windows
 
 The script probably works with some versions of WSL but we haven't tested it yet. AM needs testers to expand to other platforms.
 
 ## Support
- 
-Issues and suggestions are welcome! For guaranteed serious discussion use the Github issues tracker.
+
+Suggestions are welcome! For guaranteed serious discussion use the Github issues tracker.
 
 | [Matrix room](https://matrix.to/#/!VhiFZVwXObXapcpbQD:matrix.org?via=matrix.org) | [Email](mailto:anime-manager@proton.me) | [Github issues](https://github.com/anma-dev/Anime-Manager/issues) | [Github Wiki](https://github.com/anma-dev/Anime-Manager/wiki) |
 
