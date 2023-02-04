@@ -536,20 +536,20 @@ get_trackma_tracker_name() {
 # Filter and return an entry from a Trackma list.
 get_entry_from_title() {
     [ -z "$anime_title" ] && printf "💥 Unable to get entry (no title)." && kill $$
-    while read -r trackma_code; do
-        printf "filter %s\nsearch \"^%s$\"\n" "$status" "$anime_title" | trackma_query >/dev/null 2>&1
+    while read -r get_entry_from_title_status; do
+        printf "filter %s\nsearch \"^%s$\"\n" "$get_entry_from_title_status" "$anime_title" | trackma_query >/dev/null 2>&1
         while ! grep "results" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
         format_trackma_list_res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
         get_entry_from_title_entry="$(format_trackma_list "$format_trackma_list_res")"
         if [ -n "$get_entry_from_title_entry" ]; then
-            status="$trackma_code"
+            status="$get_entry_from_title_status"
             break
         fi
     done <<EOF
 $TRACKMA_STATUS_MENU_ENTRIES
 EOF
-    if [ -z "$status" ]; then
-        printf "%b\n" "💥 ERROR getting show status."
+    if [ -z "$get_entry_from_title_entry" ]; then
+        printf "%b\n" "💥 ERROR getting entry from title (no results)."
         kill $$
     fi
     printf "%s" "$get_entry_from_title_entry"
