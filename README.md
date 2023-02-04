@@ -102,7 +102,8 @@ Restart your shell to start using Anime Manager.
 Then restart your terminal and run the main script again. You can also download compressed code for a version [here](https://github.com/anma-dev/Anime-Manager/tags). Versions are more stable than master.
 
 Once you are done installing it is recommended that you read the Wiki:
-####[📖 Getting Started](https://github.com/anma-dev/Anime-Manager/wiki#getting-started)
+
+### [📖 Getting Started](https://github.com/anma-dev/Anime-Manager/wiki#getting-started)
 
 ### Windows
 
