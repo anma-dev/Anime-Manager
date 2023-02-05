@@ -1142,7 +1142,7 @@ print_readme_first_msg() {
 }
 
 select_account() {
-    paint_logo
+    [ "$MINIMAL" -eq 0 ] && paint_logo
     # account selection
     TRACKMA_ACCOUNTS="$(sed -nE "/[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
     if [ -n "$TRACKMA_ACCOUNTS" ]; then
