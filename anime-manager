@@ -1673,8 +1673,13 @@ play_anime() {
                 fi
             else
                 [ -z "$animdl_search_index" ] && kill $$
-                # TODO: can't stream with iina
-                MEDIA_PLAYER_APP="mpv"
+                # switch temporarily to mpv in exceptional case
+                if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
+                    # iina doesn't go well with allanime
+                    # save player in helper var
+                    media_player_helper="iina"
+                    MEDIA_PLAYER_APP="mpv"
+                fi
                 play_episode_stream_fifo_write="$(get_temp_filename)"
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
                 stream_pid_file="$(get_temp_filename)"
