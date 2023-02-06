@@ -95,6 +95,7 @@ clear_modifiers() {
     nyaa_search_ret_code=""
     watch_choice=""
     list_choice=""
+    media_player_helper=""
 }
 
 reset_logs() {
@@ -267,7 +268,7 @@ LOGO_XMAS_B64="H4sIAGme32MAA8XYvW4TQRAH8D6vkOZ4AKL93jvNM1CDRIVQJIpYQYCQ6Fy4cIGQ3
 LOGO_HALLOWEEN_B64="H4sIAGqe32MAA8XYsW4UMRAA0D6/kGb5ACLbY3u9mh/gDyioEIpEkSMUCER3EldchXQNbT6Ev4EfyCcws3u355nx5TaQiAISPc2M7d1Z28rlGygYMKQ0/nOri0st3aPF/7W8NnJdS+xJboy8M3JrZGVEVg56PqN8MnK7IEsI/fY/JT6buOeSYDrqycR03ZPK/d33bw+HeW68V0beGvm4QL4KATMWmLHAjAX6g7Liim77Ub4YuV4gH4RwU70w0hm5v9v9NHixIFGK6bR/kF8/tpX5IY+2Xmg2t1sUpav5k7Yx1jWidueqld7GjdY1orYNa1XbnI2DRj3d4Kej2tWE9YOuNsrv9ZIoNebeZGa0K91bK25rrDsb5RrVTpvN7RZFLRghZ7vWbHo6N3o6N3q6aaGRq0/a01HtasJSowuT6fPU6POTmdpM/6ZG/6ZGrz5gNrfeFX00/ftkos/WSdSM9rZZaDLX9Ghs9OjedgtN5EJGL0eAHoN+0mRgMgtGExcxqWoJs8lM2Ou5QcBiqgUcTByg96agQx/UuER2ynsUowR6AmYhoadWkhWZst4cQ6TtQMXxbqtHPqBYC12N/GBGpp/mzR1wq1G9Oz/QhUvHHVB0W3B069ToM13eTfqIchhqkWTiYEIxcR8x5FO41aiepPdMOo6wmIk3kX4OOp0uYIRiGDcgmId7QDFxlxG8fmEH3GpUHemASccRmo60SF1GVzmoXwOTY6orMnqEJB4FtHHoJ1vXVhBytX0e5DgsfZI0kf6R4nFICEWKNxIQ5PfgZtudsTJgFAcEbdeTdZUMDqPXUXmyuVosbesxio2RDdiOI/R7qaPIIkbQ5rVlLI6tq4Wioorqy2THuaWTJr7HGGdb15bYulpo9VlEwXKj9VdvPoa9VPsmm5NRHntaqTgAKttVlnttrm20UtFLMGBObJ0RFQWYxJdP/z9kx9wes8NUbcmz1FF5tl1ldFuyVjCJXqKDc7KulqSj6BCmZBDVyEAbzLauLcgRSDwm0YV0MNMnpzIDPUqajDB+gTqXjNZa7Sl0KlNbq0yypDIDfc68NG3AuXO1QC+epteLKDI/Zc6rp+Oc2kRVoy2x6FzayeV8WfjlrD7XkjjPzULbXaQXvbqqhWY6rNIstEl6zrqqxXFMmIUO1YHHellL4crz3zD4HpA566YWbpXj30voqhHG0d/XEjjmWIeuBI4r/wEarSYUEBUAAA=="
 
 DEFAULT_DOWNLOADS_DIR="/tmp/anime-manager/webtorrent"
-MEDIA_PLAYERS="mpv | iina | vlc | smplayer"
+MEDIA_PLAYERS="mpv | iina | vlc"
 DEFAULT_LINUX_PLAYER="mpv"
 DEFAULT_DARWIN_PLAYER="iina"
 
@@ -444,7 +445,7 @@ parser_definition() {
     param TORRENT_DOWNLOADS_DIR -f --downloads-folder init:="$DEFAULT_DOWNLOADS_DIR" -- "Full path for a persistent downloads folder for torrenting.
                               It is created if it does not exist."
     param MEDIA_PLAYER_APP -p --player pattern:"$MEDIA_PLAYERS" -- "Select the media player. Defaults to mpv or iina (macOS)
-                              Available players: iina, mpv, smplayer, vlc."
+                              Available players: iina, mpv, vlc."
     flag DEBUG -d --debug init:="0" -- "Start debug mode."
     disp :usage -h --help
     disp VERSION -v --version init:="0"
@@ -828,10 +829,15 @@ eval "$get_anime_info_function_code"
 
 # set the default media player
 set_media_player() {
-    if [ "$OSTYPE" = "Darwin" ]; then
-        MEDIA_PLAYER_APP="$DEFAULT_DARWIN_PLAYER"
+    if [ -n "$media_player_helper" ]; then
+        MEDIA_PLAYER_APP="$media_player_helper"
     else
-        MEDIA_PLAYER_APP="$DEFAULT_LINUX_PLAYER"
+        # follow defaults
+        if [ "$OSTYPE" = "Darwin" ]; then
+            MEDIA_PLAYER_APP="$DEFAULT_DARWIN_PLAYER"
+        else
+            MEDIA_PLAYER_APP="$DEFAULT_LINUX_PLAYER"
+        fi
     fi
 }
 
@@ -895,24 +901,6 @@ install_dependencies() {
                 "mpv")
                     sudo apt -y install mpv
                     ;;
-                "smplayer")
-                    if [ "$DISTRO_ID" = "debian" ]; then
-                        if [ "$DISTRO_VERSION" -ne 11 ]; then
-                            printf "\n\nDebian version not supported. Please manually install smplayer.\n\n"
-                        else
-                            # https://software.opensuse.org/download.html?project=home%3Asmplayerdev&package=smplayer
-                            echo 'deb http://download.opensuse.org/repositories/home:/smplayerdev/Debian_11/ /' | sudo tee /etc/apt/sources.list.d/home:smplayerdev.list
-                            curl -fsSL https://download.opensuse.org/repositories/home:smplayerdev/Debian_11/Release.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_smplayerdev.gpg >/dev/null
-                            sudo apt -y update
-                            sudo apt -y install smplayer
-                        fi
-                    elif [ "$OSTYPE" = "ubuntu" ]; then
-                        # https://www.smplayer.info/en/downloads
-                        sudo add-apt-repository -y ppa:rvm/smplayer
-                        sudo apt-get -y update
-                        sudo apt-get -y install smplayer smplayer-themes smplayer-skins
-                    fi
-                    ;;
                 "vlc")
                     sudo apt -y install vlc
                     ;;
@@ -974,15 +962,12 @@ install_dependencies() {
                 "mpv")
                     brew install --cask mpv
                     ;;
-                "smplayer")
-                    brew install --cask smplayer
-                    ;;
                 "vlc")
                     brew install --cask vlc
                     ;;
                 "iina")
                     brew install --cask iina
-                    # TODO: can't stream with iina
+                    # we install mpv anyway because some stream providers don't go well with iina.
                     brew install --cask mpv
                     ;;
                 esac
@@ -1022,6 +1007,7 @@ install_dependencies() {
 
 check_setup() {
     # initial checks
+    clear_modifiers
     set_media_player
     # use node if nvm is already installed
     if ! which node >/dev/null 2>&1; then
@@ -1470,7 +1456,6 @@ select_magnet_file() {
 play_anime() {
     reset_logs
     # reset the media player
-    # TODO: can't stream with iina
     set_media_player
     while ! connectivity_check; do
         echo && line_to_remove
@@ -1585,31 +1570,36 @@ play_anime() {
             torrent_magnet_link
         fi
     elif [ "$player_source" = "streaming" ]; then
-        stream_providers=$(array "animepahe" "allanime" "zoro" "animeout" "gogoanime" "tenshi")
+        stream_providers=$(array "animepahe" "allanime")
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do
-            d_provider=$(printf '%s\n' "$provider" | array_element_decode)
+            decoded_stream_provider=$(printf '%s\n' "$provider" | array_element_decode)
             if [ "$animdl_playthrough" -eq 0 ]; then
                 play_episode_stream_fifo_write="$(get_temp_filename)"
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
-                # TODO: can't stream with iina
-                MEDIA_PLAYER_APP="mpv"
+                # switch temporarily to mpv in exceptional case
+                if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
+                    # iina doesn't go well with allanime
+                    # save player in helper var
+                    media_player_helper="iina"
+                    MEDIA_PLAYER_APP="mpv"
+                fi
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$decoded_stream_provider:$play_episode_anime_title" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
                 animdl_pid="$(cat "$stream_pid_file")"
                 exec 4>"$play_episode_stream_fifo_write"
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Please wait, searching the stream provider ($d_provider)..." && line_to_remove
-                stream_health=10
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Please wait, searching the stream provider ($decoded_stream_provider)..." && line_to_remove
+                stream_health=20
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
                     if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-                        if [ -z "$(sed -En "/AV:|libmpv|A-V/p" "$ANIMDL_LOGFILE")" ]; then
+                        if [ -z "$(sed -En "/AV:|libmpv|A-V|File started/p" "$ANIMDL_LOGFILE")" ]; then
                             stream_health=$((stream_health - 1))
                         else
                             # stream started automatically
@@ -1623,7 +1613,7 @@ play_anime() {
                     sleep 1
                 done
                 if [ $stream_health -eq 0 ]; then
-                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 No results found ($d_provider), next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 No results found ($decoded_stream_provider), next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     echo >"$ANIMDL_LOGFILE"
@@ -1634,7 +1624,7 @@ play_anime() {
                 animdl_search_index="$(
                     printf "%b" "$SELECT_SOURCE\n$TO_MAIN_MENU\n$results" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
-                            --border-label "╢ ♣  SEARCH RESULTS ($d_provider): $(trim "$play_episode_anime_title") ▶ Episode $cur_anime_episode ♣  ╟" \
+                            --border-label "╢ ♣  SEARCH RESULTS ($decoded_stream_provider): $(trim "$play_episode_anime_title") ▶ Episode $cur_anime_episode ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first \
                             --tac | cut -d '.' -f1
@@ -1656,10 +1646,10 @@ play_anime() {
                 # shellcheck disable=2188
                 4>&-
                 sleep 2 # wait for the stream to start
-                stream_health=15
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      Trying to stream with $d_provider" && line_to_remove
+                stream_health=20
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      Trying to stream with $decoded_stream_provider" && line_to_remove
                 while [ $stream_health -gt 0 ]; do
-                    if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
+                    if [ -z "$(sed -En "s/AV:|libmpv|A-V|File started/&/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))
                     else
                         break
@@ -1668,7 +1658,7 @@ play_anime() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $d_provider, next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $decoded_stream_provider, next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     echo "" >"$ANIMDL_LOGFILE"
@@ -1690,15 +1680,15 @@ play_anime() {
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    nohup animdl stream "$d_provider:$play_episode_anime_title" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    nohup animdl stream "$decoded_stream_provider:$play_episode_anime_title" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
                 exec 4>"$play_episode_stream_fifo_write"
                 animdl_pid="$(cat "$stream_pid_file")"
-                stream_health=10
+                stream_health=20
                 while [ $stream_health -gt 0 ]; do
-                    if [ -z "$(sed -En "s/AV:|libmpv|A-V/&/p" "$ANIMDL_LOGFILE")" ]; then
+                    if [ -z "$(sed -En "s/AV:|libmpv|A-V|File started/&/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))
                     else
                         break
@@ -1707,7 +1697,7 @@ play_anime() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $d_provider" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $decoded_stream_provider" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     continue
