@@ -85,7 +85,9 @@ def split_filename(f: str):
     return f.split(" - ")
 
 
-def prioritize_match_name():
+def get_match_index():
+    # select the first match by default
+    match_index = 0
     """
     Try to find a title match and prioritize it.
     This is useful for example when some uploader bundles 
@@ -97,7 +99,7 @@ def prioritize_match_name():
         for x in all_titles:
             if re.findall(f"{normalize_title(x)}", normalize_title(match_file)):
                 return index
-    return None
+    return match_index
 
 
 def extract_episode(fragment: str):
@@ -189,10 +191,7 @@ else:
         match_file_index = codes.RET_CODE_CONTENT_MISMATCH
         res = f"None////None////{match_file_index}"
     else:
-        video_res_index = prioritize_match_name()
-        if not video_res_index:
-            # select the first match by default
-            video_res_index = 0
+        video_res_index = get_match_index()
         match_file_index = int(re.findall(
             "^(\d+)\s+.*", video_res[video_res_index])[0])
         parsed_title_res = anitopy.parse(video_res[video_res_index])
