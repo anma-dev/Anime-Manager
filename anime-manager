@@ -359,7 +359,7 @@ TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:d
 WATCH_HISTORY="👁️  Watch History"
 WATCH="📺 Watch"
 WATCH_RANDOM="🔀 Watch Random"
-ADD_SHOW="🧩 Add Anime"
+ADD_ANIME="🧩 Add Anime"
 LIST="📙 Lists"
 UPDATE_STATUS="🔄 Update Anime Status"
 SCORE_SHOW="👍 Score Anime"
@@ -1904,7 +1904,7 @@ check_torrent_health() {
 # The menu that is presented when the user selects a Trackma account.
 account_menu() {
     prompt=""
-    MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_SHOW\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
+    MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_ANIME\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
     SUBMENU_ENTRIES="$SWITCH_ACCOUNTS\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$TO_MAIN_MENU"
     MAINMENU_TITLE="MAIN MENU"
     SUBMENU_TITLE="MORE OPTIONS"
@@ -2260,8 +2260,8 @@ account_menu() {
             fi
             set -u nounset
             ;;
-        "$ADD_SHOW")
-            status="Plan to Watch"
+        "$ADD_ANIME")
+            new_status="Plan to Watch"
             echo && line_to_remove
             printf "      🧩 What anime do you plan to watch❔ \n         👉 " && line_to_remove
             read -r series_title
@@ -2272,16 +2272,16 @@ account_menu() {
                 clear_modifiers
                 continue
             fi
-            results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$status")" "$series_title" | trackma_query)"
-            printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the anime tracker ($TRACKER_SERVICE), please wait..." && line_to_remove
+            results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$new_status")" "$series_title" | trackma_query)"
+            printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the catalog ($TRACKER_SERVICE), please wait..." && line_to_remove
             while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
             clear_lines
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
             [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
             add_anime_choice="$(
-                printf "%b" "$TO_MAIN_MENU\n$results" |
+                printf "%b" "$TO_MAIN_MENU\n$results" | sort -r --version-sort |
                     $FZF --prompt="Choose the anime to add: " \
-                        --border-label "╢ ♣  ADD NEW ANIME ($status list) ♣  ╟" \
+                        --border-label "╢ ♣  ADD NEW ANIME ($new_status list) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Add" \
                         --header-first --tac
             )"
