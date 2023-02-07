@@ -1294,7 +1294,10 @@ media_player_menu() {
     # player reset entries
     if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
         # common menu for torrenting
-        playing_menu="${playing_menu}🙈 Unexpected? Select another file ▸\n🔎 Select another search result"
+        playing_menu="${playing_menu}🙈 Unexpected? Select another file ▸"
+        if [ -n "$nyaa_search_res" ]; then
+            playing_menu="${playing_menu}\n🔎 Select another search result"
+        fi
         if [ "$INCOGNITO_MODE" -eq 0 ]; then
             if ! has_cached_link; then
                 playing_menu="${playing_menu}\n🔖 Add magnet link to Bookmarks"
@@ -1306,7 +1309,9 @@ media_player_menu() {
             fi
         fi
     elif [ "$player_source" = "streaming" ]; then
-        playing_menu="${playing_menu}🔎 Select another search result"
+        if [ -n "$animdl_search_index" ]; then
+            playing_menu="${playing_menu}🔎 Select another search result"
+        fi
     fi
     FZF_PREVIEW_WINDOW_CMD="printf \"%s\" '$debug_match_info' | jq"
     opt=$(printf "%b" "${playing_menu}\n${TO_MAIN_MENU}" |
