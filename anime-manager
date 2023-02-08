@@ -2273,7 +2273,7 @@ account_menu() {
                 continue
             fi
             results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$new_status")" "$series_title" | trackma_query)"
-            printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the catalog ($TRACKER_SERVICE), please wait..." && line_to_remove
+            printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Searching the catalog ($TRACKER_SERVICE), please wait..." && line_to_remove
             while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
             clear_lines
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
