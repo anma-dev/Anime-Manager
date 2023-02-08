@@ -83,6 +83,9 @@ def search_nyaa(query: str, category: str, subcategory: str, filters: str):
         logger.error(err)
         raise Exception(
             f"Nyaa.si service is unavailable. (Request exception).")
+    except Exception as err:
+        logger.error(err)
+        return
     else:
         if (len(query_res) > 0):
             for entry_raw in query_res:
