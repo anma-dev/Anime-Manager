@@ -1085,7 +1085,7 @@ install_dependencies() {
             fi
         fi
         echo
-        printf "%s" "$install_dep_msg"
+        printf "%b" "$install_dep_msg"
         exit 0
     fi
 }
