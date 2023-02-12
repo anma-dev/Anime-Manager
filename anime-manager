@@ -449,8 +449,8 @@ BACK_TO_SUBMENU="◂ BACK"
 PLAYLIST="Create Playlist 🎦"
 SWITCH_ACCOUNTS="Switch Accounts 👤"
 DELETE_ANIME="Delete Anime 🗑️"
-WATCH_RAND_AIRING="Watch Random Anime (Currently Airing 🆕 )"
-LIST_AIRING="List Anime (Currently Airing 🆕 )"
+WATCH_RAND_AIRING="Watch Random Anime (Currently Airing 🆕)"
+LIST_AIRING="List Anime (Currently Airing 🆕)"
 UPDATE_EPISODES="Update Anime Episodes 🔄"
 SET_ALTNAME="Set Alternative Name 📝"
 PULL="Pull Lists from Remote ↓"
@@ -495,9 +495,9 @@ SUB_MENU_HELPTEXT="
 ───
 🔄  Update your watching progress on an anime.
 ───
-🆕   Display your lists by showing currently airing anime only.
+🆕  Display your lists by showing currently airing anime only.
 ───
-🆕   Play one random, currently airing anime from your watching lists (watching, rewatching).
+🆕  Play one random, currently airing anime from your watching lists (watching, rewatching).
 ───
 🗑️  Delete an anime from your lists. You will lose all your progress on that anime.
 ───
@@ -727,7 +727,7 @@ eval "$filter_trackma_list_function_code"
 format_trackma_list() {
     format_trackma_list_list="$(filter_trackma_list "$1")"
     # remove character sequences and add an emoji next to shows currently airing
-    format_trackma_list_list=$(printf '%b' "$format_trackma_list_list" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],🆕  ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/🆕 / s/(.*)\.{3}(.*)/\1\2/")
+    format_trackma_list_list=$(printf '%b' "$format_trackma_list_list" | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],🆕 ," | sed "s,$(printf '\033')\\[[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed -E "/🆕/ s/(.*)\.{3}(.*)/\1\2/")
     printf "%b" "$format_trackma_list_list"
 }
 
@@ -735,7 +735,7 @@ format_trackma_list() {
 # this is required for the trackma_entry_regex to work properly
 clean_trackma_entry() {
     clean_trackma_entry_entry="$1"
-    clean_trackma_entry_cleaned="$(printf "%s" "$clean_trackma_entry_entry" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf '\033')\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s/🆕  //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g")"
+    clean_trackma_entry_cleaned="$(printf "%s" "$clean_trackma_entry_entry" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf '\033')\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf '\033')\\[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s/🆕 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g")"
     printf "%s" "$clean_trackma_entry_cleaned"
 }
 
@@ -775,7 +775,7 @@ get_anime_title() {
 get_title_fragment_function_code='get_title_fragment() {
     if [ -n "$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p")" ]; then
         # raw entry
-        printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s/🆕  //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
+        printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\2/p" | sed -E "s/ *$//g" | sed -E "s/\.*$//g" | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],," | sed -E "s,$(printf "'"\033"'")\\[0-9;]*[a-zA-Z],,g" | sed "s,\x1B\[[0-9;]*[a-zA-Z],,g" | sed "s/🆕 //g" | sed -E "s/\[.*\]//g" | sed -E "s/ $//g"
     else
         printf "%s" "$1"
     fi
@@ -1643,7 +1643,7 @@ create_playlist() {
         watch_choice=$(printf "%s" "$full_info" | shuf -n 1)
     elif [ "$random_airing" -eq 1 ]; then
         # format and filter airing shows, select one randomly
-        watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕 /p" | shuf -n 1)
+        watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | shuf -n 1)
     else
         full_info="$(printf "%s" "$full_info")"
         WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
@@ -2145,11 +2145,11 @@ select_player_source() {
             menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title") ▶ $cur_anime_episode"
             top_menu="$TO_MAIN_MENU"
         elif [ "$random_airing" -eq 1 ]; then
-            menu_label="SELECT SOURCE: 🆕  $(trim "$anime_title") ▶ $cur_anime_episode"
+            menu_label="SELECT SOURCE: 🆕 $(trim "$anime_title") ▶ $cur_anime_episode"
             top_menu="$BACK_TO_SUBMENU"
         elif [ -n "$sort_airing" ] && [ "$sort_airing" -eq 1 ]; then
             # if we come from airing list selection
-            menu_label="SELECT SOURCE: 🆕  $(trim "$anime_title") ▶ $cur_anime_episode"
+            menu_label="SELECT SOURCE: 🆕 $(trim "$anime_title") ▶ $cur_anime_episode"
             top_menu="$BACK_TO_SUBMENU"
         else
             menu_label="SELECT SOURCE: $(trim "$anime_title") ▶ $cur_anime_episode"
@@ -2209,7 +2209,7 @@ watch_anime() {
             watch_choice=$(printf "%s" "$full_info" | shuf -n 1)
         elif [ "$random_airing" -eq 1 ]; then
             # format and filter airing shows, select one randomly
-            watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕 /p" | shuf -n 1)
+            watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | shuf -n 1)
         else
             full_info="$(printf "%s" "$full_info")"
             WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
@@ -2872,7 +2872,7 @@ EOF
                             if [ "$sort_score" -eq 1 ]; then
                                 printf ' BY SCORE 🌟'
                             elif [ "$sort_airing" -eq 1 ]; then
-                                printf ' AIRING SHOWS 🆕 '
+                                printf ' AIRING SHOWS 🆕'
                             else
                                 printf " SHOWS"
                             fi
@@ -2891,7 +2891,7 @@ EOF
             msg=$(format_trackma_list "$msg")
             if [ "$sort_airing" -eq 1 ]; then
                 # filter airing show per user request
-                msg=$(printf "%s" "$msg" | sed -n "/🆕 /p")
+                msg=$(printf "%s" "$msg" | sed -n "/🆕/p")
             fi
             if [ ! "$msg" ]; then
                 msg="This list has no items... "
@@ -2901,7 +2901,7 @@ EOF
                             if [ "$sort_score" -eq 1 ]; then
                                 printf ' BY SCORE 🌟'
                             elif [ "$sort_airing" -eq 1 ]; then
-                                printf ' AIRING SHOWS 🆕 '
+                                printf ' AIRING SHOWS 🆕'
                             else
                                 printf " SHOWS"
                             fi
@@ -2928,7 +2928,7 @@ EOF
                                 if [ "$sort_score" -eq 1 ]; then
                                     printf ' BY SCORE 🌟'
                                 elif [ "$sort_airing" -eq 1 ]; then
-                                    printf ' AIRING SHOWS 🆕 '
+                                    printf ' AIRING SHOWS 🆕'
                                 else
                                     printf " SHOWS"
                                 fi
