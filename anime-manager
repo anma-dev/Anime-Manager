@@ -246,13 +246,13 @@ print_subheader() {
         print_incognito_msg
     else
         print_account
-    fi
-    printf " │"
-    if [ "$playlist_mode" -eq 1 ]; then
-        printf "%b" " ${MSG_WARN_COLOR}AUTO UPDATE ON${RESET} │"
-        printf "%b" " ${MSG_HELP_COLOR}🎦 PLAYLIST MODE${RESET} │"
-    elif [ "$AUTO_UPDATE" -eq 1 ]; then
-        printf "%b" " ${MSG_WARN_COLOR}AUTO UPDATE ON${RESET} │"
+        printf " │"
+        if [ "$playlist_mode" -eq 1 ]; then
+            printf "%b" " ${MSG_WARN_COLOR}AUTO UPDATE ON${RESET} │"
+            printf "%b" " ${MSG_HELP_COLOR}🎦 PLAYLIST MODE${RESET} │"
+        elif [ "$AUTO_UPDATE" -eq 1 ]; then
+            printf "%b" " ${MSG_WARN_COLOR}AUTO UPDATE ON${RESET} │"
+        fi
     fi
     printf "\n"
 }
