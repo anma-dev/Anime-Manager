@@ -986,7 +986,7 @@ auto_compat() {
 # install dependencies automatically if we can
 install_dependencies() {
     shell_cfg="$(get_shell_config_file)"
-    install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager."
+    install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager.\n"
     if ! which fzf nc animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/webtorrent-cli/node_modules" ]; then
         printf "%b" "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!\n" && line_to_remove
         AUTOINSTALL=1
