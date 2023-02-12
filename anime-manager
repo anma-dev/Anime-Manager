@@ -115,10 +115,35 @@ start_substring() {
     printf "%s" "$cut_string_string" | cut -c1-"$cut_string_end_id"
 }
 
+set_netcat_comm() {
+    case "$OSTYPE" in
+    "Linux")
+        netcat_comm="nc -U -N"
+        ;;
+    "Darwin")
+        netcat_comm="nc -U"
+        ;;
+    esac
+}
+
+get_media_player_socket() {
+    case "$MEDIA_PLAYER_APP" in
+    "vlc")
+        MEDIA_PLAYER_SOCKET="$MEDIA_PLAYER_VLC_SOCKET"
+        ;;
+    "iina")
+        MEDIA_PLAYER_SOCKET="$MEDIA_PLAYER_IINA_SOCKET"
+        ;;
+    "mpv")
+        MEDIA_PLAYER_SOCKET="$MEDIA_PLAYER_MPV_SOCKET"
+        ;;
+    esac
+}
+
 get_playback_time() {
     case "$MEDIA_PLAYER_APP" in
     "vlc")
-        playback_time="$(printf "get_time\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" 2>/dev/null)"
+        playback_time="$(printf "get_time\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
         ;;
     "mpv")
         playback_time=$(printf '{ "command": ["get_property", "playback-time"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null)
@@ -127,12 +152,15 @@ get_playback_time() {
         playback_time=$(printf '{ "command": ["get_property", "playback-time"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
         ;;
     esac
+    if [ -z "$playback_time" ]; then
+        playback_time=0
+    fi
 }
 
 get_video_length() {
     case "$MEDIA_PLAYER_APP" in
     "vlc")
-        playback_length="$(printf "get_length\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" 2>/dev/null)"
+        playback_length="$(printf "get_length\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
         ;;
     "mpv")
         playback_length=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null)
@@ -148,6 +176,13 @@ get_playback_percent() {
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         get_video_length
+        # we assume if the socket exists the player is open. block for length
+        # zero at playback start. the remote control interface returns zero when
+        # the player hasn't started yet
+        while [ -S "$MEDIA_PLAYER_SOCKET" ] && [ "$playback_length" -eq 0 ]; do
+            get_video_length
+        done
+        [ -z "$playback_length" ] && return
         get_playback_time
         cur_playback_percent=$((playback_time * 100 / playback_length))
         ;;
@@ -1122,11 +1157,11 @@ check_setup() {
         fi
     fi
     # install animdl conf file
-    if [ ! -s "$ANIMDL_CONF_FILE" ]; then
-        printf "players:
+    [ -f "$ANIMDL_CONF_FILE" ] && rm "$ANIMDL_CONF_FILE"
+    printf "players:
     vlc:
         executable: vlc
-        opts: ['--extraintf oldrc', '--rc-fake-tty', '--rc-unix %s', '--verbose=1', '--file-logging', '--logfile=%s', '--play-and-exit']
+        opts: ['--extraintf=oldrc', '--rc-fake-tty', '--rc-unix=%s', '--verbose=1', '--file-logging', '--logfile=%s', '--play-and-exit']
     iina:
         executable: iina-cli
         opts: ['--mpv-keep-open=no', '--mpv-log-file=%s', '--mpv-input-ipc-server=%s']
@@ -1134,15 +1169,8 @@ check_setup() {
         executable: mpv
         opts: ['--keep-open=no', '--log-file=%s', '--input-ipc-server=%s']
 " "$MEDIA_PLAYER_VLC_SOCKET" "$PLAYER_LOGFILE" "$PLAYER_LOGFILE" "$MEDIA_PLAYER_IINA_SOCKET" "$PLAYER_LOGFILE" "$MEDIA_PLAYER_MPV_SOCKET" >"$ANIMDL_CONF_FILE"
-    fi
-    case "$OSTYPE" in
-    "Linux")
-        netcat_comm="nc -U -N"
-        ;;
-    "Darwin")
-        netcat_comm="nc -U"
-        ;;
-    esac
+    set_netcat_comm
+    get_media_player_socket
     install_dependencies
 }
 
@@ -1349,7 +1377,7 @@ delete_link_cache() {
 monitor_playback_time() {
     get_playback_percent
     # check for app exit and playback percent value
-    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting/p" "$PLAYER_LOGFILE")" ] && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
+    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ] && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
         sleep 2
         get_playback_percent
     done
@@ -1368,6 +1396,7 @@ monitor_media_player_app_exit() {
     # re enable command log
     [ "$DEBUG" -eq 1 ] && set -x
     curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
+    [ -S "$MEDIA_PLAYER_SOCKET" ] && rm "$MEDIA_PLAYER_SOCKET"
 }
 
 #* MEDIA PLAYER MENU
