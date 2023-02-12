@@ -13,7 +13,7 @@ import codes
 
 '''
 This script is part of Anime Manager.
-https://github.com/anma-dev/Anime-Manage
+https://github.com/anma-dev/Anime-Manager
 '''
 
 help_msg = "Looks up a file in a magnet link and returns its index."
