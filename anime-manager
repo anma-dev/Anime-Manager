@@ -141,6 +141,7 @@ get_media_player_socket() {
 }
 
 get_playback_time() {
+    [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         playback_time="$(printf "get_time\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
@@ -158,6 +159,7 @@ get_playback_time() {
 }
 
 get_video_length() {
+    [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         playback_length="$(printf "get_length\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
