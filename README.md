@@ -27,7 +27,7 @@ You can use your existing anime cataloguing service (those [Trackma supports](ht
 
 You need to configure Trackma with an account separately for using the Account mode, or you can use Incognito mode without an account.
 
-> Note: Anime Manager is still unfinished software. Unexpected behavior and bugs will be encountered. We are actively working towards a final release.
+> Note: Anime Manager is still unfinished software. Unexpected behavior and bugs will be encountered. We are actively working towards a stable release.
 
 ## Usage
 
