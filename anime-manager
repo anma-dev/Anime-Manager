@@ -159,6 +159,7 @@ get_playback_time() {
 }
 
 get_video_length() {
+    playback_length=""
     [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
     case "$MEDIA_PLAYER_APP" in
     "vlc")
@@ -175,6 +176,8 @@ get_video_length() {
 
 # approximate*
 get_playback_percent() {
+    cur_playback_percent=""
+    [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         get_video_length
@@ -183,6 +186,7 @@ get_playback_percent() {
         # the player hasn't started yet
         while [ -S "$MEDIA_PLAYER_SOCKET" ] && [ "$playback_length" -eq 0 ]; do
             get_video_length
+            sleep 1
         done
         [ -z "$playback_length" ] && return
         get_playback_time
@@ -274,8 +278,7 @@ print_account() {
 # Prints a message to inform the user that they are in incognito mode
 print_incognito_msg() {
     clear_lines
-    printf "      "
-    printf "$INCOGNITO_MODE_COLORS%s$RESET" "🕵  INCOGNITO MODE"
+    printf "$INCOGNITO_MODE_COLORS%s$RESET" "      🕵  INCOGNITO MODE"
 }
 
 print_subheader() {
@@ -784,12 +787,17 @@ clean_trackma_entry() {
 # get all the shows the user has set as watching in their lists
 # for presenting in unified way
 get_watching_shows() {
+    get_watching_shows_watching=""
     get_watching_shows_rewatching=""
-    get_watching_shows_watching="$(printf "filter %s\nls\n" "watching" | trackma_query)"
+    printf "filter watching\nls\n" | trackma_query >/dev/null 2>&1
+    while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+    get_watching_shows_watching="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
     get_watching_shows_watching="$(format_trackma_list "$get_watching_shows_watching")"
     if [ "$TRACKER_SERVICE" = "anilist" ]; then
         # exception for anilist
-        get_watching_shows_rewatching="$(printf "filter %s\nls\n" "rewatching" | trackma_query)"
+        printf "filter rewatching\nls\n" | trackma_query >/dev/null 2>&1
+        while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+        get_watching_shows_rewatching="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
         get_watching_shows_rewatching="$(format_trackma_list "$get_watching_shows_rewatching")"
     fi
     printf "%b\n%b" "$get_watching_shows_watching" "$get_watching_shows_rewatching"
@@ -799,7 +807,7 @@ get_watching_shows() {
 # caveats of our regex pattern that is unable to extract the anime title
 # correctly. It will get the complete anime title from the first line in the
 # information output, including any trailing dots. This title doesn't need
-# cleaning because  we are not getting it from a list.
+# cleaning because we are not getting it from a list.
 get_anime_title() {
     [ -z "$entry_index" ] && printf "💥 Unable to get anime title (no index set)." && kill $$
     [ -z "$status" ] && printf "💥 Unable to get anime title (no status set)." && kill $$
@@ -1277,7 +1285,7 @@ select_account() {
         TRACKMA_ACCOUNTS_MENU_ENTRIES="No account was found"
     fi
     TRACKMA_ACCOUNTS_MENU_ENTRIES="🕵️  Incognito Mode\n$TRACKMA_ACCOUNTS_MENU_ENTRIES"
-    while [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ] && [ "$INCOGNITO_MODE" -eq 0 ]; do
+    while [ -n "$(sed -En "s/no account|Available accounts|Input account number/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ] && [ "$INCOGNITO_MODE" -eq 0 ]; do
         account_choice=$(
             printf "%b" "$TRACKMA_ACCOUNTS_MENU_ENTRIES" |
                 $FZF -i --prompt="Select an option: " \
@@ -1382,6 +1390,7 @@ monitor_playback_time() {
     while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ] && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
         sleep 2
         get_playback_percent
+        [ ! -S "$MEDIA_PLAYER_SOCKET" ] && break
     done
     if [ -n "$cur_playback_percent" ]; then
         if [ "$cur_playback_percent" -ge "$MEDIA_PLAYER_PERCENT_WATCHED" ]; then
@@ -1394,11 +1403,12 @@ monitor_playback_time() {
 # part of the playlist mode to automatically play the next anime
 # functionality.
 monitor_media_player_app_exit() {
-    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting/p" "$PLAYER_LOGFILE")" ]; do sleep 1; done
+    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ]; do sleep 1; done
     # re enable command log
-    [ "$DEBUG" -eq 1 ] && set -x
-    curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
     [ -S "$MEDIA_PLAYER_SOCKET" ] && rm "$MEDIA_PLAYER_SOCKET"
+    # block until fzf opens the port
+    while ! nc -z localhost 6266 >/dev/null 2>&1; do sleep 1; done
+    curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
 }
 
 #* MEDIA PLAYER MENU
@@ -1511,7 +1521,6 @@ media_player_menu() {
             --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
             --listen 6266 \
             --preview-label "STREAM DEBUG" | cut -d " " -f1)
-    # silence loop debug log for readability
     if [ "$media_player_menu_choice" = "◂" ]; then
         prompt="$TO_MAIN_MENU"
         clear_modifiers
@@ -2658,7 +2667,8 @@ account_menu() {
                     #* set index first
                     entry_index="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
                     anime_title="$(get_anime_title)"
-                    last_watched_ep="$(printf "%s" "$update_choice" | sed -En "s/$TRACKMA_ENTRY_REGEX/\4/p")"
+                    last_watched_ep="$(get_last_watched_episode "$update_choice")"
+                    last_show_episode="$(get_last_show_episode "$update_choice")"
                     if [ "$prompt" = "$UPDATE_EPISODES" ]; then
                         echo && line_to_remove
                         printf "$MSG_INFO_COLOR%s$RESET\n" "      How many episodes of this anime have you watched so far❔" && line_to_remove
@@ -2668,6 +2678,9 @@ account_menu() {
                         new_episode_count="$(printf "%s" "$new_episode_count" | sed -E 's/[^0-9]//g')"
                         clear_lines
                         [ -z "$new_episode_count" ] && clear_modifiers && continue
+                        if [ "$new_episode_count" -gt "$last_show_episode" ]; then
+                            new_episode_count="$last_show_episode"
+                        fi
                         if [ "$new_episode_count" -ne "$last_watched_ep" ]; then
                             # this will also change the status to completed if
                             # anime last episode = updated watched episode
@@ -2850,13 +2863,34 @@ account_menu() {
                 cur_anime_playlist_ep_count="$playlist_ep_count"
                 if [ "$last_show_episode" != "?" ]; then
                     remaining_eps=$((last_show_episode - last_watched_ep))
-                    if [ "$cur_anime_playlist_ep_count" -gt "$remaining_eps" ]; then
-                        cur_anime_playlist_ep_count="$remaining_eps"
+                    if [ "$remaining_eps" -gt 0 ]; then
+                        # the user has some pending progress, let them
+                        # finish it
+                        if [ "$cur_anime_playlist_ep_count" -gt "$remaining_eps" ]; then
+                            cur_anime_playlist_ep_count="$remaining_eps"
+                        fi
+                    else
+                        # the user has added a finished anime to the playlist.
+                        # let them restart the progress and play as many
+                        # episodes as possible from the beginning
+                        if [ "$cur_anime_playlist_ep_count" -gt "$last_show_episode" ]; then
+                            cur_anime_playlist_ep_count="$last_show_episode"
+                        fi
                     fi
                 fi
                 for i in $(seq 1 "$cur_anime_playlist_ep_count"); do
-                    # if we don't know what the last episode is give it a try anyways
-                    cur_anime_episode=$((last_watched_ep + 1))
+                    if [ -z "$cur_anime_episode" ]; then
+                        if [ "$last_show_episode" != "?" ]; then
+                            if [ "$last_watched_ep" -eq "$last_show_episode" ]; then
+                                # restart progress
+                                cur_anime_episode=1
+                            else
+                                cur_anime_episode=$((last_watched_ep + 1))
+                            fi
+                        fi
+                    else
+                        cur_anime_episode=$((last_watched_ep + 1))
+                    fi
                     watch_anime
                     if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
                         # user cancelled the playlist
