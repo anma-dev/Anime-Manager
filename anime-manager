@@ -176,7 +176,7 @@ get_video_length() {
 
 # approximate*
 get_playback_percent() {
-    cur_playback_percent=""
+    cur_playback_percent=0
     [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
     case "$MEDIA_PLAYER_APP" in
     "vlc")
