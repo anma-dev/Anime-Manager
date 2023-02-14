@@ -287,11 +287,11 @@ print_subheader() {
     else
         print_account
         printf " │"
-        if [ "$AUTO_UPDATE" -eq 1 ]; then
-            printf "%b" " ${MSG_WARN_COLOR}AUTO UPDATE ON${RESET} │"
-        fi
         if [ "$TORRENT_ONLY" -eq 1 ]; then
             printf "%b" " ${MSG_WARN_COLOR}TORRENT ONLY${RESET} │"
+        fi
+        if [ "$AUTO_UPDATE" -eq 1 ]; then
+            printf "%b" " ${MSG_WARN_COLOR}AUTO UPDATE ON${RESET} │"
         fi
         # Subheader text that depends on state that can be changed during
         # runtime must go at the end of subheader to keep an order.
