@@ -1590,7 +1590,7 @@ media_player_menu() {
 torrent_magnet_link() {
     case "$MEDIA_PLAYER_APP" in
     "vlc")
-        webtorrent_player_args="--extraintf oldrc --rc-fake-tty --rc-unix $MEDIA_PLAYER_VLC_SOCKET --verbose=1 --file-logging --logfile=$PLAYER_LOGFILE --play-and-exit"
+        webtorrent_player_args="--extraintf=oldrc --rc-fake-tty --rc-unix=$MEDIA_PLAYER_VLC_SOCKET --verbose=1 --file-logging --logfile=$PLAYER_LOGFILE --play-and-exit"
         ;;
     "iina")
         webtorrent_player_args="--mpv-keep-open=no --mpv-log-file=$PLAYER_LOGFILE --mpv-input-ipc-server=$MEDIA_PLAYER_IINA_SOCKET"
