@@ -2386,7 +2386,7 @@ watch_anime() {
         show_type="$(printf "%b" "$anime_info" | grep "Type: " | awk -F": " '{print $2}')"
     fi
     if printf "%s" "$anime_info" | grep "Synonyms: " >/dev/null 2>&1; then
-        anime_synonyms="$(printf "%b" "$anime_info" | grep "Synonyms: " | awk -F": " '{print $2}' | sed "s/[]'[]//g")"
+        anime_synonyms="$(printf "%b" "$anime_info" | grep "Synonyms: " | awk -F": " '{print $2}' | sed "s/[]'[]//g"),"
         # split and iterate string for posix https://stackoverflow.com/a/15988793
         i=1
         while
