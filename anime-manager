@@ -1500,6 +1500,7 @@ media_player_menu() {
             printf " ▶ %s" "$cur_anime_episode"
         fi
     )"
+    get_media_player_socket
     if [ "$AUTO_UPDATE" -eq 1 ]; then
         {
             monitor_playback_time
