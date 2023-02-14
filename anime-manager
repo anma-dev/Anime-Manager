@@ -2864,13 +2864,20 @@ account_menu() {
             ;;
         "$PLAYLIST")
             playlist_mode=1
-            AUTO_UPDATE=1
+            if [ "$AUTO_UPDATE" -eq 1 ]; then
+                # do not reset auto update when playlist ends
+                playlist_reset_auto=0
+            else
+                playlist_reset_auto=1
+                AUTO_UPDATE=1
+            fi
             # update subheader
             line_to_remove && clear_lines
             print_subheader
             create_playlist
             if [ "$cur_playlist" = "$BACK_TO_SUBMENU" ] || [ -z "$cur_playlist" ] || [ -z "$playlist_ep_count" ]; then
                 playlist_mode=0
+                [ "$playlist_reset_auto" -eq 1 ] && AUTO_UPDATE=0
                 # update subheader
                 line_to_remove && clear_lines
                 print_subheader
@@ -2940,6 +2947,7 @@ account_menu() {
 $cur_playlist
 EOF
             playlist_mode=0
+            [ "$playlist_reset_auto" -eq 1 ] && AUTO_UPDATE=0
             clear_modifiers
             prompt="$BACK_TO_SUBMENU"
             # update subheader
