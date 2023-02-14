@@ -12,7 +12,7 @@ You can use your existing anime cataloguing service (those [Trackma supports](ht
 
 - Operations supported on lists: update anime status, add new anime, update episode count, set and update the score, delete anime from lists
 - Quickly search your lists with fuzzy and literal match.
-- Watch anime via streaming or torrenting
+- Watch anime via streaming and torrenting
 - Automatic update mode for updating your lists as you watch
 - Play the next episode manually from the playback menu
 - Playlist mode: automatically play the next episode when the video ends
