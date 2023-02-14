@@ -1625,7 +1625,7 @@ torrent_magnet_link() {
 get_magnet_info() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET\n" "      🗃️  Searching for matching file..." && line_to_remove
-    get_magnet_info_data="$(python3 "$NYAA_FE_BIN" --title "$anime_title_match" --synonyms "$(printf "%s" "$show_synonyms")" --magnet-link "$magnet_link" --episode "$cur_anime_episode" --type "$show_type")"
+    get_magnet_info_data="$(python3 "$NYAA_FE_BIN" --title "$anime_title_match" --synonyms "$(printf "%s" "$anime_synonyms")" --magnet-link "$magnet_link" --episode "$cur_anime_episode" --type "$show_type")"
     episode_data="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $1}' | sed "s/'/'\"'\"'/g")"
     file_list="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $2}')"
     file_index="$(printf "%s" "$get_magnet_info_data" | awk -F"////" '{print $3}')"
@@ -1751,6 +1751,8 @@ play_anime() {
             # get magnet link and play it with webtorrent-cli
             if [ -z "$nyaa_search_res" ]; then
                 echo && line_to_remove
+                nyaa_search_ret_code=""
+                nyaa_search_ret_msg=""
                 printf "$MSG_INFO_COLOR%s$RESET\n" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_BIN --title "$anime_title_match" --episode "$cur_anime_episode" --quality 1080 --show-type "$show_type")"
                 if printf "%s" "$nyaa_search_res" | grep "////" >/dev/null 2>&1; then
@@ -2230,6 +2232,19 @@ select_player_source() {
     fi
 }
 
+# Set the anime title used for matching files and search results.
+# Iterates over the synonyms array and selects the next one.
+set_title_synonym() {
+    set_title_synonym_len="$(printf '%s\n' "$search_titles_array" | array_len | sed "s/[[:space:]]//g")"
+    set_title_synonym_id="$(printf '%s\n' "$search_titles_array" | array_indexof "$anime_title_match")"
+    if [ "$set_title_synonym_id" -eq $((set_title_synonym_len - 1)) ]; then
+        set_title_synonym_id=0
+    else
+        set_title_synonym_id=$((set_title_synonym_id + 1))
+    fi
+    anime_title_match="$(printf '%s\n' "$search_titles_array" | array_nth "$set_title_synonym_id")"
+}
+
 watch_anime() {
     if [ -z "$anime_title" ] && [ -z "$cur_anime_episode" ]; then
         full_info=$(get_watching_shows)
@@ -2342,28 +2357,50 @@ watch_anime() {
         fi
     fi
     # We query trackma again because we want official english and romaji titles
-    show_info=$(printf "filter %s\ninfo %s\n" "$(get_trackma_status_code "$status")" "$entry_index" | trackma_query)
+    anime_info=$(printf "filter %s\ninfo %s\n" "$(get_trackma_status_code "$status")" "$entry_index" | trackma_query)
     while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
-    anime_title_ro="$(printf "%s" "$show_info" | sed -n "/Romaji/p" | cut -d ":" -f2 | sed "s/ //")"
-    anime_title_en="$(printf "%s" "$show_info" | sed -n "/English/p" | cut -d ":" -f2 | sed "s/ //")"
-    # give preference to Romaji, then Japanese, then English titles, as this gives better matching
-    if [ -n "$anime_title_ro" ] && [ "$anime_title_ro" != "None" ]; then
-        anime_title_match=$anime_title_ro
-    else
-        anime_title_match=$anime_title
+    anime_title_ro="$(printf "%s" "$anime_info" | sed -n "/Romaji/p" | cut -d ":" -f2 | sed "s/ //")"
+    anime_title_en="$(printf "%s" "$anime_info" | sed -n "/English/p" | cut -d ":" -f2 | sed "s/ //")"
+    #* Collect all search titles and synonyms for search result filtering
+    search_titles_array=$(array "$anime_title")
+    if [ -n "$anime_title_ro" ] && [ "$anime_title_ro" != "None" ] && [ "$anime_title_ro" != "$anime_title" ]; then
+        search_titles_array=$(array_append "$search_titles_array" "$anime_title_ro")
     fi
-
-    # player loop
+    if [ -n "$anime_title_en" ] && [ "$anime_title_en" != "None" ] && [ "$anime_title_en" != "$anime_title" ]; then
+        search_titles_array=$(array_append "$search_titles_array" "$anime_title_en")
+    fi
+    search_titles_array=$(array_append "$search_titles_array" "$anime_title")
+    if printf "%s" "$anime_info" | grep "Type: " >/dev/null 2>&1; then
+        show_type="$(printf "%b" "$anime_info" | grep "Type: " | awk -F": " '{print $2}')"
+    fi
+    if printf "%s" "$anime_info" | grep "Synonyms: " >/dev/null 2>&1; then
+        anime_synonyms="$(printf "%b" "$anime_info" | grep "Synonyms: " | awk -F": " '{print $2}' | sed "s/[]'[]//g")"
+        # split and iterate string for posix https://stackoverflow.com/a/15988793
+        i=1
+        while
+            iter=$(echo "$anime_synonyms" | cut -d\, -f$i)
+            [ -n "$iter" ]
+        do
+            search_titles_array=$(array_append "$search_titles_array" "$(printf "%s" "$iter" | sed -E "s/^[[:space:]]*//g" | sed -E "s/[[:space:]]*$//g")")
+            i=$((i + 1))
+        done
+    fi
+    # remove duplicates
+    watch_anime_temp_arr="$(array "$anime_title")"
+    while IFS= read -r element; do
+        d_elem="$(printf '%s\n' "$element" | array_element_decode)"
+        if ! printf '%s\n' "$watch_anime_temp_arr" | array_indexof "$d_elem" >/dev/null; then
+            watch_anime_temp_arr=$(array_append "$watch_anime_temp_arr" "$d_elem")
+        fi
+    done <<EOF
+$search_titles_array
+EOF
+    search_titles_array="$watch_anime_temp_arr"
+    # set to search first item in the array by default
+    anime_title_match="$(printf '%s\n' "$search_titles_array" | array_nth 0 | array_element_decode)"
+    #* SOURCE SELECT LOOP
     play_method_menu_opt=""
     media_player_exit_code=""
-    if printf "%s" "$show_info" | grep "Type: " >/dev/null 2>&1; then
-        show_type="$(printf "%b" "$show_info" | grep "Type: " | awk -F": " '{print $2}')"
-    fi
-    if printf "%s" "$show_info" | grep "Synonyms: " >/dev/null 2>&1; then
-        show_synonyms="$(printf "%b" "$show_info" | grep "Synonyms: " | awk -F": " '{print $2}')"
-        show_synonyms="$anime_title, $anime_title_en, $(printf "%s" "$show_synonyms" | sed "s/[]'[]//g")"
-    fi
-    #* SOURCE SELECT LOOP
     while true; do
         select_player_source
         if [ "$player_source" = "◂" ] || [ -z "$player_source" ]; then
@@ -2375,21 +2412,11 @@ watch_anime() {
         while true; do
             play_anime
             if [ "$play_status" = "$PLAY_STATUS_SEARCH_SYNONYM" ]; then
-                # the user wants to search again with a title synonym
-                case $anime_title_match in
-                "$anime_title_en")
-                    [ -z "$anime_title_ro" ] && continue # does not perform a new search
-                    anime_title_match="$anime_title_ro"
-                    ;;
-                "$anime_title_ro")
-                    [ -z "$anime_title_en" ] && continue # does not perform a new search
-                    anime_title_match="$anime_title_en"
-                    ;;
-                esac
                 nyaa_search_res="" # does perform a new search
                 magnet_link=""
                 file_list=""
-                play_status=""
+                # the user wants to search again with a title synonym
+                set_title_synonym
                 continue
             elif [ "$play_status" = "$PLAY_STATUS_SELECT_SOURCE" ]; then
                 player_source=""
