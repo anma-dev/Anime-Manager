@@ -1863,7 +1863,7 @@ play_anime() {
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl stream "$decoded_stream_provider:$anime_title_match" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl --disable-update stream "$decoded_stream_provider:$anime_title_match" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -1874,7 +1874,7 @@ play_anime() {
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
                     if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-                        if grep "Could not find any streams" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+                        if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
                             # stream started automatically
                             play_status=$PLAY_STATUS_ERRORED
                             printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
@@ -1897,7 +1897,9 @@ play_anime() {
                     printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 No results found ($decoded_stream_provider), next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
-                    echo >"$ANIMDL_LOGFILE"
+                    printf "" >"$ANIMDL_LOGFILE"
+                    animdl_search_index=""
+                    animdl_playthrough=0
                     continue
                 fi
                 clear_lines
@@ -1931,7 +1933,10 @@ play_anime() {
                 stream_health=20
                 printf "$MSG_INFO_COLOR%s$RESET\n" "      Trying to stream with $decoded_stream_provider" && line_to_remove
                 while [ $stream_health -gt 0 ]; do
-                    if [ -z "$(sed -En "/AV:|libmpv|A-V|File started|Running vlc/p" "$PLAYER_LOGFILE")" ]; then
+                    if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
+                        stream_health=0 # check next provider
+                        break
+                    elif [ -z "$(sed -En "/AV:|libmpv|A-V|File started|Running vlc/p" "$PLAYER_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))
                     else
                         break
@@ -1943,7 +1948,9 @@ play_anime() {
                     printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $decoded_stream_provider, next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
-                    echo "" >"$ANIMDL_LOGFILE"
+                    printf "" >"$ANIMDL_LOGFILE"
+                    animdl_search_index=""
+                    animdl_playthrough=0
                     continue
                 else
                     rm "$play_episode_stream_fifo_write"
@@ -1967,7 +1974,7 @@ play_anime() {
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl stream "$decoded_stream_provider:$anime_title_match" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl --disable-update stream "$decoded_stream_provider:$anime_title_match" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -1975,7 +1982,7 @@ play_anime() {
                 animdl_pid="$(cat "$stream_pid_file")"
                 stream_health=20
                 while [ $stream_health -gt 0 ]; do
-                    if grep "Could not find any streams" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
+                    if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
                         # stream started automatically
                         play_status=$PLAY_STATUS_ERRORED
                         printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
