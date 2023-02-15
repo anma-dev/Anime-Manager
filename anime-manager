@@ -1894,6 +1894,8 @@ play_anime() {
                 # switch temporarily to mpv in exceptional case
                 if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
                     # iina doesn't go well with allanime
+                    # fallback to compatible player
+                    printf '%s' "ℹ️  Fallback to compatible player (mpv)."
                     # save player in helper var
                     media_player_helper="iina"
                     MEDIA_PLAYER_APP="mpv"
