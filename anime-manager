@@ -106,6 +106,7 @@ reset_logs() {
     # echo > "$CURRENTLY_PLAYING_LOGFILE"
     echo >"$NYAA_SEARCH_LOGFILE"
     echo >"$NYAA_FE_LOGFILE"
+    echo >"$PLAYER_LOGFILE"
 }
 
 # returns a substring of a string
