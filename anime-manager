@@ -1465,16 +1465,16 @@ media_player_menu() {
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
         # trackma account entries
         if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
-            playing_menu="🏁 Set as Watched\n"
+            playing_menu="🏁 Set as Watched"
             [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
         else
-            playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched\n"
+            playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched"
         fi
     fi
     # player reset entries
     if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
         # common menu for torrenting
-        playing_menu="${playing_menu}🙈 Unexpected? Select another file ▸"
+        playing_menu="${playing_menu}\n🙈 Unexpected? Select another file ▸"
         if [ -n "$nyaa_search_res" ]; then
             playing_menu="${playing_menu}\n🔎 Select another search result"
         fi
@@ -1490,7 +1490,7 @@ media_player_menu() {
         fi
     elif [ "$player_source" = "streaming" ]; then
         if [ -n "$animdl_search_index" ]; then
-            playing_menu="${playing_menu}🔎 Select another search result"
+            playing_menu="${playing_menu}\n🔎 Select another search result"
         fi
     fi
     # for some reason fzf doesn't like this logic inside the label text
