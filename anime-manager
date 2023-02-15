@@ -117,6 +117,25 @@ start_substring() {
     printf "%s" "$cut_string_string" | cut -c1-"$cut_string_end_id"
 }
 
+is_socket_active() {
+    case "$MEDIA_PLAYER_APP" in
+    "vlc")
+        is_socket_active_comm='info'
+        ;;
+    "iina")
+        is_socket_active_comm='{ "command": ["get_property", "filename"] }'
+        ;;
+    "mpv")
+        is_socket_active_comm='{ "command": ["get_property", "filename"] }'
+        ;;
+    esac
+    if printf "%s\n" "$is_socket_active_comm" | $netcat_comm "$MEDIA_PLAYER_SOCKET" >/dev/null 2>&1; then
+        true
+    else
+        false
+    fi
+}
+
 set_netcat_comm() {
     case "$OSTYPE" in
     "Linux")
@@ -143,7 +162,7 @@ get_media_player_socket() {
 }
 
 get_playback_time() {
-    [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
+    if ! is_socket_active; then return; fi
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         playback_time="$(printf "get_time\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
@@ -162,7 +181,7 @@ get_playback_time() {
 
 get_video_length() {
     playback_length=""
-    [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
+    if ! is_socket_active; then return; fi
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         playback_length="$(printf "get_length\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
@@ -176,10 +195,25 @@ get_video_length() {
     esac
 }
 
+close_player() {
+    if ! is_socket_active; then return; fi
+    case "$MEDIA_PLAYER_APP" in
+    "vlc")
+        printf "quit\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" >/dev/null 2>&1
+        ;;
+    "mpv")
+        printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" >/dev/null 2>&1
+        ;;
+    "iina")
+        printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" >/dev/null 2>&1
+        ;;
+    esac
+}
+
 # approximate*
 get_playback_percent() {
     cur_playback_percent=0
-    [ ! -S "$MEDIA_PLAYER_SOCKET" ] && return
+    if ! is_socket_active; then return; fi
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         get_video_length
@@ -1532,6 +1566,7 @@ media_player_menu() {
         prompt="$TO_MAIN_MENU"
         clear_modifiers
         media_player_exit_code="$PLAYER_MENU_END_CODE"
+        close_player
     elif [ "$media_player_menu_choice" = "✅" ]; then
         set_ep_as_watched
         # Do not clear modifiers when in playlist mode. This is to avoid losing
@@ -1561,6 +1596,7 @@ media_player_menu() {
         play_method_menu_opt=""
         cur_anime_episode=$((cur_anime_episode + 1))
         media_player_exit_code="$PLAYER_MENU_NEXT"
+        close_player
     elif [ "$media_player_menu_choice" = "🏁" ]; then
         set_ep_as_watched
         media_player_exit_code="$PLAYER_MENU_END_CODE"
