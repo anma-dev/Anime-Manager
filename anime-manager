@@ -1395,7 +1395,7 @@ monitor_playback_time() {
         get_playback_percent
         [ ! -S "$MEDIA_PLAYER_SOCKET" ] && break
     done
-    set -x
+    [ "$DEBUG" -eq 1 ] && set -x
     if [ "$cur_playback_percent" -ge "$MEDIA_PLAYER_PERCENT_WATCHED" ]; then
         set_ep_as_watched
     fi
@@ -1407,7 +1407,7 @@ monitor_playback_time() {
 monitor_media_player_app_exit() {
     set +x
     while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ]; do sleep 0.5; done
-    set -x
+    [ "$DEBUG" -eq 1 ] && set -x
     # reset media player log file
     printf "" >"$PLAYER_LOGFILE"
     [ -S "$MEDIA_PLAYER_SOCKET" ] && rm "$MEDIA_PLAYER_SOCKET"
@@ -1896,7 +1896,7 @@ play_anime() {
                 if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
                     # iina doesn't go well with allanime
                     # fallback to compatible player
-                    printf '%s' "ℹ️  Fallback to compatible player (mpv)."
+                    printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Fallback to compatible player (mpv)." && line_to_remove
                     # save player in helper var
                     media_player_helper="iina"
                     MEDIA_PLAYER_APP="mpv"
