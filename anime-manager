@@ -1388,15 +1388,15 @@ delete_link_cache() {
 monitor_playback_time() {
     get_playback_percent
     # check for app exit and playback percent value
+    set +x
     while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ] && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
-        sleep 2
+        sleep 0.5
         get_playback_percent
         [ ! -S "$MEDIA_PLAYER_SOCKET" ] && break
     done
-    if [ -n "$cur_playback_percent" ]; then
-        if [ "$cur_playback_percent" -ge "$MEDIA_PLAYER_PERCENT_WATCHED" ]; then
-            set_ep_as_watched
-        fi
+    set -x
+    if [ "$cur_playback_percent" -ge "$MEDIA_PLAYER_PERCENT_WATCHED" ]; then
+        set_ep_as_watched
     fi
 }
 
@@ -1404,8 +1404,11 @@ monitor_playback_time() {
 # part of the playlist mode to automatically play the next anime
 # functionality.
 monitor_media_player_app_exit() {
-    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ]; do sleep 1; done
-    # re enable command log
+    set +x
+    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ]; do sleep 0.5; done
+    set -x
+    # reset media player log file
+    printf "" >"$PLAYER_LOGFILE"
     [ -S "$MEDIA_PLAYER_SOCKET" ] && rm "$MEDIA_PLAYER_SOCKET"
     # block until fzf opens the port
     while ! nc -z localhost 6266 >/dev/null 2>&1; do sleep 1; done
@@ -1739,8 +1742,6 @@ play_anime() {
     reset_logs
     # reset the media player
     reset_media_player_app
-    # reset media player log file
-    printf "" >"$PLAYER_LOGFILE"
     while ! connectivity_check; do
         echo && line_to_remove
         printf "$MSG_WARN_COLOR%s$RESET\n" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
