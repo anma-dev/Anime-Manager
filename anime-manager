@@ -555,6 +555,7 @@ PLAYER_MENU_FILE_SELECT_CODE=0
 PLAYER_MENU_END_CODE=1
 PLAYER_MENU_SELECT_SEARCH_RES_CODE=2
 PLAYER_MENU_SEARCH_SYNONYM=3
+PLAYER_MENU_NEXT=4
 
 # Parse arguments
 parser_definition() {
@@ -1541,7 +1542,7 @@ media_player_menu() {
         set_ep_as_watched
         if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
             # will query nyaa again or resume from cache
-            if has_cached_link; then
+            if has_cached_link && [ "$TORRENT_ONLY" -eq 1 ]; then
                 # if a bookmark is set switch the player source
                 # for searching the next episode
                 player_source="cached_link"
@@ -1559,6 +1560,7 @@ media_player_menu() {
         fi
         play_method_menu_opt=""
         cur_anime_episode=$((cur_anime_episode + 1))
+        media_player_exit_code="$PLAYER_MENU_NEXT"
     elif [ "$media_player_menu_choice" = "🏁" ]; then
         set_ep_as_watched
         media_player_exit_code="$PLAYER_MENU_END_CODE"
@@ -2194,6 +2196,8 @@ incognito_menu() {
                 elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
                     clear_modifiers
                     break # go to main menu
+                elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
+                    continue
                 fi
             done
             ;;
@@ -2489,6 +2493,8 @@ EOF
                 continue
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
                 break 2 # go to main menu
+            elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
+                continue
             else
                 # Here we break in all other cases to avoid infinite loop (for
                 # example the user sent signal to script). Do not clear
