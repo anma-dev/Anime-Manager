@@ -3070,8 +3070,8 @@ account_menu() {
                         break 2
                     elif [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
                         # an error occurred
-                        printf "💥 Playlist ended"
-                        break 2
+                        printf "💥 The playlist ended due to an error" && line_to_remove
+                        kill $$
                     fi
                     last_watched_ep="$cur_anime_episode"
                     if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
