@@ -2501,7 +2501,7 @@ EOF
             prompt="$TO_MAIN_MENU"
             break
         fi
-        # play loop
+        #* MEDIA PLAYER LOOP
         while true; do
             play_anime
             if [ "$play_status" = "$PLAY_STATUS_SEARCH_SYNONYM" ]; then
