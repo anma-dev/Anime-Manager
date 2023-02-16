@@ -1463,9 +1463,9 @@ media_player_menu() {
         # fatal error, go back to mainmenu
         echo && line_to_remove
         if [ "$player_source" = "streaming" ]; then
-            printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 Unable to play (streaming)." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 Unable to play the anime via streaming." && line_to_remove
         else
-            printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 Unable to play (torrenting)." && line_to_remove
+            printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 Unable to play the anime via torrenting." && line_to_remove
         fi
         printf "%s\n" "      [Enter]  ◂ MAIN MENU" && line_to_remove
         # recovery menu loop
