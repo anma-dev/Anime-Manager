@@ -1445,7 +1445,6 @@ monitor_media_player_app_exit() {
     [ "$DEBUG" -eq 1 ] && set -x
     # reset media player log file
     printf "" >"$PLAYER_LOGFILE"
-    [ -S "$MEDIA_PLAYER_SOCKET" ] && rm "$MEDIA_PLAYER_SOCKET"
     # tell fzf to exit
     if nc -z localhost 6266 >/dev/null 2>&1; then
         curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
@@ -1501,11 +1500,15 @@ media_player_menu() {
     playing_menu=""
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
         # trackma account entries
-        if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
-            playing_menu="🏁 Set as Watched"
-            [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
+        if [ "$AUTO_UPDATE" -eq 0 ]; then
+            if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
+                playing_menu="🏁 Set as Watched"
+                [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
+            else
+                playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched"
+            fi
         else
-            playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched"
+            playing_menu="⏭️  Play next ▶"
         fi
     fi
     # player reset entries
@@ -1586,7 +1589,7 @@ media_player_menu() {
                 # If no bookmark is set switch to nyaa search.
                 # This could happen if the user deleted the
                 # bookmark from the 'now playing' menu.
-                player_source="torrenting"
+                player_source=""
             fi
             nyaa_search_res=""
             magnet_link=""
@@ -1595,7 +1598,7 @@ media_player_menu() {
             animdl_playthrough=1
         fi
         play_method_menu_opt=""
-        cur_anime_episode=$((cur_anime_episode + 1))
+        [ "$playlist_mode" -eq 0 ] && cur_anime_episode=$((cur_anime_episode + 1))
         media_player_exit_code="$PLAYER_MENU_NEXT"
         close_player
     elif [ "$media_player_menu_choice" = "🏁" ]; then
@@ -1711,6 +1714,12 @@ select_magnet_file() {
     fi
 }
 
+exit_streaming_process() {
+    if ps "$animdl_pid" >/dev/null 2>&1; then
+        kill -9 "$animdl_pid" >/dev/null 2>&1
+    fi
+}
+
 create_playlist() {
     full_info=$(get_watching_shows)
     if [ ! "$full_info" ]; then
@@ -1796,6 +1805,7 @@ play_anime() {
         key="$(start_substring "$key" 1)"
         [ "$key" = "" ] && clear_lines && continue
     done
+    [ -z "$player_source" ] && printf "💥 Unable to play anime (no player source)." && kill $$
     if [ "$player_source" = "torrenting" ]; then
         if [ -z "$magnet_link" ]; then
             # get magnet link and play it with webtorrent-cli
@@ -1928,10 +1938,11 @@ play_anime() {
             torrent_magnet_link
         fi
     elif [ "$player_source" = "streaming" ]; then
-        stream_providers=$(array "animepahe" "allanime")
+        stream_providers=$(array "animeout" "zoro" "animepahe" "allanime")
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do
+            echo >"$ANIMDL_LOGFILE"
             decoded_stream_provider=$(printf '%s\n' "$provider" | array_element_decode)
             [ -n "$cur_streaming_provider" ] && decoded_stream_provider="$cur_streaming_provider"
             if [ "$animdl_playthrough" -eq 0 ]; then
@@ -1962,9 +1973,9 @@ play_anime() {
                     if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
                         if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
                             # stream started automatically
-                            play_status=$PLAY_STATUS_ERRORED
+                            stream_health=0
                             printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
-                            continue
+                            break
                         fi
                         if [ -z "$(sed -En "/AV:|libmpv|A-V|File started|Running vlc/p" "$PLAYER_LOGFILE")" ]; then
                             stream_health=$((stream_health - 1))
@@ -1987,6 +1998,8 @@ play_anime() {
                     printf "" >"$ANIMDL_LOGFILE"
                     animdl_search_index=""
                     animdl_playthrough=0
+                    # exit streaming process to ensure it stops writing to its log file
+                    exit_streaming_process
                     continue
                 fi
                 clear_lines
@@ -2038,6 +2051,8 @@ play_anime() {
                     printf "" >"$ANIMDL_LOGFILE"
                     animdl_search_index=""
                     animdl_playthrough=0
+                    # exit streaming process to ensure it stops writing to its log file
+                    exit_streaming_process
                     continue
                 else
                     rm "$play_episode_stream_fifo_write"
@@ -2072,9 +2087,9 @@ play_anime() {
                 while [ $stream_health -gt 0 ]; do
                     if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
                         # stream started automatically
-                        play_status=$PLAY_STATUS_ERRORED
+                        stream_health=0
                         printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
-                        return
+                        break
                     fi
                     if [ -z "$(sed -En "/AV:|libmpv|A-V|File started|Running vlc/p" "$PLAYER_LOGFILE")" ]; then
                         stream_health=$((stream_health - 1))
@@ -2539,8 +2554,14 @@ EOF
                 close_player
                 break 2 # go to main menu
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
-                close_player
-                continue
+                if [ "$playlist_mode" -eq 1 ]; then
+                    # play next anime in playlist
+                    break 2
+                else
+                    # play next episode
+                    # select source again
+                    break
+                fi
             else
                 # Here we break in all other cases to avoid infinite loop (for
                 # example the user sent signal to script). Do not clear
