@@ -210,6 +210,11 @@ close_player() {
         ;;
     esac
     set -o errexit
+    if [ "$player_source" = "streaming" ]; then
+        exit_streaming_process
+    else
+        exit_torrenting_process
+    fi
 }
 
 # approximate*
@@ -1722,6 +1727,12 @@ exit_streaming_process() {
     fi
 }
 
+exit_torrenting_process() {
+    if [ -n "$webtorrent_pid" ] && ps "$webtorrent_pid" >/dev/null 2>&1; then
+        kill -9 "$webtorrent_pid" >/dev/null 2>&1
+    fi
+}
+
 create_playlist() {
     full_info=$(get_watching_shows)
     if [ ! "$full_info" ]; then
@@ -2541,7 +2552,7 @@ EOF
                 break # select player source
             elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
                 clear_modifiers
-                break 2 # go to main menu
+                return # go to main menu
             fi
             media_player_menu
             clear_lines
@@ -2555,27 +2566,22 @@ EOF
                 continue
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
                 close_player
-                break 2 # go to main menu
+                play_status="$PLAY_STATUS_EXITED"
+                return # go to main menu
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
                 if [ "$playlist_mode" -eq 1 ]; then
                     # play next anime in playlist
-                    break 2
+                    return 0
                 else
                     # play next episode
                     # select source again
                     break
                 fi
             else
-                # Here we break in all other cases to avoid infinite loop (for
-                # example the user sent signal to script). Do not clear
-                # modifiers when in playlist mode.
-                break 2 # go to main menu
+                return 0 # go to main menu
             fi
         done
     done
-    if [ -n "$webtorrent_pid" ] && ps "$webtorrent_pid" >/dev/null 2>&1; then
-        kill -9 "$webtorrent_pid" >/dev/null 2>&1
-    fi
 }
 
 #* ACCOUNT MENU
