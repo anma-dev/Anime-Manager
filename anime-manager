@@ -47,7 +47,7 @@ connectivity_check() {
 
 #! Unused
 torrent_is_playing() {
-    process_name="$(ps -p "$webtorrentpid" -o comm=)"
+    process_name="$(ps -p "$webtorrent_pid" -o comm=)"
     if [ "$process_name" = "WebTorrent" ]; then
         true
     else
@@ -470,7 +470,7 @@ TORRENT_STATUS_OKPLAYING=0
 TORRENT_STATUS_STALLED=1
 TORRENT_STATUS_ERRORED=2
 file_list=""
-webtorrentpid=""
+webtorrent_pid=""
 # threshold percentage of video duration that when reached will
 # trigger the episode to be set as watched
 MEDIA_PLAYER_PERCENT_WATCHED=80
@@ -1446,9 +1446,10 @@ monitor_media_player_app_exit() {
     # reset media player log file
     printf "" >"$PLAYER_LOGFILE"
     [ -S "$MEDIA_PLAYER_SOCKET" ] && rm "$MEDIA_PLAYER_SOCKET"
-    # block until fzf opens the port
-    while ! nc -z localhost 6266 >/dev/null 2>&1; do sleep 1; done
-    curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
+    # tell fzf to exit
+    if nc -z localhost 6266 >/dev/null 2>&1; then
+        curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
+    fi
 }
 
 #* MEDIA PLAYER MENU
@@ -1649,7 +1650,7 @@ torrent_magnet_link() {
         echo $! >"$torrent_pid_file"
     )
     set -m
-    webtorrentpid="$(cat "$torrent_pid_file")"
+    webtorrent_pid="$(cat "$torrent_pid_file")"
     # printf "%s" "$episode_data" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
     # remove from job queue to avoid info messages if we have to end the process with kill
     echo && line_to_remove
@@ -1714,7 +1715,7 @@ create_playlist() {
     full_info=$(get_watching_shows)
     if [ ! "$full_info" ]; then
         full_info="Your watching list is empty"
-        watch_choice=$(
+        create_playlist_choice=$(
             printf "%s\n%s" "$full_info" "$BACK_TO_SUBMENU" |
                 $FZF -i --prompt "(multi) Choose anime for your playlist: " \
                     --border-label "╢ ♣  CREATE PLAYLIST ($(
@@ -1733,11 +1734,11 @@ create_playlist() {
         watch_choice=$(printf "%s" "$full_info" | shuf -n 1)
     elif [ "$random_airing" -eq 1 ]; then
         # format and filter airing shows, select one randomly
-        watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | shuf -n 1)
+        create_playlist_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | shuf -n 1)
     else
         full_info="$(printf "%s" "$full_info")"
         WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
-        cur_playlist=$(
+        create_playlist_choice=$(
             printf "%s\n%s" "$BACK_TO_SUBMENU" "$full_info" |
                 $FZF -i --prompt "(multi) Choose anime for your playlist: " \
                     --multi \
@@ -1757,12 +1758,18 @@ create_playlist() {
                     --header-first --tac
         )
     fi
-    if [ -n "$(printf "%s" "$cur_playlist" | sed -En "/$BACK_TO_SUBMENU/p")" ] || [ -z "$cur_playlist" ]; then
+    if [ -n "$(printf "%s" "$create_playlist_choice" | sed -En "/$BACK_TO_SUBMENU/p")" ] || [ -z "$create_playlist_choice" ]; then
         cur_playlist=""
         return
     fi
+    cur_playlist=$(array)
+    while read -r playlist_item; do
+        cur_playlist=$(array_append "$cur_playlist" "$playlist_item")
+    done <<EOF
+$create_playlist_choice
+EOF
     echo && line_to_remove
-    if [ "$(printf "%b\n" "$cur_playlist" | wc -l)" -gt 1 ]; then
+    if [ "$(printf "%b\n" "$create_playlist_choice" | wc -l)" -gt 1 ]; then
         printf "      🎦 How many episodes per anime?\n" && line_to_remove
     else
         printf "      🎦 How many episodes?\n" && line_to_remove
@@ -2254,7 +2261,7 @@ check_torrent_health() {
     check_torrent_health_waitingtime=0
     check_torrent_health_checkinterval=5
     check_torrent_health_torrent_status=$TORRENT_STATUS_STALLED
-    check_torrent_health_webtorrentpid="$1"
+    check_torrent_health_webtorrent_pid="$1"
     while [ $check_torrent_health_torrent_status = "$TORRENT_STATUS_STALLED" ] && [ $check_torrent_health_waitingtime -lt $TORRENT_TMOUT ]; do
         # if the torrent is not finding peers
         # before or after download start
@@ -2268,8 +2275,8 @@ check_torrent_health() {
     done
     if [ $check_torrent_health_waitingtime -eq $TORRENT_TMOUT ]; then
         # kill the process
-        if ps "$check_torrent_health_webtorrentpid" >/dev/null 2>&1; then
-            kill -9 "$check_torrent_health_webtorrentpid" >/dev/null 2>&1
+        if ps "$check_torrent_health_webtorrent_pid" >/dev/null 2>&1; then
+            kill -9 "$check_torrent_health_webtorrent_pid" >/dev/null 2>&1
         fi
         printf "%s" "$TORRENT_STATUS_ERRORED"
     else
@@ -2523,13 +2530,16 @@ EOF
             # from media player menu the user should not be able to switch play sources
             if [ "$media_player_exit_code" = "$PLAYER_MENU_FILE_SELECT_CODE" ]; then
                 # new state already set by media_player_menu function
+                close_player
                 continue
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
                 # new state already set by media_player_menu function
                 continue
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
+                close_player
                 break 2 # go to main menu
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
+                close_player
                 continue
             else
                 # Here we break in all other cases to avoid infinite loop (for
@@ -2539,8 +2549,8 @@ EOF
             fi
         done
     done
-    if [ -n "$webtorrentpid" ] && ps "$webtorrentpid" >/dev/null 2>&1; then
-        kill -9 "$webtorrentpid" >/dev/null 2>&1
+    if [ -n "$webtorrent_pid" ] && ps "$webtorrent_pid" >/dev/null 2>&1; then
+        kill -9 "$webtorrent_pid" >/dev/null 2>&1
     fi
 }
 
@@ -2983,8 +2993,18 @@ account_menu() {
                 prompt="$BACK_TO_SUBMENU"
                 continue
             fi
-            while read -r playlist_item; do
-                playlist_item="$(clean_trackma_entry "$playlist_item")"
+            playlist_len=$(printf '%s\n' "$cur_playlist" | array_len)
+            anime_count=1
+            episode_count=0
+            while [ "$anime_count" -le "$((playlist_len - 1))" ]; do
+                arr_item=$(printf '%s\n' "$cur_playlist" | array_nth "$anime_count")
+                if [ -z "$arr_item" ]; then
+                    anime_count=$((anime_count + 1))
+                    episode_count=0
+                    clear_modifiers
+                    continue
+                fi
+                playlist_item="$(clean_trackma_entry "$arr_item")"
                 title_fragment="$(get_title_fragment "$playlist_item")"
                 #* we need to get the status and index before we get the full title.
                 entry_index="$(get_entry_index "$playlist_item")"
@@ -3010,7 +3030,7 @@ account_menu() {
                         fi
                     fi
                 fi
-                for i in $(seq 1 "$cur_anime_playlist_ep_count"); do
+                while [ "$episode_count" -lt "$cur_anime_playlist_ep_count" ]; do
                     if [ -z "$cur_anime_episode" ]; then
                         if [ "$last_show_episode" != "?" ]; then
                             if [ "$last_watched_ep" -eq "$last_show_episode" ]; then
@@ -3036,14 +3056,17 @@ account_menu() {
                     if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
                         file_list="" # call file extractor for new episode
                     fi
+                    episode_count=$((episode_count + 1))
                 done
-                # clear global state for the next anime queued in the playlist
-                # queue. unsets animdl playthrough so the user will be prompted
-                # again for the next anime
-                clear_modifiers
-            done <<EOF
-$cur_playlist
-EOF
+                if [ "$play_status" != "$PLAY_STATUS_FILE_SEL" ]; then
+                    # clear global state for the next anime queued in the
+                    # playlist. unsets animdl playthrough so the user will be
+                    # prompted again for the next anime.
+                    anime_count=$((anime_count + 1))
+                    episode_count=0
+                    clear_modifiers
+                fi
+            done
             playlist_mode=0
             [ "$playlist_reset_auto" -eq 1 ] && AUTO_UPDATE=0
             clear_modifiers
