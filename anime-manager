@@ -67,6 +67,13 @@ get_shell_config_file() {
     printf "%s" "$get_shell_config_file_cfg_file"
 }
 
+get_terminal_size() {
+    term_rows=$(stty size | cut -d" " -f1)
+    term_cols=$(stty size | cut -d" " -f2)
+    # subtract value to account for fzf style padding
+    term_cols=$((term_cols - 5))
+}
+
 # Clear all modifiers. A 'modifier' for us is a flow control variable for the
 # menu navigation
 clear_modifiers() {
@@ -1182,6 +1189,7 @@ install_dependencies() {
 check_setup() {
     # initial checks
     clear_modifiers
+    get_terminal_size
     # set default media player
     if [ -z "$MEDIA_PLAYER_APP" ]; then
         # follow defaults
@@ -1255,7 +1263,7 @@ spawn_trackma() {
     fi
     GLOBAL_TRACKMA_FIFO="$(get_temp_filename)"
     mkfifo -m 600 "$GLOBAL_TRACKMA_FIFO"
-    trackma <"$GLOBAL_TRACKMA_FIFO" >"$GLOBAL_TRACKMA_TMPFILE" 2>"$TRACKMA_LOGFILE" &
+    COLUMNS="$term_cols" LINES="$term_rows" trackma <"$GLOBAL_TRACKMA_FIFO" >"$GLOBAL_TRACKMA_TMPFILE" 2>"$TRACKMA_LOGFILE" &
     exec 3>"$GLOBAL_TRACKMA_FIFO"
     # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
     while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
