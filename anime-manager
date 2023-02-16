@@ -1938,11 +1938,12 @@ play_anime() {
             torrent_magnet_link
         fi
     elif [ "$player_source" = "streaming" ]; then
-        stream_providers=$(array "animeout" "zoro" "animepahe" "allanime")
+        stream_providers=$(array "gogoanime" "zoro" "animeout")
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do
             echo >"$ANIMDL_LOGFILE"
+            reset_media_player_app
             decoded_stream_provider=$(printf '%s\n' "$provider" | array_element_decode)
             [ -n "$cur_streaming_provider" ] && decoded_stream_provider="$cur_streaming_provider"
             if [ "$animdl_playthrough" -eq 0 ]; then
