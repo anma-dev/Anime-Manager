@@ -197,6 +197,7 @@ get_video_length() {
 
 close_player() {
     if ! is_socket_active; then return; fi
+    set +o errexit
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         printf "quit\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" >/dev/null 2>&1
@@ -208,6 +209,7 @@ close_player() {
         printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" >/dev/null 2>&1
         ;;
     esac
+    set -o errexit
 }
 
 # approximate*
