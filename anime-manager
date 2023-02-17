@@ -1923,19 +1923,19 @@ play_anime() {
             # if the search returned no results.
             if [ "$nya_res_choice" = "$NYAA_SEARCH_SYNONYM" ]; then
                 play_status="$PLAY_STATUS_SEARCH_SYNONYM"
-                return
+                return 0
             elif [ "$nya_res_choice" = "$SELECT_SOURCE" ]; then
                 play_status="$PLAY_STATUS_SELECT_SOURCE"
-                return
+                return 0
             elif [ "$nyaa_search_ret_code" = "$NYAA_SEARCH_CODE_NO_RESULTS" ]; then
                 play_status="$PLAY_STATUS_EXITED"
-                return
+                return 0
             elif [ "$nya_res_choice" = "$TO_MAIN_MENU" ]; then
                 play_status="$PLAY_STATUS_EXITED"
-                return
+                return 0
             elif [ -z "$nya_res_choice" ]; then
                 play_status="$PLAY_STATUS_EXITED"
-                return
+                return 0
             fi
             magnet_link="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$nya_res_choice\" )" | jq --raw-output ".magnet")"
         fi
@@ -2559,7 +2559,6 @@ EOF
                 player_source=""
                 break # select player source
             elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
-                clear_modifiers
                 return 0 # go to main menu
             fi
             media_player_menu
@@ -3040,6 +3039,7 @@ account_menu() {
                     anime_count=$((anime_count + 1))
                     episode_count=0
                     clear_modifiers
+                    prompt="$BACK_TO_SUBMENU"
                     continue
                 fi
                 playlist_item="$(clean_trackma_entry "$arr_item")"
@@ -3095,6 +3095,9 @@ account_menu() {
                         file_list="" # call file extractor for new episode
                     fi
                     episode_count=$((episode_count + 1))
+                    magnet_link=""
+                    file_list=""
+                    nyaa_search_res=""
                 done
                 if [ "$play_status" != "$PLAY_STATUS_FILE_SEL" ]; then
                     # clear global state for the next anime queued in the
