@@ -47,8 +47,16 @@ connectivity_check() {
 
 #! Unused
 torrent_is_playing() {
-    process_name="$(ps -p "$webtorrent_pid" -o comm=)"
-    if [ "$process_name" = "WebTorrent" ]; then
+    if [ -n "$(ps ux | awk '/WebTorrent/ && !/awk/ {print $2}')" ]; then
+        true
+    else
+        false
+    fi
+}
+
+stream_is_playing() {
+    animdl_pid="$(ps ux | awk -- '/animdl \-\-disable-update stream/ && !/awk/ {print $2}' | head -n1)"
+    if [ -n "$animdl_pid" ]; then
         true
     else
         false
@@ -104,6 +112,8 @@ clear_modifiers() {
     list_choice=""
     media_player_helper=""
     cur_streaming_provider=""
+    animdl_pid=""
+    webtorrent_pid=""
 }
 
 reset_logs() {
@@ -200,28 +210,6 @@ get_video_length() {
         playback_length=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
         ;;
     esac
-}
-
-close_player() {
-    if ! is_socket_active; then return; fi
-    set +o errexit
-    case "$MEDIA_PLAYER_APP" in
-    "vlc")
-        printf "quit\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" >/dev/null 2>&1
-        ;;
-    "mpv")
-        printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" >/dev/null 2>&1
-        ;;
-    "iina")
-        printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" >/dev/null 2>&1
-        ;;
-    esac
-    set -o errexit
-    if [ "$player_source" = "streaming" ]; then
-        exit_streaming_process
-    else
-        exit_torrenting_process
-    fi
 }
 
 # approximate*
@@ -1693,14 +1681,39 @@ select_magnet_file() {
 }
 
 exit_streaming_process() {
-    if ps "$animdl_pid" >/dev/null 2>&1; then
-        kill -9 "$animdl_pid" >/dev/null 2>&1
+    set +o errexit
+    if [ -n "$animdl_pid" ] && ps "$animdl_pid" >/dev/null 2>&1; then
+        pkill -9 -f "animdl --disable-update" >/dev/null 2>&1
     fi
+    set -o errexit
 }
 
 exit_torrenting_process() {
+    set +o errexit
     if [ -n "$webtorrent_pid" ] && ps "$webtorrent_pid" >/dev/null 2>&1; then
         kill -9 "$webtorrent_pid" >/dev/null 2>&1
+    fi
+    set -o errexit
+}
+
+close_player() {
+    if ! is_socket_active; then return; fi
+    set +o errexit
+    case "$MEDIA_PLAYER_APP" in
+    "vlc")
+        printf "quit\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" >/dev/null 2>&1
+        ;;
+    "mpv")
+        printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" >/dev/null 2>&1
+        ;;
+    "iina")
+        printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" >/dev/null 2>&1
+        ;;
+    esac
+    set -o errexit
+    while stream_is_playing; do exit_streaming_process; done
+    if torrent_is_playing; then
+        exit_torrenting_process
     fi
 }
 
@@ -1778,6 +1791,7 @@ EOF
 
 # plays an anime episode via streaming or torrenting
 play_anime() {
+    close_player
     reset_logs
     # reset the media player
     reset_media_player_app
@@ -1922,11 +1936,12 @@ play_anime() {
             torrent_magnet_link
         fi
     elif [ "$player_source" = "streaming" ]; then
-        stream_providers=$(array "gogoanime" "zoro" "animeout")
+        stream_providers=$(array "gogoanime" "animeout")
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do
-            echo >"$ANIMDL_LOGFILE"
+            while stream_is_playing; do exit_streaming_process; done
+            while [ -n "$(cat "$ANIMDL_LOGFILE")" ]; do reset_logs; done
             reset_media_player_app
             decoded_stream_provider=$(printf '%s\n' "$provider" | array_element_decode)
             [ -n "$cur_streaming_provider" ] && decoded_stream_provider="$cur_streaming_provider"
@@ -1956,7 +1971,7 @@ play_anime() {
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
                     if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-                        if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
+                        if [ -n "$(sed -En "/Could not find any streams|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                             # stream started automatically
                             stream_health=0
                             printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
@@ -1969,7 +1984,7 @@ play_anime() {
                             play_status=$PLAY_STATUS_OKPLAYING
                             cur_streaming_provider="$decoded_stream_provider"
                             printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The stream is starting (please wait...)" && line_to_remove
-                            return
+                            break 2
                         fi
                     else
                         break
@@ -1983,8 +1998,6 @@ play_anime() {
                     printf "" >"$ANIMDL_LOGFILE"
                     animdl_search_index=""
                     animdl_playthrough=0
-                    # exit streaming process to ensure it stops writing to its log file
-                    exit_streaming_process
                     continue # next provider
                 fi
                 clear_lines
@@ -2000,15 +2013,15 @@ play_anime() {
                 if [ "$animdl_search_index" = "$SELECT_SOURCE" ]; then
                     play_status="$PLAY_STATUS_SELECT_SOURCE"
                     animdl_search_index=""
-                    return 0
+                    break 2
                 elif [ "$animdl_search_index" = "$TO_MAIN_MENU" ]; then
                     play_status=$PLAY_STATUS_EXITED
                     animdl_search_index=""
-                    return 0
+                    break 2
                 elif [ -z "$animdl_search_index" ]; then
                     play_status=$PLAY_STATUS_EXITED
                     animdl_search_index=""
-                    return 0
+                    break
                 fi
                 animdl_playthrough=1
                 printf "%b" "$animdl_search_index\n" >"$play_episode_stream_fifo_write"
@@ -2019,7 +2032,7 @@ play_anime() {
                 echo && line_to_remove
                 printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Trying to stream with $decoded_stream_provider." && line_to_remove
                 while [ $stream_health -gt 0 ]; do
-                    if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
+                    if [ -n "$(sed -En "/Could not find any streams|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=0 # check next provider
                         break
                     elif [ -z "$(sed -En "/AV:|libmpv|A-V|File started|Running vlc/p" "$PLAYER_LOGFILE")" ]; then
@@ -2037,8 +2050,6 @@ play_anime() {
                     printf "" >"$ANIMDL_LOGFILE"
                     animdl_search_index=""
                     animdl_playthrough=0
-                    # exit streaming process to ensure it stops writing to its log file
-                    exit_streaming_process
                     continue # next provider
                 else
                     rm "$play_episode_stream_fifo_write"
@@ -2047,7 +2058,7 @@ play_anime() {
                     printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The stream is starting (please wait...)" && line_to_remove
                     play_status=$PLAY_STATUS_OKPLAYING
                     cur_streaming_provider="$decoded_stream_provider"
-                    return 0
+                    break
                 fi
             else
                 [ -z "$animdl_search_index" ] && kill $$
@@ -2071,7 +2082,7 @@ play_anime() {
                 animdl_pid="$(cat "$stream_pid_file")"
                 stream_health=20
                 while [ $stream_health -gt 0 ]; do
-                    if [ -n "$(sed -En "/Could not find any streams|Error/p" "$ANIMDL_LOGFILE")" ]; then
+                    if [ -n "$(sed -En "/Could not find any streams|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                         # stream started automatically
                         stream_health=0
                         printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
@@ -2091,7 +2102,7 @@ play_anime() {
                     continue # next provider
                 else
                     play_status=$PLAY_STATUS_OKPLAYING
-                    return 0
+                    break
                 fi
             fi
         done <<EOF
@@ -2552,7 +2563,8 @@ EOF
                     nyaa_search_res=""
                     file_list=""
                     magnet_link=""
-                    break
+                    clear_lines
+                    break # source select
                 elif [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
                     # the user decided to go to main menu
                     clear_lines
@@ -2562,8 +2574,8 @@ EOF
                 fi
                 clear_lines
             fi
-            media_player_menu
             clear_lines
+            media_player_menu
             # from media player menu the user should not be able to switch play sources
             if [ "$media_player_exit_code" = "$PLAYER_MENU_FILE_SELECT_CODE" ]; then
                 # new state already set by media_player_menu function
@@ -2582,8 +2594,7 @@ EOF
                     return 0
                 else
                     # play next episode
-                    # select source again
-                    break
+                    break # source select
                 fi
             else
                 return 0 # go to main menu
@@ -3112,6 +3123,7 @@ account_menu() {
             playlist_mode=0
             [ "$playlist_reset_auto" -eq 1 ] && AUTO_UPDATE=0
             clear_modifiers
+            close_player
             prompt="$BACK_TO_SUBMENU"
             # update subheader
             line_to_remove && clear_lines
