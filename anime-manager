@@ -2753,15 +2753,20 @@ account_menu() {
             results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
             [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
             ADD_ANIME_PREVIEW_CMD='
-            underline=$(tput smul)
-            nounderline=$(tput rmul)
-            entry_name_color="\x1b[38;2;255;165;0m"
-            reset="\x1b[0m"
             search_res="$(printf "%s" "{}" | sed "s/^'\''//" | sed "s/'\''$//")"
-            search_res_id="$(printf "%s" "$search_res" | cut -d: -f1)"
-            search_res_type="$(printf "%s" "$search_res" | sed -En "s/^[[:digit:]]*:[[:space:]]*\((.*)\).*/\1/p")"
-            search_res_title="$(printf "%s" "$search_res" | cut -d")" -f2 | sed "s/^[[:space:]]*//")"
-            printf "\n${underline}${entry_name_color}Search result %s${reset}${nounderline}\n\n${entry_name_color}Title:${reset} %s\n${entry_name_color}Type:${reset} %s" "$search_res_id" "$search_res_title" "$search_res_type" | sed "s/^[[:digit:]]*[[:space:]]*:[[:space:]]*//"'
+            if [ "$search_res" = "$TO_MAIN_MENU" ]; then
+                printf "Go to main menu."
+            else
+                underline=$(tput smul)
+                nounderline=$(tput rmul)
+                entry_name_color="\x1b[38;2;255;165;0m"
+                reset="\x1b[0m"
+                search_res_id="$(printf "%s" "$search_res" | cut -d: -f1)"
+                search_res_type="$(printf "%s" "$search_res" | sed -En "s/^[[:digit:]]*:[[:space:]]*\((.*)\).*/\1/p")"
+                search_res_title="$(printf "%s" "$search_res" | cut -d")" -f2 | sed "s/^[[:space:]]*//")"
+                printf "\n${underline}${entry_name_color}Search result %s${reset}${nounderline}\n\n${entry_name_color}Title:${reset} %s\n${entry_name_color}Type:${reset} %s" "$search_res_id" "$search_res_title" "$search_res_type" | sed "s/^[[:digit:]]*[[:space:]]*:[[:space:]]*//"
+            fi
+            '
             add_anime_choice="$(
                 printf "%b" "$TO_MAIN_MENU\n$results" | sort -r --version-sort |
                     $FZF --prompt="Choose the anime to add: " \
