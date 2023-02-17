@@ -1544,7 +1544,7 @@ media_player_menu() {
         [ "$playlist_mode" -eq 0 ] && clear_modifiers
         media_player_exit_code="$PLAYER_MENU_END_CODE"
     elif [ "$media_player_menu_choice" = "⏭️" ]; then
-        set_ep_as_watched
+        [ "$AUTO_UPDATE" -ne 1 ] && set_ep_as_watched
         if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
             # will query nyaa again or resume from cache
             if has_cached_link && [ "$TORRENT_ONLY" -eq 1 ]; then
