@@ -725,8 +725,14 @@ EOF
 format_anime_info_function_code='format_anime_info() {
     ENTRY_TEXT="\x1b[38;2;255;255;224m" # lightyellow
     ENTRY_NAME="\x1b[38;2;255;165;0m"   # orange
+    underline=$(tput smul)
+    nounderline=$(tput rmul)
     RESET="\x1b[0m"
     formatted_info="$1"
+    # remove hyphened line
+    formatted_info="$(printf "$formatted_info" | sed -E "s/^\-*//g")"
+    # underline anime title
+    formatted_info="$(printf "$formatted_info" | sed -E "1 s/(.*)/${underline}\1${nounderline}/g")"
     # add abbreviation for empty values
     formatted_info="$(printf "$formatted_info" | sed -E "s/^(.*):[[:space:]]\[\]/\1: N\/A/g")"
     # remove square brackets around lists
