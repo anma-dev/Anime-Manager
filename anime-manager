@@ -23,6 +23,13 @@ delete_watch_history() {
     printf "" >"$WATCH_HISTORY_FILE"
 }
 
+# cleanup, save disk space
+clean_temp_data() {
+    if [ "$DEBUG" -eq 0 ]; then
+        [ -d "$TMP_PATH" ] && rm -rf "$TMP_PATH"
+    fi
+}
+
 # Internet connectivity check with random selection of hosts
 connectivity_check() {
     connectivity_check_tmout=3
@@ -1181,8 +1188,14 @@ install_dependencies() {
     fi
 }
 
+# initial checks
 check_setup() {
-    # initial checks
+    mkdir -p "$TMP_PATH"
+    mkdir -p "$TORRENT_DOWNLOADS_DIR"
+    mkdir -p "$CONFIG_PATH"
+    mkdir -p "$LOG_DIR"
+    touch "$TRACKMA_LOGFILE"
+    printf "" >"$PLAYER_LOGFILE"
     clear_modifiers
     get_terminal_size
     # set default media player
@@ -1235,13 +1248,6 @@ if [ "$OSTYPE" != "Darwin" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
     printf "The iina media player is not available for your platform.\n"
     exit 1
 fi
-
-mkdir -p "$TMP_PATH"
-mkdir -p "$TORRENT_DOWNLOADS_DIR"
-mkdir -p "$CONFIG_PATH"
-mkdir -p "$LOG_DIR"
-touch "$TRACKMA_LOGFILE"
-printf "" >"$PLAYER_LOGFILE"
 
 #*********************************
 #* MAIN LOGIC
@@ -1398,13 +1404,13 @@ get_cache_filename() {
 cache_link() {
     if [ -n "$magnet_link" ]; then
         cache_link_filename="$(get_cache_filename)"
-        printf "%s" "$magnet_link" | gzip -cf | base64 >"$LINK_CACHE_DIR/$cache_link_filename"
+        printf "%s" "$magnet_link" | gzip -cf | base64 >"$BOOKMARKS_PATH/$cache_link_filename"
     fi
 }
 
 # prints a cached magnet link
 get_cached_link() {
-    cached_file_content="$(cat "$LINK_CACHE_DIR/$(get_cache_filename)")"
+    cached_file_content="$(cat "$BOOKMARKS_PATH/$(get_cache_filename)")"
     printf "%b\n" "$(
         base64 -d <<EOF | gunzip
 $cached_file_content
@@ -1414,7 +1420,7 @@ EOF
 
 # checks if there is a cached magnet link for the current anime title
 has_cached_link() {
-    if [ -s "$LINK_CACHE_DIR/$(get_cache_filename)" ]; then
+    if [ -s "$BOOKMARKS_PATH/$(get_cache_filename)" ]; then
         true
     else
         false
@@ -1424,7 +1430,7 @@ has_cached_link() {
 # deletes a cached link
 delete_link_cache() {
     delete_link_cache_filename="$(get_cache_filename)"
-    delete_link_cache_file="${LINK_CACHE_DIR}/${delete_link_cache_filename}"
+    delete_link_cache_file="${BOOKMARKS_PATH}/${delete_link_cache_filename}"
     if [ -n "$delete_link_cache_filename" ] && [ -s "$delete_link_cache_file" ]; then
         rm -f "$delete_link_cache_file"
     fi
@@ -2629,8 +2635,8 @@ account_menu() {
     print_readme_first_msg
     [ "$MINIMAL" -eq 0 ] && paint_logo
     [ "$MINIMAL" -eq 0 ] && print_subheader
-    LINK_CACHE_DIR="${AM_USER_HOME_DIR}/bookmarks"
-    mkdir -p "$LINK_CACHE_DIR"
+    BOOKMARKS_PATH="${AM_USER_HOME_DIR}/bookmarks"
+    mkdir -p "$BOOKMARKS_PATH"
     WATCH_HISTORY_FILE="${AM_USER_HOME_DIR}/watch-history"
     [ ! -f "$WATCH_HISTORY_FILE" ] && touch "$WATCH_HISTORY_FILE"
     if [ "$TRACKER_SERVICE" = "anilist" ]; then
@@ -3315,13 +3321,8 @@ on_exit() {
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
         close_trackma
     fi
-    # cleanup, save disk space
-    if [ "$DEBUG" -eq 0 ]; then
-        reset_logs
-        if [ "$TORRENT_DOWNLOADS_DIR" = "$DEFAULT_DOWNLOADS_DIR" ]; then
-            rm -rf "$TORRENT_DOWNLOADS_DIR"
-        fi
-    fi
+    reset_logs
+    clean_temp_data
     clear_modifiers
     exit "$onexit_exit_code"
 }
