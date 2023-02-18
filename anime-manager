@@ -32,24 +32,45 @@ clean_temp_data() {
 
 # Internet connectivity check with random selection of hosts
 connectivity_check() {
+    echo && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      ⚙️  Checking connectivity..." && line_to_remove
+    set +o errexit
     connectivity_check_tmout=3
+    is_connected=0
     urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
     urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
     rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
     rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
     if [ "$OSTYPE" = "Darwin" ]; then
-        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc -G $connectivity_check_tmout "$rand_url" 443 >/dev/null 2>&1; then
-            true
+        # workaround for timeout on macos https://stackoverflow.com/a/56062898
+        (printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | nc -G $connectivity_check_tmout "$rand_url" 443) >/dev/null 2>&1 &
+        conn_pid=$!
+        (sleep "$connectivity_check_tmout" && kill -HUP "$conn_pid") >/dev/null 2>&1 &
+        watcher=$!
+        if wait "$conn_pid" >/dev/null 2>&1; then
+            pkill -HUP -P $watcher
+            is_connected=1
         else
-            false
+            is_connected=0
         fi
     elif [ "$OSTYPE" = "Linux" ]; then
         if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | timeout $connectivity_check_tmout nc "$rand_url" 443 >/dev/null 2>&1; then
-            true
+            is_connected=1
         else
-            false
+            is_connected=0
         fi
     fi
+    while [ "$is_connected" -eq 0 ]; do
+        clear_lines
+        echo && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET\n" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET\n" "      Please check your connection and press [Enter]" && line_to_remove
+        read -r key
+        line_to_remove
+        key="$(start_substring "$key" 1)"
+        [ "$key" = "" ] && clear_lines && connectivity_check
+    done
+    set -o errexit
 }
 
 #! Unused
@@ -1256,6 +1277,7 @@ fi
 #* TRACKMA SUBPROCESS
 # global long-running trackma subprocess
 spawn_trackma() {
+    connectivity_check
     if [ "$DEBUG" -eq 1 ]; then
         GLOBAL_TRACKMA_TMPFILE="$LOG_DIR/debug_trackma_fifo"
         echo >"$GLOBAL_TRACKMA_TMPFILE"
@@ -1266,9 +1288,9 @@ spawn_trackma() {
     mkfifo -m 600 "$GLOBAL_TRACKMA_FIFO"
     COLUMNS="$term_cols" LINES="$term_rows" trackma <"$GLOBAL_TRACKMA_FIFO" >"$GLOBAL_TRACKMA_TMPFILE" 2>"$TRACKMA_LOGFILE" &
     exec 3>"$GLOBAL_TRACKMA_FIFO"
-    # printf "%s" " ⚙️  Starting background process, please wait..." && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      ⚙️  Starting Trackma..." && line_to_remove
     while [ ! -s "$GLOBAL_TRACKMA_TMPFILE" ]; do :; done
-    # clear_lines
+    clear_lines
 }
 
 # Sends a query to the Trackma process and returns the result.
@@ -1285,19 +1307,22 @@ trackma_query_function_code='trackma_query() {
 eval "$trackma_query_function_code"
 
 close_trackma() {
-    # printf "%s" "      ⚙️  Closing background processes, please wait..." && line_to_remove
-    if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
-        printf "q\n" >"$GLOBAL_TRACKMA_FIFO"
-    else
-        printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
+    if [ -p "$GLOBAL_TRACKMA_FIFO" ]; then
+        printf "$MSG_INFO_COLOR%s$RESET\n" "      ⚙️  Closing Trackma..." && line_to_remove
+        if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
+            printf "q\n" >"$GLOBAL_TRACKMA_FIFO"
+        else
+            printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
+        fi
+        rm "$GLOBAL_TRACKMA_FIFO"
+        if [ "$DEBUG" -eq 0 ]; then
+            rm "$GLOBAL_TRACKMA_TMPFILE"
+        fi
+        # shellcheck disable=2188
+        3>&- # this syntax is valid by POSIX https://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_07_06
+        true # fix weird 'Syntax error: "}" missing' by the language server.
+        clear_lines
     fi
-    rm "$GLOBAL_TRACKMA_FIFO"
-    if [ "$DEBUG" -eq 0 ]; then
-        rm "$GLOBAL_TRACKMA_TMPFILE"
-    fi
-    # shellcheck disable=2188
-    3>&- # this syntax is valid by POSIX https://pubs.opengroup.org/onlinepubs/009695399/utilities/xcu_chap02.html#tag_02_07_06
-    true # fix weird 'Syntax error: "}" missing' by the language server.
 }
 
 print_readme_first_msg() {
@@ -1806,16 +1831,10 @@ EOF
 # plays an anime episode via streaming or torrenting
 play_anime() {
     close_player
+    reset_logs
     # reset the media player
     reset_media_player_app
-    while ! connectivity_check; do
-        echo && line_to_remove
-        printf "$MSG_WARN_COLOR%s$RESET\n" "      🌴🦕 NO INTERNET CONNECTION ・・・" && line_to_remove
-        printf "$MSG_WARN_COLOR%s$RESET\n" "      Please check your connection and press [Enter]" && line_to_remove
-        read -r key
-        key="$(start_substring "$key" 1)"
-        [ "$key" = "" ] && clear_lines && continue
-    done
+    connectivity_check
     [ -z "$player_source" ] && printf "💥 Unable to play anime (no player source)." && kill $$
     if [ "$player_source" = "torrenting" ]; then
         if [ -z "$magnet_link" ]; then
@@ -3075,7 +3094,7 @@ account_menu() {
                 prompt="$BACK_TO_SUBMENU"
                 continue
             fi
-            playlist_len=$(printf '%s\n' "$cur_playlist" | array_len)
+            playlist_len=$(printf '%s\n' "$cur_playlist" | array_len | sed "/^[[:space:]]*//")
             anime_count=1
             episode_count=0
             while [ "$anime_count" -le "$((playlist_len - 1))" ]; do
@@ -3114,17 +3133,12 @@ account_menu() {
                     fi
                 fi
                 while [ "$episode_count" -lt "$cur_anime_playlist_ep_count" ]; do
-                    if [ -z "$cur_anime_episode" ]; then
-                        if [ "$last_show_episode" != "?" ]; then
-                            if [ "$last_watched_ep" -eq "$last_show_episode" ]; then
-                                # restart progress
-                                cur_anime_episode=1
-                            else
-                                cur_anime_episode=$((last_watched_ep + 1))
-                            fi
+                    cur_anime_episode=$((last_watched_ep + 1))
+                    # restart progress if necessary
+                    if [ "$last_show_episode" != "?" ]; then
+                        if [ "$last_watched_ep" -eq "$last_show_episode" ]; then
+                            cur_anime_episode=1
                         fi
-                    else
-                        cur_anime_episode=$((last_watched_ep + 1))
                     fi
                     watch_anime
                     if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
@@ -3282,6 +3296,7 @@ account_menu() {
 
 # Script entry point function
 main() {
+    tput clear
     check_setup
     # common fzf args
     PREVIEW_WINDOW_OPTS="right,70%,hidden,wrap"
@@ -3321,9 +3336,11 @@ on_exit() {
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
         close_trackma
     fi
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      ⚙️  Cleaning up..." && line_to_remove
     reset_logs
     clean_temp_data
     clear_modifiers
+    clear_lines
     exit "$onexit_exit_code"
 }
 #* Must go before main function call
