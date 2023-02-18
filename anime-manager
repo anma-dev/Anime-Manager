@@ -3094,7 +3094,7 @@ account_menu() {
                 prompt="$BACK_TO_SUBMENU"
                 continue
             fi
-            playlist_len=$(printf '%s\n' "$cur_playlist" | array_len | sed "/^[[:space:]]*//")
+            playlist_len=$(printf '%s\n' "$cur_playlist" | array_len | sed "s/^[[:space:]]*//")
             anime_count=1
             episode_count=0
             while [ "$anime_count" -le "$((playlist_len - 1))" ]; do
