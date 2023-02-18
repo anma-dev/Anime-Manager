@@ -3,7 +3,10 @@ import argparse
 import traceback
 import re
 import json
+import NyaaPy
 from NyaaPy.nyaa import Nyaa
+from NyaaPy import torrent
+from NyaaPy import utils
 from Logger import Logger
 import requests
 from http import HTTPStatus
@@ -11,6 +14,45 @@ import codes
 from decorators import exp_back_off
 from circuit_breaker import CBreaker
 c_breaker = CBreaker()
+
+
+if (NyaaPy.__version__ == "0.6.3"):
+    # monkey patch fix the issue
+    # https://github.com/JuanjoSalvador/NyaaPy/issues/68
+    def mp_nyaa_search(self, keyword, **kwargs):
+        url = self.URL
+
+        user = kwargs.get('user', None)
+        category = kwargs.get('category', 0)
+        subcategory = kwargs.get('subcategory', 0)
+        filters = kwargs.get('filters', 0)
+        page = kwargs.get('page', 0)
+
+        if user:
+            user_uri = f"user/{user}"
+        else:
+            user_uri = ""
+
+        if page > 0:
+            r = requests.get("{}/{}?f={}&c={}_{}&q={}&p={}".format(
+                url, user_uri, filters, category, subcategory, keyword,
+                page))
+        else:
+            r = requests.get("{}/{}?f={}&c={}_{}&q={}".format(
+                url, user_uri, filters, category, subcategory, keyword))
+
+        r.raise_for_status()
+
+        json_data = utils.parse_nyaa(
+            request_text=r.content,  # ! change
+            limit=None,
+            site=self.SITE
+        )
+
+        return torrent.json_to_class(json_data)
+
+    Nyaa.search = mp_nyaa_search
+
 
 '''
 This script is part of Anime Manager.
