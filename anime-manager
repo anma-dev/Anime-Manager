@@ -219,10 +219,9 @@ get_playback_percent() {
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         get_video_length
-        # we assume if the socket exists the player is open. block for length
-        # zero at playback start. the remote control interface returns zero when
-        # the player hasn't started yet
-        while [ -S "$MEDIA_PLAYER_SOCKET" ] && [ "$playback_length" -eq 0 ]; do
+        # block for length zero at playback start. the remote control interface
+        # returns zero when the player hasn't started yet
+        while [ "$playback_length" -eq 0 ]; do
             get_video_length
             sleep 1
         done
@@ -316,7 +315,9 @@ print_account() {
 # Prints a message to inform the user that they are in incognito mode
 print_incognito_msg() {
     clear_lines
-    printf "$INCOGNITO_MODE_COLORS%s$RESET" "      🕵  INCOGNITO MODE"
+    # The spacing must be printed separately because the background color
+    printf "      "
+    printf "$INCOGNITO_MODE_COLORS%s$RESET" "🕵  INCOGNITO MODE "
 }
 
 print_subheader() {
@@ -1437,7 +1438,6 @@ monitor_playback_time() {
     while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ] && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
         sleep 0.5
         get_playback_percent
-        [ ! -S "$MEDIA_PLAYER_SOCKET" ] && break
     done
     [ "$DEBUG" -eq 1 ] && set -x
     if [ "$cur_playback_percent" -ge "$MEDIA_PLAYER_PERCENT_WATCHED" ]; then
@@ -1452,9 +1452,12 @@ monitor_media_player_app_exit() {
     set +x
     while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ]; do sleep 0.5; done
     [ "$DEBUG" -eq 1 ] && set -x
-    # reset media player log file
-    printf "" >"$PLAYER_LOGFILE"
     # tell fzf to exit
+    fzf_port_wait=0
+    while ! nc -z localhost 6266 >/dev/null 2>&1 && [ "$fzf_port_wait" -lt 10 ]; do
+        sleep 1
+        fzf_port_wait=$((fzf_port_wait + 1))
+    done
     if nc -z localhost 6266 >/dev/null 2>&1; then
         curl -XPOST localhost:6266 -d 'abort' >/dev/null 2>&1
     fi
@@ -1517,9 +1520,9 @@ media_player_menu() {
     )"
     get_media_player_socket
     if [ "$AUTO_UPDATE" -eq 1 ]; then
-        {
+        (
             monitor_playback_time
-        } &
+        ) &
     fi
     if [ "$playlist_mode" -eq 1 ]; then
         {
@@ -1703,7 +1706,6 @@ exit_torrenting_process() {
 }
 
 close_player() {
-    if ! is_socket_active; then return; fi
     set +o errexit
     case "$MEDIA_PLAYER_APP" in
     "vlc")
@@ -1716,11 +1718,11 @@ close_player() {
         printf '{ "command": ["quit"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" >/dev/null 2>&1
         ;;
     esac
-    set -o errexit
     while stream_is_playing; do exit_streaming_process; done
     if torrent_is_playing; then
         exit_torrenting_process
     fi
+    set -o errexit
 }
 
 create_playlist() {
@@ -1798,7 +1800,6 @@ EOF
 # plays an anime episode via streaming or torrenting
 play_anime() {
     close_player
-    reset_logs
     # reset the media player
     reset_media_player_app
     while ! connectivity_check; do
@@ -2302,6 +2303,7 @@ check_torrent_health() {
 }
 
 select_player_source() {
+    player_source=""
     PLAY_METHOD_MENU="$PLAY_METHOD_TORRENTING\n$PLAY_METHOD_MAGNET\n$PLAY_METHOD_STREAMING"
     if has_cached_link; then
         PLAY_METHOD_MENU="$PLAY_METHOD_SAVED_LINK\n$PLAY_METHOD_MENU"
