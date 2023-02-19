@@ -39,7 +39,7 @@ connectivity_check() {
     is_connected=0
     urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
     urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
-    rand_id=$(shuf -i 0-"$((urls_len - 1))" -n 1)
+    rand_id=$(seq 0 "$((urls_len - 1))" | sort -R | head -n1)
     rand_url=$(printf '%s\n' "$urls" | array_nth "$rand_id")
     if [ "$OSTYPE" = "Darwin" ]; then
         # workaround for timeout on macos https://stackoverflow.com/a/56062898
@@ -1785,10 +1785,10 @@ create_playlist() {
         clear_modifiers
     fi
     if [ "$random_anime" -eq 1 ]; then
-        watch_choice=$(printf "%s" "$full_info" | shuf -n 1)
+        watch_choice=$(printf "%s" "$full_info" | sort -R | head -n1)
     elif [ "$random_airing" -eq 1 ]; then
         # format and filter airing shows, select one randomly
-        create_playlist_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | shuf -n 1)
+        create_playlist_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | sort -R | head -n1)
     else
         full_info="$(printf "%s" "$full_info")"
         WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
@@ -2422,10 +2422,10 @@ watch_anime() {
             return
         fi
         if [ "$random_anime" -eq 1 ]; then
-            watch_choice=$(printf "%s" "$full_info" | shuf -n 1)
+            watch_choice=$(printf "%s" "$full_info" | sort -R | head -n1)
         elif [ "$random_airing" -eq 1 ]; then
             # format and filter airing shows, select one randomly
-            watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | shuf -n 1)
+            watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | sort -R | head -n1)
         else
             full_info="$(printf "%s" "$full_info")"
             WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
