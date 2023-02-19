@@ -8,7 +8,7 @@ Anime Manager is a powerful open source script that allows you to watch anime an
 
 Anime Manager can synchronize your watch progress with your [anime cataloguing service](https://github.com/anma-dev/Anime-Manager/wiki#currently-supported-websites).
 
-## Features
+## Features ✨
 
 - Operations supported on lists: update anime status, add new anime, update episode count, set and update the score, delete anime from lists
 - Quickly search your lists with fuzzy and literal match.
@@ -29,7 +29,7 @@ You need to configure Trackma with an account separately for using the Account m
 
 > Note: Anime Manager is still unfinished software. Unexpected behavior and bugs will be encountered. We are actively working towards a stable release.
 
-## Usage
+## Usage 🖥️
 
 ````text
 Usage: anime-manager [options]...
@@ -58,7 +58,7 @@ Options:
 
 Some colored text requires that your terminal app supports 24-bit colors. You can check your terminal color support with a tool like [pastel colorcheck](https://github.com/sharkdp/pastel/blob/master/doc/colorcheck.md).
 
-## Dependencies
+## Dependencies ✅
 
 Python 3+, NodeJS >=14
 
@@ -77,7 +77,7 @@ Other dependencies assumed to be already installed and well known but listed her
 
 Ensure all dependencies are available through your `$PATH`.
 
-## Installation
+## Installation 🔨
 
 ### Linux and macOS
 
@@ -107,7 +107,7 @@ Once the installation is done it is recommended that you read the Wiki:
 
 ### [📖 Getting Started](https://github.com/anma-dev/Anime-Manager/wiki#getting-started)
 
-## Support
+## Support 💬
 
 Suggestions are welcome. For guaranteed serious discussion use the Github issues tracker.
 
