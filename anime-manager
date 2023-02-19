@@ -2059,7 +2059,7 @@ play_anime() {
                 animdl_search_index="$(
                     printf "%b" "$SELECT_SOURCE\n$TO_MAIN_MENU\n$results" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
-                            --border-label "╢ ♣  SEARCH RESULTS ($decoded_stream_provider): $(trim "$anime_title_match") ▶ Episode $cur_anime_episode ♣  ╟" \
+                            --border-label "╢ ♣  SEARCH RESULTS ($decoded_stream_provider): $(trim "$anime_title_match") ▶ $cur_anime_episode ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first \
                             --tac | cut -d '.' -f1
