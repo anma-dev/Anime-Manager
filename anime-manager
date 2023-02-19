@@ -1718,6 +1718,7 @@ select_magnet_file() {
     fi
     [ "$file_index" = "$NYAA_FID_CODE_CONTENT_MISMATCH" ] && play_status="$PLAY_STATUS_FILE_SEL"
     if [ "$play_status" = "$PLAY_STATUS_FILE_SEL" ]; then
+        clear_lines
         if [ "$file_list" = "None" ]; then
             printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Could not find any matching files in this magnet" && line_to_remove
             magnet_link=""
