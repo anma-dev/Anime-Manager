@@ -1806,7 +1806,7 @@ create_playlist() {
                         else
                             printf "%s" "watching"
                         fi
-                    )) list ♣  ╟" \
+                    ) list) ♣  ╟" \
                     --header "⇅ Navigation ─ [Ctrl-L] Toggle info ─ [ESC] Exit ─ [Enter] Play ▶" \
                     --bind "ctrl-l:toggle-preview" \
                     --header-first --tac
