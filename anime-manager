@@ -697,6 +697,18 @@ get_entry_index_function_code='get_entry_index() {
 }'
 eval "$get_entry_index_function_code"
 
+# Get the status lists dynamically from Trackma.
+get_lists() {
+    printf "filter\n" | trackma_query >/dev/null 2>&1
+    while ! grep "Available statuses" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
+    get_lists_lists="$(sed -En "s/Available statuses: (.*)/\1/p" "$GLOBAL_TRACKMA_TMPFILE" | sed "s/,[[:space:]]/\\n/g")"
+    get_lists_lists=$(printf "%s" "$get_lists_lists" | sed "s/^plantowatch/Plan to Watch/")
+    get_lists_lists=$(printf "%s" "$get_lists_lists" | sed "s/^onhold/On Hold/")
+    # cross platform uppercase first letter https://stackoverflow.com/a/10006594
+    get_lists_lists=$(printf "%b" "$get_lists_lists" | awk '{print toupper(substr($0,1,1))""substr($0,2)}')
+    printf "%b" "$get_lists_lists" | sort -r
+}
+
 # Returns the last episode from a Trackma entry
 get_last_show_episode() {
     printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\5/p"
@@ -750,7 +762,7 @@ get_entry_from_title() {
             break
         fi
     done <<EOF
-$TRACKMA_STATUS_MENU_ENTRIES
+$trackma_status_menu_entries
 EOF
     if [ -z "$get_entry_from_title_entry" ]; then
         printf "%b\n" "💥 ERROR getting entry from title (no results)."
@@ -931,7 +943,7 @@ get_last_show_ep_from_title() {
                 break
             fi
         done <<EOF
-$TRACKMA_STATUS_MENU_ENTRIES
+$trackma_status_menu_entries
 EOF
         if [ -z "$status" ]; then
             printf "%b\n" "💥 ERROR getting show status."
@@ -963,7 +975,7 @@ get_show_status() {
                 break
             fi
         done <<EOF
-$TRACKMA_STATUS_MENU_ENTRIES
+$trackma_status_menu_entries
 EOF
         if [ -z "$status" ]; then
             printf "%b\n" "💥 ERROR getting show status."
@@ -992,7 +1004,7 @@ get_mixed_anime_info_function_code='get_mixed_anime_info() {
                 break
             fi
         done <<EOF
-$TRACKMA_STATUS_MENU_ENTRIES
+$trackma_status_menu_entries
 EOF
     fi
     if [ -z "$get_mixed_anime_info_info" ]; then
@@ -1791,7 +1803,7 @@ create_playlist() {
         create_playlist_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | sort -R | head -n1)
     else
         full_info="$(printf "%s" "$full_info")"
-        WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
+        WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; trackma_status_menu_entries=\"$trackma_status_menu_entries\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
         create_playlist_choice=$(
             printf "%s\n%s" "$BACK_TO_SUBMENU" "$full_info" |
                 $FZF -i --prompt "(multi) Choose anime for your playlist: " \
@@ -2428,7 +2440,7 @@ watch_anime() {
             watch_choice=$(printf "%s" "$full_info" | sed -n "/🆕/p" | sort -R | head -n1)
         else
             full_info="$(printf "%s" "$full_info")"
-            WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; TRACKMA_STATUS_MENU_ENTRIES=\"$TRACKMA_STATUS_MENU_ENTRIES\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
+            WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; trackma_status_menu_entries=\"$trackma_status_menu_entries\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
             watch_choice=$(
                 printf "%s\n%s" "$TO_MAIN_MENU" "$full_info" |
                     $FZF -i --prompt "Choose an anime to watch: " \
@@ -2670,12 +2682,7 @@ account_menu() {
     mkdir -p "$BOOKMARKS_PATH"
     WATCH_HISTORY_FILE="${AM_USER_HOME_DIR}/watch-history"
     [ ! -f "$WATCH_HISTORY_FILE" ] && touch "$WATCH_HISTORY_FILE"
-    if [ "$TRACKER_SERVICE" = "anilist" ]; then
-        # exception for anilist
-        TRACKMA_STATUS_MENU_ENTRIES="$(printf "%b" "Watching\nCompleted\nRewatching\nPaused\nDropped\nPlan to Watch" | sort -r)"
-    else
-        TRACKMA_STATUS_MENU_ENTRIES="$(printf "%b" "Watching\nCompleted\nOn Hold\nDropped\nPlan to Watch" | sort -r)"
-    fi
+    trackma_status_menu_entries="$(get_lists)"
     # account menu loop
     while true; do
         if [ -z "$prompt" ]; then
@@ -2828,7 +2835,7 @@ account_menu() {
             ;;
         "$DELETE_ANIME")
             status=$(
-                printf "%b\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$BACK_TO_SUBMENU" |
+                printf "%b\n%s" "$trackma_status_menu_entries" "$BACK_TO_SUBMENU" |
                     $FZF -i --prompt="Choose a status: " \
                         --border-label "╢ ♣  DELETE ANIME (Status select) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -2879,7 +2886,7 @@ account_menu() {
             # status select loop
             while true; do
                 status=$(
-                    printf "%s\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$menuitem" |
+                    printf "%s\n%s" "$trackma_status_menu_entries" "$menuitem" |
                         $FZF -i --prompt="Choose a status: " \
                             --border-label "╢ ♣  ${update_op_menu_label} ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -2937,7 +2944,7 @@ account_menu() {
                         fi
                     elif [ "$prompt" = "$UPDATE_STATUS" ]; then
                         update_choice=$(
-                            printf "%b" "$TRACKMA_STATUS_MENU_ENTRIES\n$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY" |
+                            printf "%b" "$trackma_status_menu_entries\n$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY" |
                                 $FZF -i --prompt="Choose the new status: " \
                                     --border-label "╢ ♣  ${update_op_menu_label} ♣  ╟" \
                                     --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -2968,7 +2975,7 @@ account_menu() {
             # status selection loop
             while true; do
                 status=$(
-                    printf "%b" "$TRACKMA_STATUS_MENU_ENTRIES\n$TO_MAIN_MENU" |
+                    printf "%b" "$trackma_status_menu_entries\n$TO_MAIN_MENU" |
                         $FZF -i --prompt="Choose a status: " \
                             --border-label "╢ ♣  SCORE ANIME (Status select) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -3008,7 +3015,7 @@ account_menu() {
         "$SET_ALTNAME")
             while true; do
                 status=$(
-                    printf "$TRACKMA_STATUS_MENU_ENTRIES\n%s" "$BACK_TO_SUBMENU" |
+                    printf "$trackma_status_menu_entries\n%s" "$BACK_TO_SUBMENU" |
                         $FZF -i --prompt="Choose a status: " \
                             --border-label "╢ ♣  SET ALTERNATIVE NAME (Status select) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
@@ -3205,7 +3212,7 @@ account_menu() {
                 top_menu_entry="$TO_MAIN_MENU"
             fi
             status=$(
-                printf "%s\n%s" "$TRACKMA_STATUS_MENU_ENTRIES" "$top_menu_entry" |
+                printf "%s\n%s" "$trackma_status_menu_entries" "$top_menu_entry" |
                     $FZF -i --prompt="Choose a status: " \
                         --border-label " ♣  LIST$(
                             if [ "$sort_score" -eq 1 ]; then
