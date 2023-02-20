@@ -1,3 +1,4 @@
-[submodule "lib/webtorrent-cli"]
-	path = lib/webtorrent-cli
+
+[submodule "lib/javascript/webtorrent-cli"]
+	path = lib/javascript/webtorrent-cli
 	url = https://github.com/anma-dev/webtorrent-cli

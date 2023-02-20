@@ -136,7 +136,7 @@ def extract_episode(fragment: str):
 
 try:
     command = split(
-        f"node lib/webtorrent-cli/bin/cmd.js download {args.magnet_link} -s -q"
+        f"node lib/javascript/webtorrent-cli/bin/cmd.js download {args.magnet_link} -s -q"
     )
     magnet_content = subprocess.run(command,
                                     stdout=subprocess.PIPE,

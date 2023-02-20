@@ -40,8 +40,13 @@ else
     nvm install node
     nvm use node
 fi
-if [ ! -d lib/webtorrent-cli/node_modules ]; then
-    cd lib/webtorrent-cli || exit
+if [ ! -d lib/javascript/webtorrent-cli/node_modules ]; then
+    cd lib/javascript/webtorrent-cli || exit
     npm i
-    cd ../../
+    cd ../../../
+fi
+if [ ! -d lib/javascript/get-mal-info/node_modules ]; then
+    cd lib/javascript/get-mal-info || exit
+    npm i
+    cd ../../../
 fi

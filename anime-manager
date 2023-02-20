@@ -442,7 +442,7 @@ export LANG LC_ALL \
     LANGUAGE
 
 #* IMPORTS
-. ./lib/array
+. ./lib/shell/array
 
 #* DEFAULTS
 LOGO_MONOCHROME="H4sIADwf8WMAA+NSAINH0zoeTWsAow5kTguQMxHMmggXbkFXpvC4oQG3LBYTscs0IJmIrIYLyYktYATVNhGMQJwGiHq4cANcBsOJ6LI4TMQig+ZpJDUNcCc2wMxowMJpQBNGk4E4EYsskRwUG1DsAnPKDPTM9Mx0E3MKMhIBwxJQzfYBAAA="
@@ -488,11 +488,11 @@ MEDIA_PLAYER_IINA_SOCKET="/tmp/iinasocket"
 
 ANIMDL_CONF_FILE="$CONFIG_PATH/animdl_config.yml"
 PLAYER_LOGFILE="$CONFIG_PATH/log/media_player.log"
-NYAA_SEARCH_BIN="$(getcwd)/lib/nyaa_search.py"
+NYAA_SEARCH_BIN="$(getcwd)/lib/python/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$LOG_DIR/nyaa_search.log"
 NYAA_FE_LOGFILE="$LOG_DIR/file_extractor.log"
-NYAA_FE_BIN="$(getcwd)/lib/file_extractor.py"
-WEBTORRENT_CLI="lib/webtorrent-cli/bin/cmd.js"
+NYAA_FE_BIN="$(getcwd)/lib/python/file_extractor.py"
+WEBTORRENT_CLI="lib/javascript/webtorrent-cli/bin/cmd.js"
 
 # logfiles
 WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
@@ -654,7 +654,7 @@ parser_definition() {
     disp VERSION -v --version init:="0"
 }
 
-eval "$(utils/getoptions parser_definition) exit 1"
+eval "$(lib/shell/getoptions parser_definition) exit 1"
 
 if [ "$DEBUG" -eq 1 ]; then
     set -x
@@ -778,15 +778,15 @@ format_anime_info_function_code='format_anime_info() {
     underline=$(tput smul)
     nounderline=$(tput rmul)
     RESET="\x1b[0m"
-    formatted_info="$1"
+    formatted_info="$(printf "%b" "$1" | tr -d '\''\0'\'')"
     # remove hyphened line
-    formatted_info="$(printf "$formatted_info" | sed -E "s/^\-*//g")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^\-*$//g")"
     # underline anime title
-    formatted_info="$(printf "$formatted_info" | sed -E "1 s/(.*)/${underline}\1${nounderline}/g")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "1 s/(.*)/${underline}\1${nounderline}/g")"
     # add abbreviation for empty values
-    formatted_info="$(printf "$formatted_info" | sed -E "s/^(.*):[[:space:]]*\[*\]*$/\1: N\/A/g")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(.*):[[:space:]]*\[*\]*$/\1: N\/A/g")"
     # remove square brackets around lists
-    formatted_info="$(printf "$formatted_info" | sed -E "s/\[(.*)\]/\1/g")"
+    formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/\[(.*)\]/\1/g")"
     # colorize text
     formatted_info="$(printf "%b" "$formatted_info" | sed -E "1,3 s/^(.*)/${ENTRY_NAME}\1${RESET}/")"
     formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(English):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
@@ -800,7 +800,7 @@ format_anime_info_function_code='format_anime_info() {
     formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Mean score):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
     formatted_info="$(printf "%b" "$formatted_info" | sed -E "s/^(Status):(.*)/${ENTRY_NAME}\1${RESET}:${ENTRY_TEXT}\2${RESET}/")"
     formatted_info="$(printf "%b" "$formatted_info" | sed -E "/^(Mean score|Status|Type|Synopsis|Synonyms|Romaji|Japanese|English):(.*)/! s/(.*)/${ENTRY_TEXT}\1${RESET}/")"
-    printf "\n%s\n" "$formatted_info"
+    printf "\n%b\n" "$formatted_info"
 }'
 eval "$format_anime_info_function_code"
 
@@ -1033,17 +1033,18 @@ get_show_entry() {
 
 # get shows info from Trackma
 get_anime_info_function_code='get_anime_info() {
-    if [ "$1" = "$TO_MAIN_MENU" ]; then
+    get_anime_info_entry="$(printf "%b" "$1" | tr -d '\''\0'\'')"
+    if [ "$get_anime_info_entry" = "$TO_MAIN_MENU" ]; then
         get_anime_info_info="Go back to the main menu"
-    elif [ "$1" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
+    elif [ "$get_anime_info_entry" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
         get_anime_info_info="Switch to another list"
     else
         get_anime_info_status="$(get_trackma_status_code "$2")"
-        entry_index="$(printf "%s" "$1" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
-        printf "filter %s\n" "$(get_trackma_status_code "$get_anime_info_status")" | trackma_query >/dev/null 2>&1
-        printf "info '\''%s'\''\n" "$(printf "%s" "$entry_index" | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
+        entry_index="$(printf "%s" "$get_anime_info_entry" | tr -d '\''\0'\'' | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
+        printf "filter %s\n" "$(get_trackma_status_code "$get_anime_info_status")" | tr -d '\''\0'\'' | trackma_query >/dev/null 2>&1
+        printf "info '\''%s'\''\n" "$(printf "%s" "$entry_index" | tr -d '\''\0'\'' | sed "s/'\''/'\''\"'\''\"'\''/g")" | trackma_query >/dev/null 2>&1
         while ! grep "Status" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
-        get_anime_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
+        get_anime_info_info="$(cat "$GLOBAL_TRACKMA_TMPFILE" | tr -d '\''\0'\'' | sed -n "1,/Status/p" | sed -e "s/<[^>]*>//g")"
     fi
     format_anime_info "$get_anime_info_info"
 }'
@@ -1092,7 +1093,7 @@ auto_compat() {
 install_dependencies() {
     shell_cfg="$(get_shell_config_file)"
     install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager.\n"
-    if ! which fzf nc animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/webtorrent-cli/node_modules" ]; then
+    if ! which fzf nc animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/javascript/webtorrent-cli/node_modules" ]; then
         printf "%b" "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!\n" && line_to_remove
         AUTOINSTALL=1
         AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
@@ -1145,7 +1146,7 @@ install_dependencies() {
                     printf "\n\n%s\n\n" "Please manually update your fzf installation to version >= 0.35.x."
                 fi
             fi
-            ./utils/install-webtorrent.sh
+            lib/shell/install-node-modules.sh
             if ! command -v animdl; then
                 # https://github.com/justfoolingaround/animdl
                 pip3 install animdl
@@ -1201,7 +1202,7 @@ install_dependencies() {
                 # https://github.com/justfoolingaround/animdl
                 pip3 install animdl
             fi
-            ./utils/install-webtorrent.sh
+            lib/shell/install-node-modules.sh
             if ! command -v trackma; then
                 # https://github.com/z411/trackma
                 # dbus-python module is broken on macOS and cannot be built. This means no trackma mpris support.
