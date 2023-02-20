@@ -225,7 +225,8 @@ get_playback_time() {
 }
 
 get_video_length() {
-    playback_length=""
+    set +o errexit
+    playback_length=0
     if ! is_socket_active; then return; fi
     case "$MEDIA_PLAYER_APP" in
     "vlc")
@@ -238,10 +239,13 @@ get_video_length() {
         playback_length=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
         ;;
     esac
+    [ -z "$playback_length" ] && playback_length=0
+    set -o errexit
 }
 
 # approximate*
 get_playback_percent() {
+    set +o errexit
     cur_playback_percent=0
     if ! is_socket_active; then return; fi
     case "$MEDIA_PLAYER_APP" in
@@ -267,6 +271,7 @@ get_playback_percent() {
     if [ -z "$cur_playback_percent" ] || [ -n "$(printf "%s" "$cur_playback_percent" | sed -n "/null/p")" ]; then
         cur_playback_percent=0
     fi
+    set -o errexit
 }
 
 # trim long show titles
