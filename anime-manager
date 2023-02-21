@@ -142,6 +142,8 @@ clear_modifiers() {
     cur_streaming_provider=""
     animdl_pid=""
     webtorrent_pid=""
+    playback_length=0
+    playback_time=0
 }
 
 reset_logs() {
@@ -165,20 +167,23 @@ start_substring() {
 is_socket_active() {
     case "$MEDIA_PLAYER_APP" in
     "vlc")
-        is_socket_active_comm='info'
+        is_vlc_playing="$(printf "is_playing\n" | $netcat_comm "$MEDIA_PLAYER_SOCKET" 2>/dev/null | sed -En "/^[[:digit:]].*/p" | sed "s/\\r//g")"
+        if [ -z "$is_vlc_playing" ]; then
+            false
+        elif [ "$is_vlc_playing" -eq 1 ]; then
+            true
+        else
+            false
+        fi
         ;;
-    "iina")
-        is_socket_active_comm='{ "command": ["get_property", "filename"] }'
-        ;;
-    "mpv")
-        is_socket_active_comm='{ "command": ["get_property", "filename"] }'
+    "iina" | "mpv")
+        if printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_SOCKET" >/dev/null 2>&1; then
+            true
+        else
+            false
+        fi
         ;;
     esac
-    if printf "%s\n" "$is_socket_active_comm" | $netcat_comm "$MEDIA_PLAYER_SOCKET" >/dev/null 2>&1; then
-        true
-    else
-        false
-    fi
 }
 
 set_netcat_comm() {
@@ -208,58 +213,57 @@ get_media_player_socket() {
 
 get_playback_time() {
     if ! is_socket_active; then return; fi
+    tmp=""
     case "$MEDIA_PLAYER_APP" in
     "vlc")
-        playback_time="$(printf "get_time\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
+        tmp="$(printf "get_time\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
         ;;
     "mpv")
-        playback_time=$(printf '{ "command": ["get_property", "playback-time"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null)
+        tmp=$(printf '{ "command": ["get_property", "playback-time"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null)
         ;;
     "iina")
-        playback_time=$(printf '{ "command": ["get_property", "playback-time"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
+        tmp=$(printf '{ "command": ["get_property", "playback-time"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
         ;;
     esac
-    if [ -z "$playback_time" ]; then
-        playback_time=0
-    fi
+    playback_time=${tmp:-0}
 }
 
 get_video_length() {
-    set +o errexit
-    playback_length=0
     if ! is_socket_active; then return; fi
+    tmp=""
     case "$MEDIA_PLAYER_APP" in
     "vlc")
-        playback_length="$(printf "get_length\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
+        tmp="$(printf "get_length\n" | $netcat_comm "$MEDIA_PLAYER_VLC_SOCKET" | sed -En "/^[[:digit:]]/p" | sed "s/\\r//g" 2>/dev/null)"
         ;;
     "mpv")
-        playback_length=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null)
+        tmp=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null)
         ;;
     "iina")
-        playback_length=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
+        tmp=$(printf '{ "command": ["get_property", "duration"] }\n' | $netcat_comm "$MEDIA_PLAYER_IINA_SOCKET" 2>/dev/null)
         ;;
     esac
-    [ -z "$playback_length" ] && playback_length=0
-    set -o errexit
+    playback_length=${tmp:-0}
 }
 
 # approximate*
 get_playback_percent() {
     set +o errexit
     cur_playback_percent=0
-    if ! is_socket_active; then return; fi
     case "$MEDIA_PLAYER_APP" in
     "vlc")
         get_video_length
         # block for length zero at playback start. the remote control interface
         # returns zero when the player hasn't started yet
-        while [ "$playback_length" -eq 0 ]; do
+        while is_socket_active && [ "$playback_length" -eq 0 ]; do
             get_video_length
             sleep 1
         done
-        [ -z "$playback_length" ] && return
         get_playback_time
-        cur_playback_percent=$((playback_time * 100 / playback_length))
+        if [ -n "$playback_time" ] && [ -n "$playback_length" ] && [ "$playback_length" -gt 0 ]; then
+            cur_playback_percent=$((playback_time * 100 / playback_length))
+        else
+            cur_playback_percent=0
+        fi
         ;;
     "mpv")
         cur_playback_percent=$(printf '{ "command": ["get_property", "percent-pos"] }\n' | $netcat_comm "$MEDIA_PLAYER_MPV_SOCKET" 2>/dev/null | jq --raw-output '.data' | cut -d. -f1)
@@ -1492,8 +1496,8 @@ delete_link_cache() {
 monitor_playback_time() {
     get_playback_percent
     # check for app exit and playback percent value
-    set +x
-    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ] && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
+    # set +x
+    while is_socket_active && [ "$cur_playback_percent" -lt "$MEDIA_PLAYER_PERCENT_WATCHED" ]; do
         sleep 0.5
         get_playback_percent
     done
@@ -1508,7 +1512,7 @@ monitor_playback_time() {
 # functionality.
 monitor_media_player_app_exit() {
     set +x
-    while [ -z "$(sed -En "/finished playback|\[cplayer\] EOF code: 1|\[main\] Exiting...|end of playlist, exiting|\( play state: 4 \): End/p" "$PLAYER_LOGFILE")" ]; do sleep 0.5; done
+    while is_socket_active; do sleep 0.5; done
     [ "$DEBUG" -eq 1 ] && set -x
     # tell fzf to exit
     fzf_port_wait=0
@@ -1577,16 +1581,21 @@ media_player_menu() {
         fi
     )"
     get_media_player_socket
+    # # prevent a new monitoring process to start when the user is selecting a new file or search result
+    # if [ "$play_status" != "$PLAY_STATUS_OKPLAYING" ]; then
     if [ "$AUTO_UPDATE" -eq 1 ]; then
         (
             monitor_playback_time
         ) &
     fi
+    # fi
+    # if [ -z "$monitor_playback_exit_pid" ] || ! ps "$monitor_playback_exit_pid" >/dev/null 2>&1; then
     if [ "$playlist_mode" -eq 1 ]; then
-        {
+        (
             monitor_media_player_app_exit
-        } &
+        ) &
     fi
+    # fi
     FZF_PREVIEW_WINDOW_CMD="printf \"%s\" '$debug_match_info' | jq"
     media_player_menu_choice=$(printf "%b" "${playing_menu}\n${TO_MAIN_MENU}" |
         $FZF -i --prompt="Choose an action: " \
@@ -1599,7 +1608,10 @@ media_player_menu() {
             --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
             --listen 6266 \
             --preview-label "STREAM DEBUG" | cut -d " " -f1)
-    if [ "$media_player_menu_choice" = "◂" ]; then
+    if [ -z "$media_player_menu_choice" ]; then
+        # the playlist monitoring closed the fzf menu
+        return
+    elif [ "$media_player_menu_choice" = "◂" ]; then
         prompt="$TO_MAIN_MENU"
         clear_modifiers
         media_player_exit_code="$PLAYER_MENU_END_CODE"
@@ -1627,6 +1639,7 @@ media_player_menu() {
             nyaa_search_res=""
             magnet_link=""
             file_list=""
+            close_player
         elif [ "$player_source" = "streaming" ]; then
             animdl_playthrough=1
         fi
@@ -1636,6 +1649,7 @@ media_player_menu() {
         close_player
     elif [ "$media_player_menu_choice" = "🏁" ]; then
         set_ep_as_watched
+        clear_modifiers
         media_player_exit_code="$PLAYER_MENU_END_CODE"
     elif [ "$media_player_menu_choice" = "🔎" ]; then
         if [ "$player_source" = "streaming" ]; then
@@ -1647,11 +1661,14 @@ media_player_menu() {
             player_source="torrenting"
         fi
         media_player_exit_code="$PLAYER_MENU_SELECT_SEARCH_RES_CODE"
+        close_player
+        clear_modifiers
     elif [ "$media_player_menu_choice" = "🙈" ]; then
         # this will tell the select_magnet_file function to present a menu
         play_status="$PLAY_STATUS_FILE_SEL"
         # this will tell the play loop to execute play_anime function again
         media_player_exit_code="$PLAYER_MENU_FILE_SELECT_CODE"
+        close_player
     elif [ "$media_player_menu_choice" = "🔖" ]; then
         # add new bookmark or overwrite bookmark
         cache_link
@@ -1692,12 +1709,15 @@ torrent_magnet_link() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
     play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
-    if [ "$play_episode_torrent_status" -eq "$TORRENT_STATUS_ERRORED" ]; then
+    # block until socket responds, with timeout
+    n=0
+    while ! is_socket_active && [ "$n" -lt 10 ]; do n=$((n + 1)); done
+    if [ "$play_episode_torrent_status" -eq "$TORRENT_STATUS_ERRORED" ] || [ "$n" -eq 60 ]; then
         printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to play (torrenting)" && line_to_remove
         magnet_link=""
         play_status=$PLAY_STATUS_ERRORED
     else
-        rm "$torrent_pid_file"
+        [ -f "$torrent_pid_file" ] && rm "$torrent_pid_file"
         play_status=$PLAY_STATUS_OKPLAYING
     fi
     # do not clear_lines here because the messages are chained
@@ -1860,7 +1880,7 @@ EOF
 play_anime() {
     close_player
     reset_logs
-    # reset the media player
+    # reset the media player to remove fallbacks
     reset_media_player_app
     connectivity_check
     [ -z "$player_source" ] && printf "💥 Unable to play anime (no player source)." && kill $$
@@ -2643,13 +2663,11 @@ EOF
             # from media player menu the user should not be able to switch play sources
             if [ "$media_player_exit_code" = "$PLAYER_MENU_FILE_SELECT_CODE" ]; then
                 # new state already set by media_player_menu function
-                close_player
                 continue
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
                 # new state already set by media_player_menu function
                 continue
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_END_CODE" ]; then
-                close_player
                 play_status="$PLAY_STATUS_EXITED"
                 return 0 # go to main menu
             elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
