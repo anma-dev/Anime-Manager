@@ -1542,10 +1542,18 @@ media_player_menu() {
                 playing_menu="🏁 Set as Watched"
                 [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
             else
-                playing_menu="⏭️  Set as Watched + Play next ▶\n✅ Set as Watched"
+                if [ "$last_watched_ep" -ne "$last_show_episode" ]; then
+                    playing_menu="⏭️  Set as Watched + Play next ▶"
+                fi
+                if [ -n "$playing_menu" ]; then
+                    playing_menu="${playing_menu}\n"
+                fi
+                playing_menu="${playing_menu}✅ Set as Watched"
             fi
         else
-            playing_menu="⏭️  Play next ▶"
+            if [ "$last_watched_ep" -ne "$last_show_episode" ]; then
+                playing_menu="⏭️  Play next ▶"
+            fi
         fi
     fi
     # player reset entries
@@ -1567,9 +1575,13 @@ media_player_menu() {
         fi
     elif [ "$player_source" = "streaming" ]; then
         if [ -n "$animdl_search_index" ]; then
-            playing_menu="${playing_menu}\n🔎 Select another search result"
+            if [ -n "$playing_menu" ]; then
+                playing_menu="${playing_menu}\n"
+            fi
+            playing_menu="${playing_menu}🔎 Select another search result"
         fi
     fi
+    [ -z "$playing_menu" ] && playing_menu="➖ Nothing to do."
     # for some reason fzf doesn't like this logic inside the label text
     media_player_menu_label="$(
         if [ -n "$show_type" ]; then
@@ -1675,6 +1687,8 @@ media_player_menu() {
     elif [ "$media_player_menu_choice" = "🗑️" ]; then
         # delete the bookmark for the current anime
         delete_link_cache
+        media_player_menu
+    else
         media_player_menu
     fi
 }
