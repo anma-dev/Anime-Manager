@@ -1534,32 +1534,34 @@ media_player_menu() {
         kill $$
     fi
     trimmed_anime_title=$(trim "$anime_title")
+    if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
+        [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
+    fi
+    # Set up menu
     playing_menu=""
+    # Account mode entries
     if [ "$INCOGNITO_MODE" -eq 0 ]; then
-        # trackma account entries
         if [ "$AUTO_UPDATE" -eq 0 ]; then
             if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
                 playing_menu="🏁 Set as Watched"
-                [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
             else
-                if [ "$last_watched_ep" -ne "$last_show_episode" ]; then
+                if [ "$cur_anime_episode" -ne "$last_show_episode" ]; then
                     playing_menu="⏭️  Set as Watched + Play next ▶"
                 fi
-                if [ -n "$playing_menu" ]; then
-                    playing_menu="${playing_menu}\n"
-                fi
+                [ -n "$playing_menu" ] && playing_menu="${playing_menu}\n"
                 playing_menu="${playing_menu}✅ Set as Watched"
             fi
         else
-            if [ "$last_watched_ep" -ne "$last_show_episode" ]; then
+            if [ "$cur_anime_episode" -ne "$last_show_episode" ]; then
                 playing_menu="⏭️  Play next ▶"
             fi
         fi
     fi
-    # player reset entries
+    # Player source entries
+    [ -n "$playing_menu" ] && playing_menu="${playing_menu}\n"
     if [ "$player_source" = "torrenting" ] || [ "$player_source" = "cached_link" ]; then
         # common menu for torrenting
-        playing_menu="${playing_menu}\n🙈 Unexpected? Select another file ▸"
+        playing_menu="${playing_menu}🙈 Unexpected? Select another file ▸"
         if [ -n "$nyaa_search_res" ]; then
             playing_menu="${playing_menu}\n🔎 Select another search result"
         fi
@@ -1575,9 +1577,6 @@ media_player_menu() {
         fi
     elif [ "$player_source" = "streaming" ]; then
         if [ -n "$animdl_search_index" ]; then
-            if [ -n "$playing_menu" ]; then
-                playing_menu="${playing_menu}\n"
-            fi
             playing_menu="${playing_menu}🔎 Select another search result"
         fi
     fi
