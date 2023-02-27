@@ -144,6 +144,8 @@ clear_modifiers() {
     webtorrent_pid=""
     playback_length=0
     playback_time=0
+    feed_etag=""
+    feed_updated_date=""
 }
 
 reset_logs() {
@@ -278,15 +280,16 @@ get_playback_percent() {
     set -o errexit
 }
 
-# trim long show titles
+# trim long strings
 trim() {
-    MAX_MENU_TITLE_SERIES_LEN=20
-    title="$1"
-    c_count=$(printf "%s" "$title" | wc -c | sed "s/ //g")
-    if [ "$c_count" -gt $MAX_MENU_TITLE_SERIES_LEN ]; then
-        printf "%s" "$title" | cut -c 1-"$MAX_MENU_TITLE_SERIES_LEN" | sed "s/$/(...)/"
+    trim_max_len="$2"
+    [ -z "$trim_max_len" ] && trim_max_len=20
+    string="$1"
+    c_count=$(printf "%s" "$string" | wc -c | sed "s/ //g")
+    if [ "$c_count" -gt "$trim_max_len" ]; then
+        printf "%s" "$string" | cut -c 1-"$trim_max_len" | sed "s/$/(...)/"
     else
-        printf "%s" "$title"
+        printf "%s" "$string"
     fi
 }
 
@@ -502,6 +505,7 @@ NYAA_SEARCH_LOGFILE="$LOG_DIR/nyaa_search.log"
 NYAA_FE_LOGFILE="$LOG_DIR/file_extractor.log"
 NYAA_FE_BIN="$(getcwd)/lib/python/file_extractor.py"
 WEBTORRENT_CLI="lib/javascript/webtorrent-cli/bin/cmd.js"
+GET_FEED_BIN="$(getcwd)/lib/python/get_feed.py"
 
 # logfiles
 WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
@@ -561,8 +565,8 @@ TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:s
 TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
 # mainmenu entries
 WATCH_HISTORY="👁️  Watch History"
+MY_FEEDS="📰 My Feeds"
 WATCH="📺 Watch"
-WATCH_RANDOM="🔀 Watch Random"
 ADD_ANIME="🧩 Add Anime"
 LIST="📙 Lists"
 UPDATE_STATUS="🔄 Update Anime Status"
@@ -572,6 +576,7 @@ ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
 TO_SUBMENU="MORE OPTIONS ▸"
 BACK_TO_SUBMENU="◂ BACK"
 # submenu entries
+WATCH_RANDOM="Watch Random Anime 🔀"
 PLAYLIST="Create Playlist 🎦"
 SWITCH_ACCOUNTS="Switch Accounts 👤"
 DELETE_ANIME="Delete Anime 🗑️"
@@ -1177,6 +1182,7 @@ install_dependencies() {
                     dbus-python
                 pip3 install Trackma==0.8.5
             fi
+            pip3 install feedparser
         elif [ "$OSTYPE" = "Darwin" ]; then
             printf "%s" "🍏 Installing macOS dependencies."
             if ! pkgutil --pkg-info=com.apple.pkg.CLTools_Executables | grep version >/dev/null 2>&1; then
@@ -1233,6 +1239,7 @@ install_dependencies() {
                     wheel \
                     Trackma==0.8.5
             fi
+            pip3 install feedparser
         fi
         echo
         printf "%b" "$install_dep_msg"
@@ -1492,6 +1499,155 @@ delete_link_cache() {
     fi
 }
 
+#* FEEDS
+
+# decompresses, decodes and prints a feeds data from persistent storage.
+get_feed_data() {
+    feed_file_content="$(cat "$1")"
+    printf "%b" "$(
+        base64 -d <<EOF | gunzip
+$feed_file_content
+EOF
+    )"
+}
+
+# save a feed link locally.
+save_feed_data() {
+    if [ -n "$feed_url" ]; then
+        [ -z "$get_feed_content_res" ] && get_feed_content_res="0"
+        [ -z "$feed_etag" ] && feed_etag="0"
+        [ -z "$feed_updated_date" ] && feed_updated_date="0"
+        feed_data="${feed_title}\n${feed_etag}\n${feed_updated_date}\n${feed_url}\n${get_feed_content_res}"
+        printf "%b" "$feed_data" | gzip -cf | base64 >"$FEEDS_PATH/$(get_xxhash "$feed_url")"
+    else
+        printf "$MSG_ERR_COLOR%s$RESET" "ERROR: Unable to save feed link."
+        kill $$
+    fi
+}
+
+get_feed_menu_entries() {
+    feed_files="$(find "$FEEDS_PATH" -type f)"
+    [ -z "$feed_files" ] && return 0
+    feed_menu_entries=""
+    while read -r feed_file; do
+        feed_menu_entries="${feed_menu_entries}{"
+        feed_data="$(get_feed_data "$feed_file")"
+        feed_title="$(printf "%b" "$feed_data" | sed -n "1p")"
+        feed_url="$(printf "%b" "$feed_data" | sed -n "4p")"
+        feed_menu_entries="${feed_menu_entries}\"title\": \"$feed_title\","
+        feed_menu_entries="${feed_menu_entries}\"url\": \"$feed_url\""
+        feed_menu_entries="${feed_menu_entries}}"
+    done <<EOF
+$feed_files
+EOF
+    printf "%s" "$feed_menu_entries"
+}
+
+format_feed_entries() {
+    feed_entries="$(printf "%s" "$feed_entries" | sed "s/\[Magnet\]/🧲/g")"
+}
+
+# get feed file from link
+get_feed_file() {
+    [ -z "$feed_url" ] && printf "Unable to get feed file name (no feed url)" && kill $$
+    printf "%s/%s" "$FEEDS_PATH" "$(get_xxhash "$feed_url")"
+}
+
+get_feed_etag() {
+    [ -z "$feed_url" ] && printf "Unable to get feed etag (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    [ ! -s "$feed_filename" ] && feed_etag=0 && return 0
+    feed_file_content="$(get_feed_data "$feed_filename")"
+    feed_etag="$(printf "%b" "$feed_file_content" | sed -n "2p")"
+}
+
+get_feed_updated_date() {
+    [ -z "$feed_url" ] && printf "Unable to get feed updated date (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    [ ! -s "$feed_filename" ] && feed_updated_date=0 && return 0
+    feed_file_content="$(get_feed_data "$feed_filename")"
+    feed_updated_date="$(printf "%b" "$feed_file_content" | sed -n "3p")"
+}
+
+get_feed_entries() {
+    [ -z "$feed_url" ] && printf "Unable to get feed entries (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    [ ! -s "$feed_filename" ] && feed_entries="" && return 0
+    feed_file_content="$(get_feed_data "$feed_filename")"
+    # get_feed_content_res is used by save_feed_data
+    get_feed_content_res="$(printf "%b" "$feed_file_content" | sed -n "5p")"
+    feed_entries="$(printf "%b" "$get_feed_content_res" | jq -r '.entries[] | .title')"
+}
+
+get_feed_content() {
+    [ -z "$feed_url" ] && printf "Unable to get feed content (no feed url)" && kill $$
+    echo && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      📰 Updating your feed, please wait..." && line_to_remove
+    get_feed_etag
+    get_feed_updated_date
+    get_feed_content_res="$($GET_FEED_BIN --link "$feed_url" --etag "$feed_etag" --modified "$feed_updated_date")"
+    am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
+    am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
+    if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
+        printf "$MSG_ERR_COLOR%s$RESET\n" "Error while retrieving feed content: $am_ret_msg."
+        kill $$
+    fi
+    if [ -n "$get_feed_content_res" ]; then
+        feed_entries="$(printf "%s" "$get_feed_content_res" | jq -r '.entries[] | .title')"
+        feed_etag="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.etag')"
+        feed_updated_date="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.updated')"
+    else
+        get_feed_entries
+    fi
+    format_feed_entries
+    [ -z "$feed_etag" ] && feed_etag=0
+    [ -z "$feed_updated_date" ] && feed_updated_date=0
+    save_feed_data
+    clear_lines
+}
+
+# prints aggregated feed content.
+get_aggregated_feed() {
+    feed_files="$(find "$FEEDS_PATH" -type f)"
+    aggregated_feed_list=""
+    while read -r feed_file; do
+        get_feed_content
+        aggregated_feed_list="${aggregated_feed_list}\n$feed_entries"
+    done <<EOF
+$feed_files
+EOF
+    printf "%s" "$aggregated_feed_list"
+}
+
+# adds a new feed. we make one request to the feed web server to check that the
+# source is valid.
+add_feed() {
+    echo && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      📰 Paste your feed link and press Enter (silent input)... " && line_to_remove
+    printf "      " && line_to_remove
+    stty_orig=$(stty -g)
+    stty -echo
+    read -r feed_url
+    stty "$stty_orig"
+    feed_url="$(printf "%s" "$feed_url" | sed "s/;//g" | tr -d '\012')" # newline esc seq in octal
+    clear_lines
+    if [ -z "$feed_url" ]; then
+        return 0
+    fi
+    get_feed_content
+    am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
+    am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
+    if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
+        printf "$MSG_ERR_COLOR%s$RESET\n" "Error adding feed: $am_ret_msg."
+        kill $$
+    fi
+    feed_updated_date=0
+    feed_etag=0
+    feed_title="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.feed.title')"
+    [ -z "$feed_title" ] && feed_title="$feed_url"
+    save_feed_data
+}
+
 # monitors playback progress and updates anime episode count
 monitor_playback_time() {
     get_playback_percent
@@ -1533,7 +1689,7 @@ media_player_menu() {
         printf "💥 anime_title is not set"
         kill $$
     fi
-    trimmed_anime_title=$(trim "$anime_title")
+    trimmed_anime_title=$(trim "$anime_title" 20)
     if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -eq "$last_show_episode" ]; then
         [ "$show_type" != "movie" ] && trimmed_anime_title="🏁 END! ─ $trimmed_anime_title"
     fi
@@ -1768,7 +1924,7 @@ select_magnet_file() {
         file_index=$(
             printf "%b" "$file_list\n◂ NOW PLAYING" | sed "s/\"//g" |
                 $FZF -i --prompt "Choose a file: " \
-                    --border-label "╢ ♣  🗃️  FILE SELECTION ─ $(trim "$anime_title") ▶ $cur_anime_episode ♣  ╟" \
+                    --border-label "╢ ♣  🗃️  FILE SELECTION ─ $(trim "$anime_title" 20) ▶ $cur_anime_episode ♣  ╟" \
                     --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                     --header-first \
                     --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -1966,7 +2122,7 @@ play_anime() {
             nya_res_choice=$(
                 printf "%b" "{\"name\": \"$TO_MAIN_MENU\"}\n$nyaa_search_res" | jq --raw-output '.name' |
                     $FZF -i --prompt "$PROMPT_TEXT" \
-                        --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$anime_title_match") ▶ $cur_anime_episode ♣  ╟" \
+                        --border-label "╢ ♣  SEARCH RESULTS (Nyaa Torrents): $(trim "$anime_title_match" 20) ▶ $cur_anime_episode ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Play ▶ (torrenting)" \
                         --header-first \
                         --tac \
@@ -2097,7 +2253,7 @@ play_anime() {
                 animdl_search_index="$(
                     printf "%b" "$SELECT_SOURCE\n$TO_MAIN_MENU\n$results" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
-                            --border-label "╢ ♣  SEARCH RESULTS ($decoded_stream_provider): $(trim "$anime_title_match") ▶ $cur_anime_episode ♣  ╟" \
+                            --border-label "╢ ♣  SEARCH RESULTS ($decoded_stream_provider): $(trim "$anime_title_match" 20) ▶ $cur_anime_episode ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first \
                             --tac | cut -d '.' -f1
@@ -2397,17 +2553,17 @@ select_player_source() {
         PLAY_METHOD_MENU="$PLAY_METHOD_SAVED_LINK\n$PLAY_METHOD_MENU"
     fi
     if [ "$random_anime" -eq 1 ]; then
-        menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title") ▶ $cur_anime_episode"
+        menu_label="SELECT SOURCE: 🔀 $(trim "$anime_title" 20) ▶ $cur_anime_episode"
         top_menu="$TO_MAIN_MENU"
     elif [ "$random_airing" -eq 1 ]; then
-        menu_label="SELECT SOURCE: 🆕 $(trim "$anime_title") ▶ $cur_anime_episode"
+        menu_label="SELECT SOURCE: 🆕 $(trim "$anime_title" 20) ▶ $cur_anime_episode"
         top_menu="$BACK_TO_SUBMENU"
     elif [ -n "$sort_airing" ] && [ "$sort_airing" -eq 1 ]; then
         # if we come from airing list selection
-        menu_label="SELECT SOURCE: 🆕 $(trim "$anime_title") ▶ $cur_anime_episode"
+        menu_label="SELECT SOURCE: 🆕 $(trim "$anime_title" 20) ▶ $cur_anime_episode"
         top_menu="$BACK_TO_SUBMENU"
     else
-        menu_label="SELECT SOURCE: $(trim "$anime_title") ▶ $cur_anime_episode"
+        menu_label="SELECT SOURCE: $(trim "$anime_title" 20) ▶ $cur_anime_episode"
         top_menu="$TO_MAIN_MENU"
     fi
     # we check the play status otherwise we would never be able to select source
@@ -2702,8 +2858,8 @@ EOF
 # The menu that is presented when the user selects a Trackma account.
 account_menu() {
     prompt=""
-    MAINMENU_ENTRIES="$WATCH_HISTORY\n$WATCH\n$WATCH_RANDOM\n$ADD_ANIME\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
-    SUBMENU_ENTRIES="$EXIT_SCRIPT_SUB\n$SWITCH_ACCOUNTS\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$PLAYLIST\n$TO_MAIN_MENU"
+    MAINMENU_ENTRIES="$WATCH_HISTORY\n$MY_FEEDS\n$WATCH\n$ADD_ANIME\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
+    SUBMENU_ENTRIES="$EXIT_SCRIPT_SUB\n$SWITCH_ACCOUNTS\n$WATCH_RANDOM\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$PLAYLIST\n$TO_MAIN_MENU"
     MAINMENU_TITLE="MAIN MENU"
     SUBMENU_TITLE="MORE OPTIONS"
     menu_entries=$MAINMENU_ENTRIES
@@ -2716,7 +2872,9 @@ account_menu() {
     [ "$MINIMAL" -eq 0 ] && paint_logo
     [ "$MINIMAL" -eq 0 ] && print_subheader
     BOOKMARKS_PATH="${AM_USER_HOME_DIR}/bookmarks"
+    FEEDS_PATH="${AM_USER_HOME_DIR}/feeds"
     mkdir -p "$BOOKMARKS_PATH"
+    mkdir -p "$FEEDS_PATH"
     WATCH_HISTORY_FILE="${AM_USER_HOME_DIR}/watch-history"
     [ ! -f "$WATCH_HISTORY_FILE" ] && touch "$WATCH_HISTORY_FILE"
     trackma_status_menu_entries="$(get_lists)"
@@ -2912,6 +3070,51 @@ account_menu() {
                 printf "filter %s\ndelete %s\ny\n" "$status" "$del_confirm" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
             fi
             ;;
+        "$MY_FEEDS")
+            full_feeds="$(get_feed_menu_entries)"
+            [ -z "$full_feeds" ] && full_feeds="
+            {
+                \"title\": \"You have no feeds.\"
+            }"
+            feeds="$(printf "%b" "$full_feeds" | jq --raw-output '.title' | sed "s/^/📰 /")"
+            feed_title=$(
+                printf "%b" "$feeds\n+ Add Feed\n$TO_MAIN_MENU" |
+                    $FZF -i --prompt="Select a feed: " \
+                        --border-label "╢ ♣  📰 YOUR FEEDS ♣  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
+                        --header-first | sed "s/^📰 //"
+            )
+            if [ "$feed_title" = "$TO_MAIN_MENU" ] || [ -z "$feed_title" ] || [ "$feed_title" = "You have no feeds." ]; then
+                clear_modifiers
+                continue
+            fi
+            if [ "$feed_title" = "+ Add Feed" ]; then
+                add_feed
+                clear_modifiers
+                prompt="$MY_FEEDS"
+                continue
+            fi
+            feed_url="$(printf "%b" "$full_feeds" | jq -c "select( .title == \"$feed_title\" )" | jq --raw-output ".url")"
+            get_feed_content
+            [ -z "$feed_entries" ] && feed_entries="This feed has no entries."
+            FZF_PREVIEW_WINDOW_CMD="printf \"%s\" {}"
+            feed_entry_choice=$(
+                printf "%s\n%s" "$feed_entries" "$TO_MAIN_MENU" |
+                    $FZF -i --prompt="Select an entry: " \
+                        --bind "ctrl-l:toggle-preview" \
+                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                        --preview-window "$PREVIEW_WINDOW_OPTS" \
+                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                        --preview-label ' Info ' \
+                        --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
+                        --header-first
+            )
+            if [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "$TO_MAIN_MENU" ]; then
+                clear_modifiers
+                continue
+            fi
+            ;;
         "$UPDATE_EPISODES" | "$UPDATE_STATUS")
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
                 menuitem="$BACK_TO_SUBMENU"
@@ -3039,7 +3242,7 @@ account_menu() {
                     SCORE_MENU="(10) Masterpiece\n(9) Great\n(8) Very Good\n(7) Good\n(6) Fine\n(5) Average\n(4) Bad\n(3) Very Bad\n(2) Horrible\n(1) Appalling"
                     score=$(
                         printf "%b" "$SCORE_MENU" | $FZF -i --prompt="Select a score: " \
-                            --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_title") ♣  ╟" \
+                            --border-label "╢ ♣  SCORING ANIME: $(trim "$anime_title" 20) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                             --pointer 🌟 \
                             --header-first --tac | sed -En "s/\(([[:digit:]]+)\).*/\1/p"

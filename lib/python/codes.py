@@ -12,3 +12,5 @@ RET_CODE_HTTP_429 = -5
 # nyaa_torrent_fid
 RET_CODE_CONTENT_MISMATCH = -6
 CODE_FILE_SEL = -7
+# get_feed
+BAD_FEED=-8
