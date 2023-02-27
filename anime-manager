@@ -146,6 +146,8 @@ clear_modifiers() {
     playback_time=0
     feed_etag=""
     feed_updated_date=""
+    am_ret_code=""
+    am_ret_msg=""
 }
 
 reset_logs() {
@@ -1589,8 +1591,7 @@ get_feed_content() {
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-        printf "$MSG_ERR_COLOR%s$RESET\n" "Error while retrieving feed content: $am_ret_msg."
-        kill $$
+        return
     fi
     if [ -n "$get_feed_content_res" ]; then
         feed_entries="$(printf "%s" "$get_feed_content_res" | jq -r '.entries[] | .title')"
@@ -1638,8 +1639,7 @@ add_feed() {
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-        printf "$MSG_ERR_COLOR%s$RESET\n" "Error adding feed: $am_ret_msg."
-        kill $$
+        return
     fi
     feed_updated_date=0
     feed_etag=0
@@ -3096,6 +3096,21 @@ account_menu() {
             fi
             feed_url="$(printf "%b" "$full_feeds" | jq -c "select( .title == \"$feed_title\" )" | jq --raw-output ".url")"
             get_feed_content
+            if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
+                printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 $am_ret_msg" && line_to_remove
+                printf "      [Enter] ◂ Main Menu\n" && line_to_remove
+                while true; do
+                    read -r key
+                    key="$(start_substring "$key" 1)"
+                    if [ "$key" = "" ]; then
+                        line_to_remove
+                        break
+                    fi
+                done
+                clear_lines
+                clear_modifiers
+                continue
+            fi
             [ -z "$feed_entries" ] && feed_entries="This feed has no entries."
             FZF_PREVIEW_WINDOW_CMD="printf \"%s\" {}"
             feed_entry_choice=$(
