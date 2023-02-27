@@ -3123,10 +3123,11 @@ account_menu() {
             feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")";
             printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')";
             prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')";
-            if [ "$OSTYPE" = "Darwin" ]; then
-                printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %b %Y %T %Z")"
+
+            if [ -n "$(printf "%s" "$OSTYPE" | sed -En "s/.*[Dd]arwin.*/&/p")" ]; then
+                printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
             else
-                printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %b %Y %T %Z")"
+                printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
             fi
             printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
             printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")";
