@@ -1627,7 +1627,7 @@ EOF
 add_feed() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET\n" "      📰 Paste your feed link and press Enter (silent input)... " && line_to_remove
-    printf "      " && line_to_remove
+    printf "\n      " && line_to_remove
     stty_orig=$(stty -g)
     stty -echo
     read -r feed_url
