@@ -4,6 +4,7 @@ import argparse
 import anitopy
 import json
 from Logger import Logger
+from utils import normalize_fragment, extract_episode
 
 '''
 This script is part of Anime Manager.
@@ -25,9 +26,11 @@ logger = Logger(file="get_title.log",
                 log_name="get_title").log
 
 try:
-    parsed_anime_info = anitopy.parse(args.input)
+    parsed_anime = anitopy.parse(normalize_fragment(args.input))
+    if not "episode_number" in parsed_anime:
+        parsed_anime = extract_episode(args.input)
 except Exception as err:
     logger.error(err)
     sys.exit(0)
 else:
-    print(json.dumps(parsed_anime_info))
+    print(json.dumps(parsed_anime))

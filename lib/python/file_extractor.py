@@ -6,10 +6,9 @@ import json
 import subprocess
 from shlex import split
 import anitopy
-import csv
-from contextlib import suppress
 from Logger import Logger
 import codes
+from utils import normalize_fragment, extract_episode, normalize_title
 
 '''
 This script is part of Anime Manager.
@@ -53,8 +52,6 @@ logger = Logger(file="file_extractor.log",
                 debug=args.debug,
                 log_name="file_extractor").log
 
-sniffer = csv.Sniffer()
-valid_delim = ' _.&+,|'
 webtorrent_timeout = 20
 match = False
 video_ext = (".webm", ".mkv", ".flv", ".avi", ".mov", ".wmv", ".mp4", ".m4p",
@@ -69,16 +66,6 @@ def parseEpisode(ep: str):
     ep = re.sub("[^\d]", "", ep)
     ep = float(ep)
     return ep
-
-
-def normalize_title(title: str):
-    title = re.sub("[^a-zA-Z0-9&]+", " ", title)
-    return title.casefold()
-
-
-def normalize_fragment(fragment: str):
-    fragment = re.sub("(\d)-(\w)", "\\1 \\2", fragment)
-    return fragment
 
 
 def split_filename(f: str):
@@ -96,27 +83,14 @@ def get_match_index():
     It will not remove matches.
     """
     for index, match_file in enumerate(video_res):
+        title = match_file["anime_title"]
         for x in all_titles:
-            if re.findall(f"{normalize_title(x)}", normalize_title(match_file)):
+            if re.findall(f"{normalize_title(x)}", normalize_title(title)):
                 return index
     return match_index
 
 
-def extract_episode(fragment: str):
-    parsed_title = anitopy.parse(fragment)
-    tmp_delim = valid_delim
-    # try to detect separator
-    while not "episode_number" in parsed_title:
-        if not len(tmp_delim):
-            break
-        # the csv parser complains when it can't find a delimiter
-        with suppress(Exception):
-            dialect = sniffer.sniff(
-                fragment, delimiters=tmp_delim)
-            parsed_title = anitopy.parse(
-                fragment, {'allowed_delimiters': dialect.delimiter})
-        # narrow down the valid delimiters
-        tmp_delim = tmp_delim[1:]
+def validateEpisode(parsed_title: object):
     if ("episode_number" in parsed_title):
         if type(parsed_title["episode_number"]) == list:
             ep_range_start = parseEpisode(
@@ -125,12 +99,15 @@ def extract_episode(fragment: str):
                 parsed_title["episode_number"][1])
             if (args.episode >= ep_range_start
                     and args.episode <= ep_range_end):
-                video_res.append(filename_og)
+                parsed_title["file_name"] = filename_og
+                video_res.append(parsed_title)
                 return True
         elif (args.episode == parseEpisode(
                 parsed_title["episode_number"])):
-            video_res.append(filename_og)
+            parsed_title["file_name"] = filename_og
+            video_res.append(parsed_title)
             return True
+    logger.error("Invalid parse.")
     return False
 
 
@@ -156,21 +133,29 @@ try:
         filename = re.sub(r'^\d+\s*', '', filename)
         if (not filename.endswith(video_ext)):
             continue
+        filename = normalize_fragment(filename)
         if args.type == "movie":
-            video_res.append(filename_og)
+            video_res.append(anitopy.parse(filename_og))
         if args.type == "ova":
             if "ova" in normalize_title(filename):
-                video_res.append(filename_og)
+                video_res.append(anitopy.parse(filename_og))
         else:
             """
             Match only the episode number because it might be the case
             that some uploader did not name the files with the anime 
             title or synonyms but would still be a match.
             """
-            if not extract_episode(filename):
+            parsed_anime = extract_episode(filename)
+            if not validateEpisode(parsed_anime):
                 for fragment in split_filename(filename):
-                    if not extract_episode(fragment):
-                        extract_episode(normalize_fragment(fragment))
+                    parsed_anime = extract_episode(fragment)
+                    if not validateEpisode(fragment):
+                        parsed_anime = extract_episode(
+                            normalize_fragment(fragment))
+                        if validateEpisode(fragment):
+                            break
+                    else:
+                        break
 
 
 except Exception as e:
@@ -193,8 +178,8 @@ else:
     else:
         video_res_index = get_match_index()
         match_file_index = int(re.findall(
-            "^(\d+)\s+.*", video_res[video_res_index])[0])
-        parsed_title_res = anitopy.parse(video_res[video_res_index])
-        comp_res = '\\n'.join(video_res)
+            "^(\d+)\s+.*", video_res[video_res_index]["file_name"])[0])
+        parsed_title_res = video_res[video_res_index]
+        comp_res = '\\n'.join(p["file_name"] for p in video_res)
         res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{match_file_index}"
 print(res)
