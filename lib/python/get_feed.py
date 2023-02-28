@@ -49,7 +49,7 @@ try:
     if feed_content.status == HTTPStatus.NOT_MODIFIED:
         logger.info("Not modified")
         sys.exit(0)
-    if not feed_content.etag and not feed_content.updated:
+    if not hasattr(feed_content, 'etag') and not hasattr(feed_content, 'updated'):
         err_msg = "Server replied with no etag and updated date."
         raise AssertionError(err_msg)
 except AssertionError as err:

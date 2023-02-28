@@ -508,6 +508,7 @@ NYAA_FE_LOGFILE="$LOG_DIR/file_extractor.log"
 NYAA_FE_BIN="$(getcwd)/lib/python/file_extractor.py"
 WEBTORRENT_CLI="lib/javascript/webtorrent-cli/bin/cmd.js"
 GET_FEED_BIN="$(getcwd)/lib/python/get_feed.py"
+GET_ANIME_TITLE_EP_BIN="$(getcwd)/lib/python/get_title.py"
 
 # logfiles
 WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
@@ -2609,6 +2610,67 @@ set_title_synonym() {
     anime_title_match="$(printf '%s\n' "$search_titles_array" | array_nth "$set_title_synonym_id")"
 }
 
+add_anime() {
+    [ -z "$new_status" ] && new_status="Plan to Watch"
+    if [ -z "$add_anime_title" ]; then
+        echo && line_to_remove
+        printf "      🧩 What anime do you plan to watch❔ \n         👉 " && line_to_remove
+        read -r add_anime_title
+    fi
+    add_anime_title="$(printf "%s" "$add_anime_title" | sed -E 's/[^a-zA-Z0-9'\''" -]//g' | sed "s/'/'\\\''/g")"
+    # trim anime title to 64 bytes to avoid Trackma MAL APIError 400 "invalid q".
+    add_anime_title="$(printf "%s" "$add_anime_title" | cut -c 1-64)"
+    clear_lines
+    if [ -z "$add_anime_title" ]; then
+        line_to_remove && clear_lines
+        return
+    fi
+    results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$new_status")" "$add_anime_title" | trackma_query)"
+    echo && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the catalog ($TRACKER_SERVICE), please wait..." && line_to_remove
+    while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
+    clear_lines
+    results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
+    [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
+    ADD_ANIME_PREVIEW_CMD='
+            search_res="$(printf "%s" "{}" | sed "s/^'\''//" | sed "s/'\''$//")"
+            if [ "$search_res" = "$TO_MAIN_MENU" ]; then
+                printf "Go to main menu."
+            else
+                underline=$(tput smul)
+                nounderline=$(tput rmul)
+                entry_name_color="\x1b[38;2;255;165;0m"
+                reset="\x1b[0m"
+                search_res_id="$(printf "%s" "$search_res" | cut -d: -f1)"
+                search_res_type="$(printf "%s" "$search_res" | sed -En "s/^[[:digit:]]*:[[:space:]]*\((.*)\).*/\1/p")"
+                search_res_title="$(printf "%s" "$search_res" | cut -d")" -f2 | sed "s/^[[:space:]]*//")"
+                printf "\n${underline}${entry_name_color}Search result %s${reset}${nounderline}\n\n${entry_name_color}Title:${reset} %s\n${entry_name_color}Type:${reset} %s" "$search_res_id" "$search_res_title" "$search_res_type" | sed "s/^[[:digit:]]*[[:space:]]*:[[:space:]]*//"
+            fi
+            '
+    add_anime_choice="$(
+        printf "%b" "$TO_MAIN_MENU\n$results" | sort -r --version-sort |
+            $FZF --prompt="Choose the anime to add: " \
+                --border-label "╢ ♣  ADD NEW ANIME ($new_status list) ♣  ╟" \
+                --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add" \
+                --preview-label ' Expanded view ' \
+                --preview "$ADD_ANIME_PREVIEW_CMD" \
+                --preview-window "$PREVIEW_WINDOW_OPTS" \
+                --bind "ctrl-l:toggle-preview" \
+                --header-first --tac
+    )"
+    [ -z "$results" ] && return
+    if [ "$add_anime_choice" = "$TO_MAIN_MENU" ]; then
+        printf "\n" >"$GLOBAL_TRACKMA_FIFO"
+        return
+    fi
+    add_anime_choice_id=$(printf "%s" "$add_anime_choice" | cut -d ':' -f1)
+    # replace anime_title with the actual entry title as Trackma sees it. this
+    # is useful when we need to make more trackma queries after adding the anime
+    # and we need an accurate anime title.
+    anime_title="$(printf "%s" "$add_anime_choice" | sed -En "s/^[[:digit:]]:[[:space:]]\(.*\)[[:space:]](.*)/\1/p")"
+    printf "%b\n" "$add_anime_choice_id" >"$GLOBAL_TRACKMA_FIFO"
+}
+
 watch_anime() {
     if [ -z "$anime_title" ] && [ -z "$cur_anime_episode" ]; then
         full_info=$(get_watching_shows)
@@ -2766,7 +2828,7 @@ EOF
     play_method_menu_opt=""
     media_player_exit_code=""
     while true; do
-        select_player_source
+        [ -z "$player_source" ] && select_player_source
         if [ "$player_source" = "◂" ] || [ -z "$player_source" ]; then
             play_status="$PLAY_STATUS_EXITED"
             prompt="$TO_MAIN_MENU"
@@ -2977,56 +3039,7 @@ account_menu() {
             clear_modifiers
             ;;
         "$ADD_ANIME")
-            new_status="Plan to Watch"
-            echo && line_to_remove
-            printf "      🧩 What anime do you plan to watch❔ \n         👉 " && line_to_remove
-            read -r series_title
-            series_title="$(printf "%s" "$series_title" | sed -E 's/[^a-zA-Z0-9'\''" -]//g' | sed "s/'/'\\\''/g")"
-            clear_lines
-            if [ -z "$series_title" ]; then
-                line_to_remove && clear_lines
-                clear_modifiers
-                continue
-            fi
-            results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$new_status")" "$series_title" | trackma_query)"
-            printf "$MSG_INFO_COLOR%s$RESET" "      🔎 Searching the catalog ($TRACKER_SERVICE), please wait..." && line_to_remove
-            while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
-            clear_lines
-            results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
-            [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
-            ADD_ANIME_PREVIEW_CMD='
-            search_res="$(printf "%s" "{}" | sed "s/^'\''//" | sed "s/'\''$//")"
-            if [ "$search_res" = "$TO_MAIN_MENU" ]; then
-                printf "Go to main menu."
-            else
-                underline=$(tput smul)
-                nounderline=$(tput rmul)
-                entry_name_color="\x1b[38;2;255;165;0m"
-                reset="\x1b[0m"
-                search_res_id="$(printf "%s" "$search_res" | cut -d: -f1)"
-                search_res_type="$(printf "%s" "$search_res" | sed -En "s/^[[:digit:]]*:[[:space:]]*\((.*)\).*/\1/p")"
-                search_res_title="$(printf "%s" "$search_res" | cut -d")" -f2 | sed "s/^[[:space:]]*//")"
-                printf "\n${underline}${entry_name_color}Search result %s${reset}${nounderline}\n\n${entry_name_color}Title:${reset} %s\n${entry_name_color}Type:${reset} %s" "$search_res_id" "$search_res_title" "$search_res_type" | sed "s/^[[:digit:]]*[[:space:]]*:[[:space:]]*//"
-            fi
-            '
-            add_anime_choice="$(
-                printf "%b" "$TO_MAIN_MENU\n$results" | sort -r --version-sort |
-                    $FZF --prompt="Choose the anime to add: " \
-                        --border-label "╢ ♣  ADD NEW ANIME ($new_status list) ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add" \
-                        --preview-label ' Expanded view ' \
-                        --preview "$ADD_ANIME_PREVIEW_CMD" \
-                        --preview-window "$PREVIEW_WINDOW_OPTS" \
-                        --bind "ctrl-l:toggle-preview" \
-                        --header-first --tac
-            )"
-            [ -z "$results" ] && clear_modifiers && continue
-            if [ "$add_anime_choice" = "$TO_MAIN_MENU" ]; then
-                printf "\n" >"$GLOBAL_TRACKMA_FIFO"
-                clear_modifiers && continue
-            fi
-            add_anime_choice_id=$(printf "%s" "$add_anime_choice" | cut -d ':' -f1)
-            printf "%b\n" "$add_anime_choice_id" >"$GLOBAL_TRACKMA_FIFO"
+            add_anime
             clear_modifiers
             ;;
         "$DELETE_ANIME")
@@ -3120,34 +3133,86 @@ account_menu() {
             entry_name_color="\x1b[38;2;255;165;0m";
             reset="\x1b[0m";
             prev_feed_title={};
-            feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")";
-            printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')";
-            prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')";
-
-            if [ -n "$(printf "%s" "$OSTYPE" | sed -En "s/.*[Dd]arwin.*/&/p")" ]; then
-                printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+            if [ "$prev_feed_title" = "$TO_MAIN_MENU" ]; then
+                printf "\nGo back to the main menu."
             else
-                printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                prev_feed_title="$(printf "%s" "$prev_feed_title" | sed "s/🧲/[Magnet]/g")"
+                feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")";
+                printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')";
+                prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')";
+                if [ -n "$(printf "%s" "$OSTYPE" | sed -En "s/.*[Dd]arwin.*/&/p")" ]; then
+                    printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                else
+                    printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                fi
+                printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
+                printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")";
             fi
-            printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
-            printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")";
             '
             feed_entry_choice=$(
-                printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' |
-                    $FZF -i --prompt="Select an entry: " \
+                printf "%s\n$TO_MAIN_MENU" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" |
+                    $FZF -i --prompt="Select a feed entry: " \
                         --bind "ctrl-l:toggle-preview" \
                         --preview "$FZF_PREVIEW_WINDOW_CMD" \
                         --preview-window "$PREVIEW_WINDOW_OPTS" \
                         --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
                         --preview-label ' Feed Entry Details ' \
                         --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                        --header-first
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶ (torrenting)" \
+                        --header-first | sed "s/🧲/[Magnet]/g"
             )
             if [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "$TO_MAIN_MENU" ]; then
                 clear_modifiers
                 continue
             fi
+            # handle the user feed entry selection
+            feed_action_choice=$(
+                printf "💾 Add Anime + Play Episode ▶\n▶️  Play Episode ▶" |
+                    $FZF -i --prompt="Select an action: " \
+                        --bind "ctrl-l:toggle-preview" \
+                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                        --preview-window "$PREVIEW_WINDOW_OPTS" \
+                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                        --preview-label ' Feed Entry Details ' \
+                        --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶ (torrenting)" \
+                        --header-first | cut -d" " -f1
+            )
+            if [ "$feed_action_choice" = "💾" ]; then
+                parsed_anime_info="$($GET_ANIME_TITLE_EP_BIN --input "$feed_entry_choice")"
+                if [ -z "$parsed_anime_info" ]; then
+                    printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to get the anime info." && line_to_remove
+                    sleep 3
+                    clear_lines
+                    clear_modifiers
+                    prompt="$MY_FEEDS"
+                    continue
+                fi
+                status="watching"
+                new_status="$status"
+                anime_title="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.anime_title')"
+                cur_anime_episode="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.episode_number')"
+                add_anime_title="$anime_title"
+                add_anime
+                feed_trackma_entry="$(get_entry_from_title)"
+                entry_index="$(get_entry_index "$feed_trackma_entry")"
+                last_show_episode="$(get_last_show_episode "$feed_trackma_entry")"
+                magnet_link="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')"
+                player_source="torrenting"
+                watch_anime
+                if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
+                    # the user stopped the player
+                    clear_modifiers
+                    continue
+                elif [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
+                    # an error occurred
+                    printf "💥 The playback ended due to an error" && line_to_remove
+                    kill $$
+                fi
+            elif [ "$feed_action_choice" = "▶️" ]; then
+                true
+            fi
+
             ;;
         "$UPDATE_EPISODES" | "$UPDATE_STATUS")
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
