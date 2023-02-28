@@ -3167,7 +3167,7 @@ account_menu() {
             fi
             # handle the user feed entry selection
             feed_action_choice=$(
-                printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play (torrenting) ▶" |
+                printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play ▶ (torrenting)\n%s" "$TO_MAIN_MENU" |
                     $FZF -i --prompt="Select an action: " \
                         --bind "ctrl-l:toggle-preview" \
                         --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -3178,6 +3178,10 @@ account_menu() {
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶ (torrenting)" \
                         --header-first | cut -d" " -f1
             )
+            if [ "$feed_action_choice" = "◂" ]; then
+                clear_modifiers
+                continue
+            fi
             if [ "$feed_action_choice" = "💾" ]; then
                 parsed_anime_info="$($GET_ANIME_TITLE_EP_BIN --input "$feed_entry_choice")"
                 if [ -z "$parsed_anime_info" ]; then
