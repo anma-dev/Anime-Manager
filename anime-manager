@@ -148,6 +148,7 @@ clear_modifiers() {
     feed_updated_date=""
     am_ret_code=""
     am_ret_msg=""
+    add_anime_title=""
 }
 
 reset_logs() {
@@ -2615,7 +2616,7 @@ add_anime() {
     if [ -z "$add_anime_title" ]; then
         echo && line_to_remove
         printf "      🧩 What anime do you plan to watch❔ \n         👉 " && line_to_remove
-        read -r add_anime_title
+        read -r add_anime_title && line_to_remove
     fi
     add_anime_title="$(printf "%s" "$add_anime_title" | sed -E 's/[^a-zA-Z0-9'\''" -]//g' | sed "s/'/'\\\''/g")"
     # trim anime title to 64 bytes to avoid Trackma MAL APIError 400 "invalid q".
@@ -3195,10 +3196,11 @@ account_menu() {
                 add_anime_title="$anime_title"
                 add_anime
                 feed_trackma_entry="$(get_entry_from_title)"
-                entry_index="$(get_entry_index "$feed_trackma_entry")"
-                last_show_episode="$(get_last_show_episode "$feed_trackma_entry")"
-                magnet_link="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')"
-                player_source="torrenting"
+                entry_index="$(get_entry_index "$feed_trackma_entry")" # needed for getting info in watch_anime
+                last_watched_ep="$(get_last_watched_episode "$feed_trackma_entry")" # needed for player monitor
+                last_show_episode="$(get_last_show_episode "$feed_trackma_entry")" # needed for media player menu
+                magnet_link="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')" # needed to bypass nyaa search
+                player_source="torrenting" # needed to bypass source selection
                 watch_anime
                 if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
                     # the user stopped the player
