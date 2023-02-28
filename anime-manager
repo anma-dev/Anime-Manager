@@ -2623,7 +2623,6 @@ add_anime() {
     add_anime_title="$(printf "%s" "$add_anime_title" | cut -c 1-64)"
     clear_lines
     if [ -z "$add_anime_title" ]; then
-        line_to_remove && clear_lines
         return
     fi
     results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$new_status")" "$add_anime_title" | trackma_query)"
@@ -3168,7 +3167,7 @@ account_menu() {
             fi
             # handle the user feed entry selection
             feed_action_choice=$(
-                printf "💾 Add Anime + Play Episode ▶\n▶️  Play Episode ▶" |
+                printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play (torrenting) ▶" |
                     $FZF -i --prompt="Select an action: " \
                         --bind "ctrl-l:toggle-preview" \
                         --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -3196,11 +3195,11 @@ account_menu() {
                 add_anime_title="$anime_title"
                 add_anime
                 feed_trackma_entry="$(get_entry_from_title)"
-                entry_index="$(get_entry_index "$feed_trackma_entry")" # needed for getting info in watch_anime
-                last_watched_ep="$(get_last_watched_episode "$feed_trackma_entry")" # needed for player monitor
-                last_show_episode="$(get_last_show_episode "$feed_trackma_entry")" # needed for media player menu
+                entry_index="$(get_entry_index "$feed_trackma_entry")"                                                                            # needed for getting info in watch_anime
+                last_watched_ep="$(get_last_watched_episode "$feed_trackma_entry")"                                                               # needed for player monitor
+                last_show_episode="$(get_last_show_episode "$feed_trackma_entry")"                                                                # needed for media player menu
                 magnet_link="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')" # needed to bypass nyaa search
-                player_source="torrenting" # needed to bypass source selection
+                player_source="torrenting"                                                                                                        # needed to bypass source selection
                 watch_anime
                 if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
                     # the user stopped the player
