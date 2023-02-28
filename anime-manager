@@ -3158,7 +3158,7 @@ account_menu() {
                         --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
                         --preview-label ' Feed Entry Details ' \
                         --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶ (torrenting)" \
+                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶" \
                         --header-first | sed "s/🧲/[Magnet]/g"
             )
             if [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "$TO_MAIN_MENU" ]; then
