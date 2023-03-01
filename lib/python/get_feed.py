@@ -49,9 +49,9 @@ try:
     if feed_content.status == HTTPStatus.NOT_MODIFIED:
         logger.info("Not modified")
         sys.exit(0)
-    if not hasattr(feed_content, 'etag') and not hasattr(feed_content, 'updated'):
-        err_msg = "Server replied with no etag and updated date."
-        raise AssertionError(err_msg)
+    # if not hasattr(feed_content, 'etag') and not hasattr(feed_content, 'updated'):
+    #     err_msg = "Server replied with no etag and updated date."
+    #     raise AssertionError(err_msg)
 except AssertionError as err:
     err_msg = json.dumps({
         "am_ret_code": codes.BAD_FEED,
