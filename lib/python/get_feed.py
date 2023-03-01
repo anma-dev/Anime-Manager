@@ -9,6 +9,7 @@ from Logger import Logger
 import codes
 import sys
 from http import HTTPStatus
+import time
 
 '''
 This script is part of Anime Manager.
@@ -24,6 +25,8 @@ parser.add_argument("-d",
 parser.add_argument("--link", type=str, help="feed link")
 parser.add_argument("--etag", type=str, help="etag")
 parser.add_argument("--modified", type=str, help="last updated date")
+parser.add_argument("--ttl", type=int, help="feed ttl in minutes")
+parser.add_argument("--ttl-update", type=int, help="last feed ttl update time as epoch time")
 args = parser.parse_args()
 
 # feedparser.USER_AGENT = "Anime Manager/v0.6.9-alpha +https://github.com/anma-dev/Anime-Manager"
@@ -32,6 +35,11 @@ logger = Logger(file="get_feed.log",
                 debug=args.debug,
                 log_name="get_feed").log
 try:
+    if args.ttl != 0 and args.ttl_update != 0:
+        ttl_delta_min = (time.time() - args.ttl_update) / 60
+        if (ttl_delta_min < args.ttl):
+            logger.info("Hit the TTL limit.")
+            sys.exit(0)
     parsed_link = io.StringIO(args.link).getvalue()
     if args.etag != 0:
         feed_content = feedparser.parse(parsed_link, etag=args.etag)
@@ -49,6 +57,7 @@ try:
     if feed_content.status == HTTPStatus.NOT_MODIFIED:
         logger.info("Not modified")
         sys.exit(0)
+
     # if not hasattr(feed_content, 'etag') and not hasattr(feed_content, 'updated'):
     #     err_msg = "Server replied with no etag and updated date."
     #     raise AssertionError(err_msg)

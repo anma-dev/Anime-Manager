@@ -1532,20 +1532,6 @@ EOF
     )"
 }
 
-# save a feed link locally.
-save_feed_data() {
-    if [ -n "$feed_url" ]; then
-        [ -z "$get_feed_content_res" ] && get_feed_content_res="0"
-        [ -z "$feed_etag" ] && feed_etag="0"
-        [ -z "$feed_updated_date" ] && feed_updated_date="0"
-        feed_data="${feed_title}\n${feed_etag}\n${feed_updated_date}\n${feed_url}\n${get_feed_content_res}"
-        printf "%b" "$feed_data" | gzip -cf | base64 >"$FEEDS_PATH/$(get_xxhash "$feed_url")"
-    else
-        printf "$MSG_ERR_COLOR%s$RESET" "ERROR: Unable to save feed link."
-        kill $$
-    fi
-}
-
 get_feed_menu_entries() {
     feed_files="$(find "$FEEDS_PATH" -type f)"
     [ -z "$feed_files" ] && return 0
@@ -1601,13 +1587,65 @@ get_feed_entries() {
     feed_entries="$(printf "%b" "$get_feed_content_res" | jq -r '.entries')"
 }
 
+get_feed_ttl() {
+    [ -z "$feed_url" ] && printf "Unable to get feed ttl (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    [ ! -s "$feed_filename" ] && feed_ttl=0 && return 0
+    feed_file_content="$(get_feed_data "$feed_filename")"
+    feed_ttl="$(printf "%b" "$feed_file_content" | sed -n "6p")"
+}
+
+get_feed_ttl_time() {
+    [ -z "$feed_url" ] && printf "Unable to get feed ttl time (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    [ ! -s "$feed_filename" ] && feed_ttl_update_time=0 && return 0
+    feed_file_content="$(get_feed_data "$feed_filename")"
+    feed_ttl_update_time="$(printf "%b" "$feed_file_content" | sed -n "7p")"
+}
+
+# Save a feed data locally.
+#* Cached content by line:
+#* 1 - title
+#* 2 - etag
+#* 3 - updated date
+#* 4 - url
+#* 5 - content
+#* 6 - ttl
+#* 7 - last ttl update time
+save_feed_data() {
+    if [ -n "$feed_url" ]; then
+        [ -z "$get_feed_content_res" ] && get_feed_content_res="0"
+        if [ -z "$feed_etag" ] || [ "$feed_etag" = "null" ]; then
+            feed_etag="0"
+        fi
+        if [ -z "$feed_updated_date" ] || [ "$feed_updated_date" = "null" ]; then
+            feed_updated_date="0"
+        fi
+        if [ -z "$feed_ttl" ] || [ "$feed_ttl" = "null" ]; then
+            feed_ttl="0"
+        fi
+        if [ "$feed_ttl" != "0" ] && [ -n "$get_feed_content_res" ]; then
+            # update cached ttl update date only if we actually made a successful request
+            feed_ttl_update_time="$(date +"%s")"
+        fi
+        feed_data="${feed_title}\n${feed_etag}\n${feed_updated_date}\n${feed_url}\n${get_feed_content_res}\n${feed_ttl}\n${feed_ttl_update_time}"
+        printf "%b" "$feed_data" | gzip -cf | base64 >"$FEEDS_PATH/$(get_xxhash "$feed_url")"
+    else
+        printf "$MSG_ERR_COLOR%s$RESET" "ERROR: Unable to save feed link."
+        kill $$
+    fi
+}
+
 get_feed_content() {
+    get_feed_content_res=""
     [ -z "$feed_url" ] && printf "Unable to get feed content (no feed url)" && kill $$
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET\n" "      📰 Updating your feed, please wait..." && line_to_remove
     get_feed_etag
     get_feed_updated_date
-    get_feed_content_res="$($GET_FEED_BIN --link "$feed_url" --etag "$feed_etag" --modified "$feed_updated_date")"
+    get_feed_ttl
+    get_feed_ttl_time
+    get_feed_content_res="$($GET_FEED_BIN --link "$feed_url" --etag "$feed_etag" --modified "$feed_updated_date" --ttl "$feed_ttl" --ttl-update "$feed_ttl_update_time")"
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
@@ -1616,6 +1654,7 @@ get_feed_content() {
     if [ -n "$get_feed_content_res" ]; then
         feed_entries="$(printf "%s" "$get_feed_content_res" | jq -r '.entries')"
         feed_etag="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.etag')"
+        feed_ttl="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.feed.ttl')"
         feed_updated_date="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.updated')"
     else
         get_feed_entries
@@ -3106,9 +3145,9 @@ account_menu() {
         "$MY_FEEDS")
             full_feeds="$(get_feed_menu_entries)"
             [ -z "$full_feeds" ] && full_feeds="
-            {
+            [{
                 \"title\": \"You have no feeds.\"
-            }"
+            }]"
             feeds="$(printf "%b" "$full_feeds" | jq --raw-output '.[] | .title' | sed "s/^/📰 /" | \cat -n)"
             feed_entry_choice=$(
                 printf "%b" "$feeds\n. + Add Feed\n. $TO_MAIN_MENU" |
