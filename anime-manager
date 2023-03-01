@@ -3160,7 +3160,8 @@ account_menu() {
                     printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
                 fi
                 printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
-                printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")";
+                summary_link="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")"
+                printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}";
             fi
             '
             feed_entry_choice=$(
