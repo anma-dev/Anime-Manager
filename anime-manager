@@ -1506,6 +1506,22 @@ delete_link_cache() {
 
 #* FEEDS
 
+handle_feed_error() {
+    echo && line_to_remove
+    printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 ERROR: $am_ret_msg" && line_to_remove
+    printf "      [Enter] ◂ Main Menu\n" && line_to_remove
+    while true; do
+        read -r key
+        key="$(start_substring "$key" 1)"
+        if [ "$key" = "" ]; then
+            line_to_remove
+            break
+        fi
+    done
+    clear_lines
+    clear_modifiers
+}
+
 # decompresses, decodes and prints a feeds data from persistent storage.
 get_feed_data() {
     feed_file_content="$(cat "$1")"
@@ -1595,7 +1611,7 @@ get_feed_content() {
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-        return
+        return 0
     fi
     if [ -n "$get_feed_content_res" ]; then
         feed_entries="$(printf "%s" "$get_feed_content_res" | jq -r '.entries')"
@@ -1643,7 +1659,8 @@ add_feed() {
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-        return
+        clear_lines
+        return 0
     fi
     feed_updated_date=0
     feed_etag=0
@@ -3107,6 +3124,10 @@ account_menu() {
             feed_title="$(printf "%s" "$feed_entry_choice" | sed "s/.*📰 //g")"
             if [ "$feed_title" = "+ Add Feed" ]; then
                 add_feed
+                if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
+                    handle_feed_error
+                    continue
+                fi
                 clear_modifiers
                 prompt="$MY_FEEDS"
                 continue
@@ -3115,18 +3136,7 @@ account_menu() {
             feed_url="$(printf "%b" "$full_feeds" | jq -c ".[$((feed_title_index - 1))]" | jq --raw-output ".url")"
             get_feed_content
             if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-                printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 $am_ret_msg" && line_to_remove
-                printf "      [Enter] ◂ Main Menu\n" && line_to_remove
-                while true; do
-                    read -r key
-                    key="$(start_substring "$key" 1)"
-                    if [ "$key" = "" ]; then
-                        line_to_remove
-                        break
-                    fi
-                done
-                clear_lines
-                clear_modifiers
+                handle_feed_error
                 continue
             fi
             # shellcheck disable=SC2089
