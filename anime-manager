@@ -2244,7 +2244,7 @@ play_anime() {
             play_torrent_id
         fi
     elif [ "$player_source" = "streaming" ]; then
-        stream_providers=$(array "gogoanime" "animeout")
+        stream_providers=$(array "animepahe" "gogoanime")
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
         while IFS= read -r provider; do

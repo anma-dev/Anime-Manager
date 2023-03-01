@@ -15,14 +15,15 @@ This script is part of Anime Manager.
 https://github.com/anma-dev/Anime-Manager
 '''
 
-help_msg = "Looks up a file in a magnet link and returns its index."
+help_msg = "Looks up a file in a torrent link and returns its index."
 parser = argparse.ArgumentParser(description=help_msg)
 
 parser.add_argument("-d",
                     "--debug",
                     action='store_true',
                     help="enable debug output")
-parser.add_argument("--torrent-ids", type=str, help="webtorrent-cli compatible torrent ids")
+parser.add_argument("--torrent-ids", type=str,
+                    help="webtorrent-cli compatible torrent ids")
 parser.add_argument("--title", type=str, help="anime title")
 parser.add_argument("--synonyms", type=str, help="anime synonyms")
 parser.add_argument("--episode", type=int, help="an episode number")
@@ -116,48 +117,50 @@ try:
         f"node lib/javascript/webtorrent-cli/bin/cmd.js download '{args.torrent_ids}' -s -q"
     )
     torrent_content = subprocess.run(command,
-                                    stdout=subprocess.PIPE,
-                                    shell=False,
-                                    timeout=webtorrent_timeout,
-                                    check=True)
+                                     stdout=subprocess.PIPE,
+                                     shell=False,
+                                     timeout=webtorrent_timeout,
+                                     check=True)
     result = torrent_content.stdout.decode("utf-8").splitlines()
     result = [x for x in result if len(x) != 0]
     del result[0]
     del result[-3:]
     if len(result) == 0:
-        raise AssertionError("Magnet link has no content.")
-    for filename in result:
-        filename_og = filename
-        # removes the index number and data beyond the file extension
-        filename = re.sub(r'(\.\w{3,4})\s+\(.*\)$', '\\1', filename)
-        filename = re.sub(r'^\d+\s*', '', filename)
-        if (not filename.endswith(video_ext)):
-            continue
-        filename = normalize_fragment(filename)
-        if args.type == "movie":
-            video_res.append(anitopy.parse(filename_og))
-        if args.type == "ova":
-            if "ova" in normalize_title(filename):
+        raise AssertionError("The torrent id has no content.")
+    if len(result) == 1:
+        video_res.append(anitopy.parse(result[0]))
+    else:
+        for filename in result:
+            filename_og = filename
+            # removes the index number and data beyond the file extension
+            filename = re.sub(r'(\.\w{3,4})\s+\(.*\)$', '\\1', filename)
+            filename = re.sub(r'^\d+\s*', '', filename)
+            if (not filename.endswith(video_ext)):
+                continue
+            filename = normalize_fragment(filename)
+            if args.type == "movie":
                 video_res.append(anitopy.parse(filename_og))
-        else:
-            """
-            Match only the episode number because it might be the case
-            that some uploader did not name the files with the anime 
-            title or synonyms but would still be a match.
-            """
-            parsed_anime = extract_episode(filename)
-            if not validateEpisode(parsed_anime):
-                for fragment in split_filename(filename):
-                    parsed_anime = extract_episode(fragment)
-                    if not validateEpisode(fragment):
-                        parsed_anime = extract_episode(
-                            normalize_fragment(fragment))
-                        if validateEpisode(fragment):
+                break
+            if args.type == "ova":
+                if "ova" in normalize_title(filename):
+                    video_res.append(anitopy.parse(filename_og))
+            else:
+                """
+                Match only the episode number because it might be the case
+                that some uploader did not name the files with the anime 
+                title or synonyms but would still be a match.
+                """
+                parsed_anime = extract_episode(filename)
+                if not validateEpisode(parsed_anime):
+                    for fragment in split_filename(filename):
+                        parsed_anime = extract_episode(fragment)
+                        if not validateEpisode(fragment):
+                            parsed_anime = extract_episode(
+                                normalize_fragment(fragment))
+                            if validateEpisode(fragment):
+                                break
+                        else:
                             break
-                    else:
-                        break
-
-
 except Exception as e:
     logger.error(traceback.format_exc())
     match_file_index = codes.RET_CODE_FATAL_ERROR
@@ -165,10 +168,10 @@ except Exception as e:
 else:
     if len(video_res) == 0:
         msg = [
-            f"No filename match for ",
+            f"No match for ",
             f"-     title: {args.title}",
             f"-     synonyms: {args.synonyms}",
-            f"-     magnet link: {args.magnet_link}",
+            f"-     torrent id: {args.torrent_ids}",
             f"-     episode: {args.episode}", f"-     type: {args.type}"
         ]
         logger.info("\n".join(msg))
