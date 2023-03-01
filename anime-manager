@@ -1533,7 +1533,7 @@ save_feed_data() {
 get_feed_menu_entries() {
     feed_files="$(find "$FEEDS_PATH" -type f)"
     [ -z "$feed_files" ] && return 0
-    feed_menu_entries=""
+    feed_menu_entries="["
     while read -r feed_file; do
         feed_menu_entries="${feed_menu_entries}{"
         feed_data="$(get_feed_data "$feed_file")"
@@ -1541,11 +1541,12 @@ get_feed_menu_entries() {
         feed_url="$(printf "%b" "$feed_data" | sed -n "4p")"
         feed_menu_entries="${feed_menu_entries}\"title\": \"$feed_title\","
         feed_menu_entries="${feed_menu_entries}\"url\": \"$feed_url\""
-        feed_menu_entries="${feed_menu_entries}}"
+        feed_menu_entries="${feed_menu_entries}},"
     done <<EOF
 $feed_files
 EOF
-    printf "%s" "$feed_menu_entries"
+    feed_menu_entries="${feed_menu_entries}]"
+    printf "%s" "$feed_menu_entries" | sed "s/,\]/]/g"
 }
 
 format_feed_entries() {
@@ -3090,25 +3091,27 @@ account_menu() {
             {
                 \"title\": \"You have no feeds.\"
             }"
-            feeds="$(printf "%b" "$full_feeds" | jq --raw-output '.title' | sed "s/^/📰 /")"
-            feed_title=$(
-                printf "%b" "$feeds\n+ Add Feed\n$TO_MAIN_MENU" |
-                    $FZF -i --prompt="Select a feed: " \
+            feeds="$(printf "%b" "$full_feeds" | jq --raw-output '.[] | .title' | sed "s/^/📰 /" | \cat -n)"
+            feed_entry_choice=$(
+                printf "%b" "$feeds\n. + Add Feed\n. $TO_MAIN_MENU" |
+                    $FZF --with-nth 2.. -i --prompt="Select a feed: " \
                         --border-label "╢ ♣  📰 YOUR FEEDS ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                        --header-first | sed "s/^📰 //"
+                        --header-first | sed "s/^\.[[:space:]]//"
             )
-            if [ "$feed_title" = "$TO_MAIN_MENU" ] || [ -z "$feed_title" ] || [ "$feed_title" = "You have no feeds." ]; then
+            if [ "$feed_entry_choice" = "$TO_MAIN_MENU" ] || [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "You have no feeds." ]; then
                 clear_modifiers
                 continue
             fi
+            feed_title="$(printf "%s" "$feed_entry_choice" | sed "s/.*📰 //g")"
             if [ "$feed_title" = "+ Add Feed" ]; then
                 add_feed
                 clear_modifiers
                 prompt="$MY_FEEDS"
                 continue
             fi
-            feed_url="$(printf "%b" "$full_feeds" | jq -c "select( .title == \"$feed_title\" )" | jq --raw-output ".url")"
+            feed_title_index="$(printf "%s" "$feed_entry_choice" | awk '{print $1}')"
+            feed_url="$(printf "%b" "$full_feeds" | jq -c ".[$((feed_title_index - 1))]" | jq --raw-output ".url")"
             get_feed_content
             if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
                 printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 $am_ret_msg" && line_to_remove
