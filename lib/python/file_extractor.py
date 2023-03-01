@@ -22,7 +22,7 @@ parser.add_argument("-d",
                     "--debug",
                     action='store_true',
                     help="enable debug output")
-parser.add_argument("--magnet-link", type=str, help="magnet link")
+parser.add_argument("--torrent-ids", type=str, help="webtorrent-cli compatible torrent ids")
 parser.add_argument("--title", type=str, help="anime title")
 parser.add_argument("--synonyms", type=str, help="anime synonyms")
 parser.add_argument("--episode", type=int, help="an episode number")
@@ -113,14 +113,14 @@ def validateEpisode(parsed_title: object):
 
 try:
     command = split(
-        f"node lib/javascript/webtorrent-cli/bin/cmd.js download '{args.magnet_link}' -s -q"
+        f"node lib/javascript/webtorrent-cli/bin/cmd.js download '{args.torrent_ids}' -s -q"
     )
-    magnet_content = subprocess.run(command,
+    torrent_content = subprocess.run(command,
                                     stdout=subprocess.PIPE,
                                     shell=False,
                                     timeout=webtorrent_timeout,
                                     check=True)
-    result = magnet_content.stdout.decode("utf-8").splitlines()
+    result = torrent_content.stdout.decode("utf-8").splitlines()
     result = [x for x in result if len(x) != 0]
     del result[0]
     del result[-3:]
