@@ -3152,7 +3152,7 @@ account_menu() {
             feed_entry_choice=$(
                 printf "%b" "$feeds\n. + Add Feed\n. $TO_MAIN_MENU" |
                     $FZF --with-nth 2.. -i --prompt="Select a feed: " \
-                        --border-label "╢ ♣  📰 YOUR FEEDS ♣  ╟" \
+                        --border-label "╢ ♣  📰 MY FEEDS ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                         --header-first | sed "s/^\.[[:space:]]//"
             )
