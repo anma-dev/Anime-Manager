@@ -1697,6 +1697,14 @@ add_feed() {
     if [ -z "$feed_url" ]; then
         return 0
     fi
+    if [ -n "$(get_feed_file)" ]; then
+        # the feed was already added
+        echo && line_to_remove
+        printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  This feed was already added." && line_to_remove
+        sleep 1
+        clear_lines
+        return
+    fi
     get_feed_content
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
