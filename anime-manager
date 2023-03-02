@@ -1543,6 +1543,7 @@ get_feed_menu_entries() {
     while read -r feed_file; do
         feed_menu_entries="${feed_menu_entries}{"
         feed_data="$(get_feed_data "$feed_file")"
+        [ -z "$feed_data" ] && continue
         feed_title="$(printf "%b" "$feed_data" | sed -n "1p")"
         feed_url="$(printf "%b" "$feed_data" | sed -n "4p")"
         feed_menu_entries="${feed_menu_entries}\"title\": \"$feed_title\","
