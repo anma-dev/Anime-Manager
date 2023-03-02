@@ -570,7 +570,7 @@ TRACKMA_LIST_REGEX="^\|[[:space:]]+([0-9]+[[:space:]]+.*[0-9]+[[:space:]]+\/[[:s
 TRACKMA_ENTRY_REGEX="^([[:digit:]]+)[[:space:]]+(([^.]*|.*))\.*[[:space:]]+([[:digit:]]+)[[:space:]]\/[[:space:]]([[:digit:]]+|\?)[[:space:]]+([[:digit:]]+)$"
 # mainmenu entries
 WATCH_HISTORY="👁️  Watch History"
-MY_FEEDS="📰 My Feeds"
+MY_FEEDS="🗞️  My Feeds"
 WATCH="📺 Watch"
 ADD_ANIME="🧩 Add Anime"
 LIST="📙 Lists"
@@ -1669,6 +1669,12 @@ get_feed_content() {
     clear_lines
 }
 
+remove_feed() {
+    [ -z "$feed_url" ] && printf "Unable to get feed ttl (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    [ -f "$feed_filename" ] && rm -rf "$feed_filename"
+}
+
 # prints aggregated feed content.
 get_aggregated_feed() {
     feed_files="$(find "$FEEDS_PATH" -type f)"
@@ -1697,7 +1703,7 @@ add_feed() {
     if [ -z "$feed_url" ]; then
         return 0
     fi
-    if [ -n "$(get_feed_file)" ]; then
+    if [ -f "$(get_feed_file)" ]; then
         # the feed was already added
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  This feed was already added." && line_to_remove
@@ -3223,7 +3229,7 @@ account_menu() {
             fi
             '
                 feed_entry_choice=$(
-                    printf "%s\n$GENERIC_BACK_ENTRY" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" |
+                    printf "%s\n%s\n%s" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" "🗑️  Remove this source" "$GENERIC_BACK_ENTRY" |
                         $FZF -i --prompt="Select a feed entry: " \
                             --bind "ctrl-l:toggle-preview" \
                             --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -3235,6 +3241,12 @@ account_menu() {
                             --header-first | sed "s/🧲/[Magnet]/g"
                 )
                 if [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "$GENERIC_BACK_ENTRY" ]; then
+                    clear_modifiers
+                    prompt="$MY_FEEDS"
+                    break
+                fi
+                if [ "$feed_entry_choice" = "🗑️  Remove this source" ]; then
+                    remove_feed
                     clear_modifiers
                     prompt="$MY_FEEDS"
                     break
