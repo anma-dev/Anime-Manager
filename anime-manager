@@ -149,6 +149,7 @@ clear_modifiers() {
     am_ret_code=""
     am_ret_msg=""
     add_anime_title=""
+    global_error=0
 }
 
 reset_logs() {
@@ -578,7 +579,8 @@ SCORE_SHOW="👍 Score Anime"
 EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
 ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
 TO_SUBMENU="MORE OPTIONS ▸"
-BACK_TO_SUBMENU="◂ BACK"
+BACK_TO_SUBMENU="◂ BACK TO SUBMENU"
+GENERIC_BACK_ENTRY="◂ BACK"
 # submenu entries
 WATCH_RANDOM="Watch Random Anime 🔀"
 PLAYLIST="Create Playlist 🎦"
@@ -1507,6 +1509,7 @@ delete_link_cache() {
 #* FEEDS
 
 handle_error() {
+    global_error=1
     handle_error_err_msg="$1"
     echo && line_to_remove
     printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 ERROR: $handle_error_err_msg" && line_to_remove
@@ -1520,7 +1523,6 @@ handle_error() {
         fi
     done
     clear_lines
-    clear_modifiers
 }
 
 # decompresses, decodes and prints a feeds data from persistent storage.
@@ -2690,7 +2692,7 @@ add_anime() {
     while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
     clear_lines
     results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
-    [ -z "$results" ] && results="No results found.\n$TO_MAIN_MENU"
+    [ -z "$results" ] && handle_error "No results found" && return 0
     ADD_ANIME_PREVIEW_CMD='
             search_res="$(printf "%s" "{}" | sed "s/^'\''//" | sed "s/'\''$//")"
             if [ "$search_res" = "$TO_MAIN_MENU" ]; then
@@ -2707,7 +2709,7 @@ add_anime() {
             fi
             '
     add_anime_choice="$(
-        printf "%b" "$TO_MAIN_MENU\n$results" | sort -r --version-sort |
+        printf "%b" "$GENERIC_BACK_ENTRY\n$results" | sort -r --version-sort |
             $FZF --prompt="Choose the anime to add: " \
                 --border-label "╢ ♣  ADD NEW ANIME ($new_status list) ♣  ╟" \
                 --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add" \
@@ -2717,8 +2719,7 @@ add_anime() {
                 --bind "ctrl-l:toggle-preview" \
                 --header-first --tac
     )"
-    [ -z "$results" ] && return
-    if [ "$add_anime_choice" = "$TO_MAIN_MENU" ]; then
+    if [ "$add_anime_choice" = "$GENERIC_BACK_ENTRY" ]; then
         printf "\n" >"$GLOBAL_TRACKMA_FIFO"
         return
     fi
@@ -3186,11 +3187,13 @@ account_menu() {
                 handle_error "$am_ret_msg"
                 continue
             fi
-            # shellcheck disable=SC2089
-            [ -z "$feed_entries" ] && feed_entries='[{"title": "This feed has no entries."}]'
-            # shellcheck disable=SC2090
-            export feed_entries
-            FZF_PREVIEW_WINDOW_CMD='
+            # feed entries loop
+            while true; do
+                # shellcheck disable=SC2089
+                [ -z "$feed_entries" ] && feed_entries='[{"title": "This feed has no entries."}]'
+                # shellcheck disable=SC2090
+                export feed_entries
+                FZF_PREVIEW_WINDOW_CMD='
             entry_name_color="\x1b[38;2;255;165;0m";
             reset="\x1b[0m";
             prev_feed_title={};
@@ -3211,75 +3214,91 @@ account_menu() {
                 printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}";
             fi
             '
-            feed_entry_choice=$(
-                printf "%s\n$TO_MAIN_MENU" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" |
-                    $FZF -i --prompt="Select a feed entry: " \
-                        --bind "ctrl-l:toggle-preview" \
-                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview-window "$PREVIEW_WINDOW_OPTS" \
-                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview-label ' Feed Entry Details ' \
-                        --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶" \
-                        --header-first | sed "s/🧲/[Magnet]/g"
-            )
-            if [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "$TO_MAIN_MENU" ]; then
-                clear_modifiers
-                continue
-            fi
-            # handle the user feed entry selection
-            feed_action_choice=$(
-                printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play ▶ (torrenting)\n%s" "$TO_MAIN_MENU" |
-                    $FZF -i --prompt="Select an action: " \
-                        --bind "ctrl-l:toggle-preview" \
-                        --preview "$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview-window "$PREVIEW_WINDOW_OPTS" \
-                        --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
-                        --preview-label ' Feed Entry Details ' \
-                        --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
-                        --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶ (torrenting)" \
-                        --header-first | cut -d" " -f1
-            )
-            if [ "$feed_action_choice" = "◂" ]; then
-                clear_modifiers
-                continue
-            fi
-            if [ "$feed_action_choice" = "💾" ]; then
-                parsed_anime_info="$($GET_ANIME_TITLE_EP_BIN --input "$feed_entry_choice")"
-                if [ -z "$parsed_anime_info" ]; then
-                    printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to get the anime info." && line_to_remove
-                    sleep 3
-                    clear_lines
+                feed_entry_choice=$(
+                    printf "%s\n$GENERIC_BACK_ENTRY" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" |
+                        $FZF -i --prompt="Select a feed entry: " \
+                            --bind "ctrl-l:toggle-preview" \
+                            --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                            --preview-window "$PREVIEW_WINDOW_OPTS" \
+                            --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                            --preview-label ' Feed Entry Details ' \
+                            --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
+                            --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶" \
+                            --header-first | sed "s/🧲/[Magnet]/g"
+                )
+                if [ -z "$feed_entry_choice" ] || [ "$feed_entry_choice" = "$GENERIC_BACK_ENTRY" ]; then
                     clear_modifiers
                     prompt="$MY_FEEDS"
-                    continue
+                    break
                 fi
-                status="watching"
-                new_status="$status"
-                anime_title="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.anime_title')"
-                cur_anime_episode="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.episode_number')"
-                add_anime_title="$anime_title"
-                add_anime
-                feed_trackma_entry="$(get_entry_from_title)"
-                entry_index="$(get_entry_index "$feed_trackma_entry")"                                                                            # needed for getting info in watch_anime
-                last_watched_ep="$(get_last_watched_episode "$feed_trackma_entry")"                                                               # needed for player monitor
-                last_show_episode="$(get_last_show_episode "$feed_trackma_entry")"                                                                # needed for media player menu
-                torrent_ids="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')" # needed to bypass nyaa search
-                player_source="torrenting"                                                                                                        # needed to bypass source selection
-                watch_anime
-                if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
-                    # the user stopped the player
-                    clear_modifiers
-                    continue
-                elif [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
-                    # an error occurred
-                    handle_error "The playback ended due to an error"
+                # handle the user feed entry selection
+                feed_action_choice=$(
+                    printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play ▶ (torrenting)\n%s" "$GENERIC_BACK_ENTRY" |
+                        $FZF -i --prompt="Select an action: " \
+                            --bind "ctrl-l:toggle-preview" \
+                            --preview "$FZF_PREVIEW_WINDOW_CMD" \
+                            --preview-window "$PREVIEW_WINDOW_OPTS" \
+                            --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$FZF_PREVIEW_WINDOW_CMD" \
+                            --preview-label ' Feed Entry Details ' \
+                            --border-label "╢ ♣  📰 $(trim "$feed_title" 40) ♣  ╟" \
+                            --header "⇅ Navigation ─ [ESC] Exit ─ [Ctrl-L] Expand ─ [Enter] Add/Play ▶ (torrenting)" \
+                            --header-first | cut -d" " -f1
+                )
+                if [ "$feed_action_choice" = "◂" ]; then
                     clear_modifiers
                     continue
                 fi
-            elif [ "$feed_action_choice" = "▶️" ]; then
-                true
-            fi
+                if [ "$feed_action_choice" = "💾" ]; then
+                    parsed_anime_info="$($GET_ANIME_TITLE_EP_BIN --input "$feed_entry_choice")"
+                    if [ -z "$parsed_anime_info" ]; then
+                        printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to get the anime info." && line_to_remove
+                        sleep 3
+                        clear_lines
+                        clear_modifiers
+                        prompt="$MY_FEEDS"
+                        continue
+                    fi
+                    status="watching"
+                    new_status="$status"
+                    anime_title="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.anime_title')"
+                    cur_anime_episode="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.episode_number')"
+                    add_anime_title="$anime_title"
+                    add_anime
+                    if [ "$global_error" -eq 1 ]; then
+                        # the user exited or an error occurred
+                        clear_modifiers
+                        prompt="$MY_FEEDS"
+                        break
+                    elif [ "$add_anime_choice" = "$GENERIC_BACK_ENTRY" ]; then
+                        clear_modifiers
+                        continue
+                    fi
+                    feed_trackma_entry="$(get_entry_from_title)"
+                    entry_index="$(get_entry_index "$feed_trackma_entry")"                                                                            # needed for getting info in watch_anime
+                    last_watched_ep="$(get_last_watched_episode "$feed_trackma_entry")"                                                               # needed for player monitor
+                    last_show_episode="$(get_last_show_episode "$feed_trackma_entry")"                                                                # needed for media player menu
+                    torrent_ids="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')" # needed to bypass nyaa search
+                    player_source="torrenting"                                                                                                        # needed to bypass source selection
+                    watch_anime
+                    if [ "$global_error" -eq 1 ]; then
+                        clear_modifiers
+                        prompt="$MY_FEEDS"
+                        break
+                    fi
+                    if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
+                        # the user stopped the player
+                        clear_modifiers
+                        continue
+                    elif [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
+                        # an error occurred
+                        handle_error "The playback ended due to an error"
+                        clear_modifiers
+                        continue
+                    fi
+                elif [ "$feed_action_choice" = "▶️" ]; then
+                    true
+                fi
+            done
             ;;
         "$UPDATE_EPISODES" | "$UPDATE_STATUS")
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
