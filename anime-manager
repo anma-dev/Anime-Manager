@@ -545,6 +545,7 @@ NYAA_FID_CODE_CONTENT_MISMATCH="-6"
 
 export BACK_MSG
 export TO_MAIN_MENU
+export GENERIC_BACK_ENTRY
 export SWITCH_STATUS_MSG_MENU_ENTRY
 export TRACKMA_ENTRY_REGEX
 export TRACKMA_LOGFILE
@@ -1670,9 +1671,25 @@ get_feed_content() {
 }
 
 remove_feed() {
-    [ -z "$feed_url" ] && printf "Unable to get feed ttl (no feed url)" && kill $$
+    [ -z "$feed_url" ] && printf "Unable to remove feed (no feed url)" && kill $$
     feed_filename="$(get_feed_file)"
     [ -f "$feed_filename" ] && rm -rf "$feed_filename"
+}
+
+rename_feed() {
+    [ -z "$feed_url" ] && printf "Unable to rename feed (no feed url)" && kill $$
+    feed_filename="$(get_feed_file)"
+    feed_content="$(get_feed_data "$feed_filename")"
+    get_feed_etag
+    get_feed_updated_date
+    get_feed_ttl
+    get_feed_ttl_time
+    echo && line_to_remove
+    printf "$MSG_INFO_COLOR%b$RESET" "      📝 Introduce the new feed name:\n         👉 " && line_to_remove
+    read -r feed_title && line_to_remove
+    clear_lines
+    [ -z "$feed_title" ] && return
+    save_feed_data
 }
 
 # prints aggregated feed content.
@@ -3211,25 +3228,34 @@ account_menu() {
             entry_name_color="\x1b[38;2;255;165;0m";
             reset="\x1b[0m";
             prev_feed_title={};
-            if [ "$prev_feed_title" = "$TO_MAIN_MENU" ]; then
-                printf "\nGo back to the main menu."
-            else
-                prev_feed_title="$(printf "%s" "$prev_feed_title" | sed "s/🧲/[Magnet]/g")"
-                feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")";
-                printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')";
-                prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')";
-                if [ -n "$(printf "%s" "$OSTYPE" | sed -En "s/.*[Dd]arwin.*/&/p")" ]; then
-                    printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
-                else
-                    printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
-                fi
-                printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
-                summary_link="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")"
-                printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}";
-            fi
+            case "$prev_feed_title" in
+                "$GENERIC_BACK_ENTRY")
+                    printf "\nGo back to the previous menu."
+                ;;
+                "🗑️  Remove feed")
+                    printf "\nPermanently remove this source from your feeds."
+                ;;
+                "📝 Rename feed")
+                    printf "\nRename this source'\''s title."
+                ;;
+                *)
+                    prev_feed_title="$(printf "%s" "$prev_feed_title" | sed "s/🧲/[Magnet]/g")"
+                    feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")";
+                    printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')";
+                    prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')";
+                    if [ -n "$(printf "%s" "$OSTYPE" | sed -En "s/.*[Dd]arwin.*/&/p")" ]; then
+                        printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                    else
+                        printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                    fi
+                    printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
+                    summary_link="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")"
+                    printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}";
+                ;;
+            esac
             '
                 feed_entry_choice=$(
-                    printf "%s\n%s\n%s" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" "🗑️  Remove this source" "$GENERIC_BACK_ENTRY" |
+                    printf "%s\n%s\n%s\n%s" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" "🗑️  Remove feed" "📝 Rename feed" "$GENERIC_BACK_ENTRY" |
                         $FZF -i --prompt="Select a feed entry: " \
                             --bind "ctrl-l:toggle-preview" \
                             --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -3245,8 +3271,22 @@ account_menu() {
                     prompt="$MY_FEEDS"
                     break
                 fi
-                if [ "$feed_entry_choice" = "🗑️  Remove this source" ]; then
-                    remove_feed
+                if [ "$feed_entry_choice" = "🗑️  Remove feed" ]; then
+                    feed_destroy_choice="$(
+                        printf "NO, cancel and go back.\nYES, permanently remove '%s'." "${feed_title}" | $FZF -i --prompt "💥💥💥 YOU ARE ABOUT TO REMOVE A FEED SOURCE: Select a option 💥💥💥" \
+                            --border-label "╢ ♣  💥💥💥 ARE YOU SURE you want to remove this feed source? ♣  ╟" \
+                            --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
+                            --header-first | cut -c1
+                    )"
+                    if [ "$feed_destroy_choice" = "Y" ]; then
+                        remove_feed
+                    fi
+                    clear_modifiers
+                    prompt="$MY_FEEDS"
+                    break
+                fi
+                if [ "$feed_entry_choice" = "📝 Rename feed" ]; then
+                    rename_feed
                     clear_modifiers
                     prompt="$MY_FEEDS"
                     break
