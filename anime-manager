@@ -1506,9 +1506,10 @@ delete_link_cache() {
 
 #* FEEDS
 
-handle_feed_error() {
+handle_error() {
+    handle_error_err_msg="$1"
     echo && line_to_remove
-    printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 ERROR: $am_ret_msg" && line_to_remove
+    printf "$MSG_ERR_COLOR%s$RESET\n" "      💥 ERROR: $handle_error_err_msg" && line_to_remove
     printf "      [Enter] ◂ Main Menu\n" && line_to_remove
     while true; do
         read -r key
@@ -2857,6 +2858,13 @@ watch_anime() {
     if printf "%s" "$anime_info" | grep "Type: " >/dev/null 2>&1; then
         show_type="$(printf "%b" "$anime_info" | grep "Type: " | awk -F": " '{print $2}')"
     fi
+    if [ "$cur_anime_episode" = "null" ] && [ "$show_type" != "tv" ]; then
+        # When we call watch_anime from the feeds logic sometimes it is possible
+        # that the feed entry title did not contain an episode number when it
+        # refers to something other than a tv series and our parse logic was
+        # unable detect it. In that case set the episode to 1.
+        cur_anime_episode=1
+    fi
     if printf "%s" "$anime_info" | grep "Synonyms: " >/dev/null 2>&1; then
         anime_synonyms="$(printf "%b" "$anime_info" | grep "Synonyms: " | awk -F": " '{print $2}' | sed "s/[]'[]//g"),"
         # split and iterate string for posix https://stackoverflow.com/a/15988793
@@ -3164,7 +3172,7 @@ account_menu() {
             if [ "$feed_title" = "+ Add Feed" ]; then
                 add_feed
                 if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-                    handle_feed_error
+                    handle_error "$am_ret_msg"
                     continue
                 fi
                 clear_modifiers
@@ -3175,7 +3183,7 @@ account_menu() {
             feed_url="$(printf "%b" "$full_feeds" | jq -c ".[$((feed_title_index - 1))]" | jq --raw-output ".url")"
             get_feed_content
             if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
-                handle_feed_error
+                handle_error "$am_ret_msg"
                 continue
             fi
             # shellcheck disable=SC2089
@@ -3265,13 +3273,13 @@ account_menu() {
                     continue
                 elif [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
                     # an error occurred
-                    printf "💥 The playback ended due to an error" && line_to_remove
-                    kill $$
+                    handle_error "The playback ended due to an error"
+                    clear_modifiers
+                    continue
                 fi
             elif [ "$feed_action_choice" = "▶️" ]; then
                 true
             fi
-
             ;;
         "$UPDATE_EPISODES" | "$UPDATE_STATUS")
             if [ "$prompt" = "$UPDATE_EPISODES" ]; then
