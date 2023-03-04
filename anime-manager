@@ -324,6 +324,12 @@ clear_lines() {
     fi
 }
 
+# this clears the terminal screen
+clear_screen() {
+    clear_lines
+    clear && printf '\e[3J'
+}
+
 sanitize_bash() {
     printf "%s" "$1" | LC_ALL=C sed -e 's/[^a-zA-Z0-9,._+@%/-]/\\&/g; 1{$s/^$/""/}; 1!s/^/"/; $!s/$/"/'
 }
@@ -388,7 +394,7 @@ print_subheader() {
 # Print the application logo.
 # The logos are compressed for efficiency.
 paint_logo() {
-    tput clear
+    clear_screen
     # print the logos
     LOGO_B64=$LOGO_DEFAULT_B64
     # special dates
@@ -402,7 +408,7 @@ paint_logo() {
     fi
     [ "$MONOCHROME_LOGO" -eq 1 ] && LOGO_B64=$LOGO_MONOCHROME
     if [ "$DEBUG" -eq 0 ]; then
-        tput clear
+        clear_screen
         printf "%b\n" "$(
             base64 -d <<EOF | gunzip
 $LOGO_B64
@@ -412,6 +418,11 @@ EOF
     printf "$TITLE_COLOR%s$RESET\n" "      🍿 Watch and Sync Anime from Your Terminal"
     printf "$MSG_HELP_COLOR%s$RESET\n" "         Use arrow keys/mouse scroll to navigate. Type to filter results" && echo
 
+}
+
+paint_full_header() {
+    paint_logo
+    print_subheader
 }
 
 exit_script() {
@@ -1396,7 +1407,7 @@ print_readme_first_msg() {
         done
         printf "%s\n" "$answer" >"$CHECKPOINTFILE"
     fi
-    tput clear
+    clear_screen
 }
 
 select_account() {
@@ -1434,7 +1445,7 @@ select_account() {
         TRACKER_SERVICE="$(get_remote_tracker)"
     fi
     printf "ls\n" >"$GLOBAL_TRACKMA_FIFO"
-    tput clear
+    clear_screen
 }
 
 check_trackma_config() {
@@ -2506,7 +2517,7 @@ EOF
 #
 # The menu that is presented when the user switches incognito mode on.
 incognito_menu() {
-    tput clear
+    clear_screen
     INCOGNITO_MENU_HELPTEXT="
 👤  Switch Incognito Mode off.
 ───
@@ -3243,7 +3254,6 @@ account_menu() {
                     prev_feed_title="$(printf "%s" "$prev_feed_title" | sed "s/🧲/[Magnet]/g")"
                     feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")"
                     printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')"
-                    
                     prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')"
                     # format the date. sed scripts with regexp curly braces
                     # quantifier have an unnecessary "at-least" N range "{N,}"
@@ -3259,9 +3269,6 @@ account_menu() {
                         prev_entry_date="$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
                     fi
                     printf "\n${entry_name_color}Date:${reset} %s\n" "$prev_entry_date"
-                    printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")"
-                    summary_link="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")"
-                    printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}"
                     ;;
                 esac
                 '
@@ -3304,7 +3311,7 @@ account_menu() {
                 fi
                 # handle the user feed entry selection
                 feed_action_choice=$(
-                    printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play ▶ (torrenting)\n%s" "$GENERIC_BACK_ENTRY" |
+                    printf "💾 Add Anime + Play ▶ (torrenting)\n▶️  Play ▶ (torrenting)\n📄 View the feed summary\n%s" "$GENERIC_BACK_ENTRY" |
                         $FZF -i --prompt="Select an action: " \
                             --bind "ctrl-l:toggle-preview" \
                             --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -3368,6 +3375,25 @@ account_menu() {
                     fi
                 elif [ "$feed_action_choice" = "▶️" ]; then
                     true
+                elif [ "$feed_action_choice" = "📄" ]; then
+                    clear_screen
+                    paint_full_header
+                    feed_title="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.title')"
+                    feed_summary="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.summary')"
+                    echo && line_to_remove
+                    printf " ${MSG_WARN_COLOR}─ VIEWING FEED ENTRY SUMMARY ─\n\n TITLE: ${RESET}${MSG_INFO_COLOR}%s${RESET}\n" "$feed_title"
+                    format_summary="$(printf "%b" "$feed_summary" | html2text -links -nobs)"
+                    printf "${MSG_INFO_COLOR}%b${RESET}\n" "$format_summary" | sed "s/\* References \*/$(printf "%b" "${MSG_WARN_COLOR}")REFERENCES:$(printf "%b" "${RESET}${MSG_INFO_COLOR}")/g"
+                    printf " ${MSG_WARN_COLOR}[Enter] %s${RESET}\n" "$GENERIC_BACK_ENTRY" && line_to_remove
+                    while true; do
+                        read -r key
+                        key="$(start_substring "$key" 1)"
+                        if [ "$key" = "" ]; then
+                            break
+                        fi
+                    done
+                    clear_screen
+                    paint_full_header
                 fi
             done
             ;;
@@ -3814,7 +3840,7 @@ account_menu() {
 
 # Script entry point function
 main() {
-    tput clear
+    clear_screen
     check_setup
     # common fzf args
     PREVIEW_WINDOW_OPTS="right,70%,hidden,wrap"
@@ -3847,7 +3873,7 @@ on_exit() {
     onexit_exit_code="${3:-$onexit_last_exit_status}"
     [ "$AUTOINSTALL" -eq 1 ] && exit "$onexit_exit_code"
     if [ "$onexit_exit_code" -eq 130 ] || [ "$onexit_exit_code" -eq 0 ]; then
-        tput clear
+        clear_screen
     else
         printf "%s\n" "ERROR on line $onexit_parent_lineno - $onexit_message - exit code $onexit_exit_code"
     fi
