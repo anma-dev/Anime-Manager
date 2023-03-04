@@ -3226,35 +3226,45 @@ account_menu() {
                 # shellcheck disable=SC2090
                 export feed_entries
                 FZF_PREVIEW_WINDOW_CMD='
-            entry_name_color="\x1b[38;2;255;165;0m";
-            reset="\x1b[0m";
-            prev_feed_title={};
-            case "$prev_feed_title" in
+                entry_name_color="\x1b[38;2;255;165;0m"
+                reset="\x1b[0m"
+                prev_feed_title={}
+                case "$prev_feed_title" in
                 "$GENERIC_BACK_ENTRY")
                     printf "\nGo back to the previous menu."
-                ;;
+                    ;;
                 "🗑️  Remove feed")
                     printf "\nPermanently remove this source from your feeds."
-                ;;
+                    ;;
                 "📝 Rename feed")
                     printf "\nRename this source'\''s title."
-                ;;
+                    ;;
                 *)
                     prev_feed_title="$(printf "%s" "$prev_feed_title" | sed "s/🧲/[Magnet]/g")"
-                    feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")";
-                    printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')";
-                    prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')";
-                    if [ -n "$(printf "%s" "$OSTYPE" | sed -En "s/.*[Dd]arwin.*/&/p")" ]; then
-                        printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
-                    else
-                        printf "\n${entry_name_color}Date:${reset} %s\n" "$(date -d "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                    feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")"
+                    printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')"
+                    
+                    prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')"
+                    # format the date. sed scripts with regexp curly braces
+                    # quantifier have an unnecessary "at-least" N range "{N,}"
+                    # this way it can work within fzf preview, otherwise it
+                    # seems to be interpreted as an fzf placeholder expression.
+                    # Normally I would do {N}.
+                    if [ -n "$(printf "%s" "$prev_entry_date" | sed -En "/^[[:digit:]]{4,}-[[:digit:]]{2,}-[[:digit:]]{2,}T[[:digit:]]{2,}:[[:digit:]]{2,}:[[:digit:]]{2,}Z$/p")" ]; then
+                        # It is an ISO8601 date
+                        prev_entry_date="$(printf "%s" "$prev_entry_date" | sed -E "s/Z/ +0000/")"
+                        prev_entry_date="$(date -j -f "%Y-%m-%dT%H:%M:%S %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                    elif [ -n "$(printf "%s\n" "$prev_entry_date" | sed -En "/^[a-zA-Z]{3,}, [[:digit:]]{2,} [a-zA-Z]{3,} [[:digit:]]{4,} [[:digit:]]{2,}:[[:digit:]]{2,}:[[:digit:]]{2,} \+[[:digit:]]{4,}$/p")" ]; then
+                        # It is an RFC822 date
+                        prev_entry_date="$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
                     fi
-                    printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")";
+                    printf "\n${entry_name_color}Date:${reset} %s\n" "$prev_entry_date"
+                    printf "\n${entry_name_color}Summary:${reset}\n%s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -e "s/<[^>]*>//g")"
                     summary_link="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.summary'\'' | sed -En "s/<a href=\"([^>]*)\">.*/\1/p")"
-                    printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}";
-                ;;
-            esac
-            '
+                    printf "\n${entry_name_color}Summary Link:${reset}\n%s\n" "${summary_link:-"N/A"}"
+                    ;;
+                esac
+                '
                 feed_entry_choice=$(
                     printf "%s\n%s\n%s\n%s" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" "🗑️  Remove feed" "📝 Rename feed" "$GENERIC_BACK_ENTRY" |
                         $FZF -i --prompt="Select a feed entry: " \
