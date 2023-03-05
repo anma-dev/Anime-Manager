@@ -2274,7 +2274,7 @@ play_anime() {
                 play_status="$PLAY_STATUS_EXITED"
                 return 0
             fi
-            torrent_ids="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$nya_res_choice\" )" | jq --raw-output ".torrent id")"
+            torrent_ids="$(printf "%b" "$nyaa_search_res" | jq -c "select( .name == \"$nya_res_choice\" )" | jq --raw-output ".magnet")"
         fi
         select_torrent_content_file
         [ "$file_index" = "◂" ] && play_status=$PLAY_STATUS_OKPLAYING && return
