@@ -3361,7 +3361,9 @@ account_menu() {
                         # it does not appear to be a torrent id, then double check
                         # check if we can find a torrent id in the summary
                         feed_summary="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.summary')"
-                        if [ -n "$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(https:\/\/[-a-zA-Z0-9+&@#\/%=~_|$?!:,.]*\.torrent).*/\1/p')" ]; then
+                        if [ -n "$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(magnet[-a-zA-Z0-9+&@#/%=~_|$?!:;,.]+).*/\1/p')" ]; then
+                            torrent_ids="$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(magnet[-a-zA-Z0-9+&@#/%=~_|$?!:;,.]+).*/\1/p')"
+                        elif [ -n "$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(https:\/\/[-a-zA-Z0-9+&@#\/%=~_|$?!:,.]*\.torrent).*/\1/p')" ]; then
                             torrent_ids="$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(https:\/\/[-a-zA-Z0-9+&@#\/%=~_|$?!:,.]*\.torrent).*/\1/p')"
                         fi
                     fi
