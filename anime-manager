@@ -1691,7 +1691,7 @@ get_feed_content() {
 remove_feed() {
     [ -z "$feed_url" ] && printf "Unable to remove feed (no feed url)" && kill $$
     feed_filename="$(get_feed_file)"
-    [ -f "$feed_filename" ] && rm -rf "$feed_filename"
+    [ -f "$feed_filename" ] && rm "$feed_filename"
 }
 
 rename_feed() {
