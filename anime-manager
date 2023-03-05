@@ -1733,7 +1733,7 @@ add_feed() {
     stty -echo
     read -r feed_url
     stty "$stty_orig"
-    feed_url="$(printf "%s" "$feed_url" | sed "s/;//g")" # newline esc seq in octal
+    feed_url="$(printf "%s" "$feed_url" | sed "s/;//g")"
     clear_lines
     if [ -z "$feed_url" ]; then
         return 0
