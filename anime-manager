@@ -3345,7 +3345,11 @@ account_menu() {
                     status="watching"
                     new_status="$status"
                     anime_title="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.anime_title')"
-                    cur_anime_episode="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.episode_number[]?' | head -n1)"
+                    cur_anime_episode="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.episode_number')"
+                    if [ -n "$(printf "%s" "$cur_anime_episode" | sed -En "/\[/p")" ]; then
+                        # it is an episode range
+                        cur_anime_episode="$(printf "%s" "$parsed_anime_info" | jq --raw-output '.episode_number[]?' | head -n1)"
+                    fi
                     add_anime_title="$anime_title"
                     add_anime
                     if [ "$global_error" -eq 1 ]; then
