@@ -1662,6 +1662,8 @@ get_feed_content() {
     get_feed_ttl
     get_feed_ttl_time
     get_feed_content_res="$($GET_FEED_SCRIPT --link "$feed_url" --etag "$feed_etag" --modified "$feed_updated_date" --ttl "$feed_ttl" --ttl-update "$feed_ttl_update_time")"
+    # remove newlines
+    get_feed_content_res="$(printf "%b" "$get_feed_content_res" | tr -d '\n')"
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
@@ -1671,13 +1673,17 @@ get_feed_content() {
         feed_entries="$(printf "%s" "$get_feed_content_res" | jq -r '.entries')"
         feed_etag="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.etag')"
         feed_ttl="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.feed.ttl')"
-        feed_updated_date="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.updated')"
+        feed_updated_date="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.feed.updated')"
     else
         get_feed_entries
     fi
     # format_feed_entries
-    [ -z "$feed_etag" ] && feed_etag=0
-    [ -z "$feed_updated_date" ] && feed_updated_date=0
+    if [ -z "$feed_etag" ] || [ "$feed_updated_date" = "null" ]; then
+        feed_etag=0
+    fi
+    if [ -z "$feed_updated_date" ] || [ "$feed_updated_date" = "null" ]; then
+        feed_updated_date=0
+    fi
     save_feed_data
     clear_lines
 }
@@ -1727,7 +1733,7 @@ add_feed() {
     stty -echo
     read -r feed_url
     stty "$stty_orig"
-    feed_url="$(printf "%s" "$feed_url" | sed "s/;//g" | tr -d '\012')" # newline esc seq in octal
+    feed_url="$(printf "%s" "$feed_url" | sed "s/;//g")" # newline esc seq in octal
     clear_lines
     if [ -z "$feed_url" ]; then
         return 0
