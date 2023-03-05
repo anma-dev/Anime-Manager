@@ -3372,6 +3372,12 @@ account_menu() {
                         clear_modifiers
                         continue
                     fi
+                    if [ -z "$(printf "%s" "$torrent_ids" | sed -En "/magnet/p")" ] && [ -z "$(printf "%s" "$torrent_ids" | sed -En "/\.torrent/p")" ]; then
+                        # No valid torrent id pattern matched
+                        handle_error "No torrent ids found in this feed."
+                        clear_modifiers
+                        continue
+                    fi
                     player_source="torrenting" # needed to bypass source selection
                     watch_anime
                     if [ "$global_error" -eq 1 ]; then
@@ -3382,12 +3388,12 @@ account_menu() {
                     if [ "$play_status" = "$PLAY_STATUS_EXITED" ]; then
                         # the user stopped the player
                         clear_modifiers
-                        continue
+                        break
                     elif [ "$play_status" = "$PLAY_STATUS_ERRORED" ]; then
                         # an error occurred
                         handle_error "The playback ended due to an error"
                         clear_modifiers
-                        continue
+                        break
                     fi
                 elif [ "$feed_action_choice" = "▶️" ]; then
                     true
