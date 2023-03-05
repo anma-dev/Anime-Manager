@@ -515,13 +515,13 @@ MEDIA_PLAYER_IINA_SOCKET="/tmp/iinasocket"
 
 ANIMDL_CONF_FILE="$CONFIG_PATH/animdl_config.yml"
 PLAYER_LOGFILE="$CONFIG_PATH/log/media_player.log"
-NYAA_SEARCH_BIN="$(getcwd)/lib/python/nyaa_search.py"
+NYAA_SEARCH_SCRIPT="$(getcwd)/lib/python/nyaa_search.py"
 NYAA_SEARCH_LOGFILE="$LOG_DIR/nyaa_search.log"
 NYAA_FE_LOGFILE="$LOG_DIR/file_extractor.log"
-NYAA_FE_BIN="$(getcwd)/lib/python/file_extractor.py"
+NYAA_FE_SCRIPT="$(getcwd)/lib/python/file_extractor.py"
 WEBTORRENT_CLI="lib/javascript/webtorrent-cli/bin/cmd.js"
-GET_FEED_BIN="$(getcwd)/lib/python/get_feed.py"
-GET_ANIME_TITLE_EP_BIN="$(getcwd)/lib/python/get_title.py"
+GET_FEED_SCRIPT="$(getcwd)/lib/python/get_feed.py"
+GET_ANIME_TITLE_EP_SCRIPT="$(getcwd)/lib/python/get_title.py"
 
 # logfiles
 WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
@@ -1661,7 +1661,7 @@ get_feed_content() {
     get_feed_updated_date
     get_feed_ttl
     get_feed_ttl_time
-    get_feed_content_res="$($GET_FEED_BIN --link "$feed_url" --etag "$feed_etag" --modified "$feed_updated_date" --ttl "$feed_ttl" --ttl-update "$feed_ttl_update_time")"
+    get_feed_content_res="$($GET_FEED_SCRIPT --link "$feed_url" --etag "$feed_etag" --modified "$feed_updated_date" --ttl "$feed_ttl" --ttl-update "$feed_ttl_update_time")"
     am_ret_code="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_code')"
     am_ret_msg="$(printf "%s" "$get_feed_content_res" | jq --raw-output '.am_ret_msg')"
     if [ -n "$am_ret_code" ] && [ "$am_ret_code" != "null" ]; then
@@ -2001,7 +2001,7 @@ play_torrent_id() {
 get_torrent_id_info() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET\n" "      🗃️  Searching for matching file..." && line_to_remove
-    get_torrent_id_info_data="$(python3 "$NYAA_FE_BIN" --title "$anime_title_match" --synonyms "$(printf "%s" "$anime_synonyms")" --torrent-ids "$torrent_ids" --episode "$cur_anime_episode" --type "$show_type")"
+    get_torrent_id_info_data="$(python3 "$NYAA_FE_SCRIPT" --title "$anime_title_match" --synonyms "$(printf "%s" "$anime_synonyms")" --torrent-ids "$torrent_ids" --episode "$cur_anime_episode" --type "$show_type")"
     episode_data="$(printf "%s" "$get_torrent_id_info_data" | awk -F"////" '{print $1}' | sed "s/'/'\"'\"'/g")"
     file_list="$(printf "%s" "$get_torrent_id_info_data" | awk -F"////" '{print $2}')"
     file_index="$(printf "%s" "$get_torrent_id_info_data" | awk -F"////" '{print $3}')"
@@ -2166,7 +2166,7 @@ play_anime() {
                 nyaa_search_ret_code=""
                 nyaa_search_ret_msg=""
                 printf "$MSG_INFO_COLOR%s$RESET\n" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
-                nyaa_search_res="$($NYAA_SEARCH_BIN --title "$anime_title_match" --episode "$cur_anime_episode" --quality 1080 --show-type "$show_type")"
+                nyaa_search_res="$($NYAA_SEARCH_SCRIPT --title "$anime_title_match" --episode "$cur_anime_episode" --quality 1080 --show-type "$show_type")"
                 if printf "%s" "$nyaa_search_res" | grep "////" >/dev/null 2>&1; then
                     nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
                     nyaa_search_ret_code=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $2}')
@@ -3327,7 +3327,7 @@ account_menu() {
                     continue
                 fi
                 if [ "$feed_action_choice" = "💾" ]; then
-                    parsed_anime_info="$($GET_ANIME_TITLE_EP_BIN --input "$feed_entry_choice")"
+                    parsed_anime_info="$($GET_ANIME_TITLE_EP_SCRIPT --input "$feed_entry_choice")"
                     if [ -z "$parsed_anime_info" ]; then
                         printf "$MSG_ERR_COLOR%s$RESET" "      💥 Unable to get the anime info." && line_to_remove
                         sleep 3
