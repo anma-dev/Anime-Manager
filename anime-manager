@@ -3356,7 +3356,21 @@ account_menu() {
                     last_watched_ep="$(get_last_watched_episode "$feed_trackma_entry")"                                                               # needed for player monitor
                     last_show_episode="$(get_last_show_episode "$feed_trackma_entry")"                                                                # needed for media player menu
                     torrent_ids="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.link')" # needed to bypass nyaa search
-                    player_source="torrenting"                                                                                                        # needed to bypass source selection
+                    # we check that the feed link is actually a torrent id
+                    if [ -z "$(printf "%s" "$torrent_ids" | sed -En "/magnet/p")" ] && [ -z "$(printf "%s" "$torrent_ids" | sed -En "/\.torrent/p")" ]; then
+                        # it does not appear to be a torrent id, then double check
+                        # check if we can find a torrent id in the summary
+                        feed_summary="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.summary')"
+                        if [ -n "$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(https:\/\/[-a-zA-Z0-9+&@#\/%=~_|$?!:,.]*\.torrent).*/\1/p')" ]; then
+                            torrent_ids="$(printf "%s" "$feed_summary" | tr -d '\n' | sed -En 's/.*(https:\/\/[-a-zA-Z0-9+&@#\/%=~_|$?!:,.]*\.torrent).*/\1/p')"
+                        fi
+                    fi
+                    if [ -z "$torrent_ids" ]; then
+                        handle_error "No torrent ids found in this feed."
+                        clear_modifiers
+                        continue
+                    fi
+                    player_source="torrenting" # needed to bypass source selection
                     watch_anime
                     if [ "$global_error" -eq 1 ]; then
                         clear_modifiers
@@ -3873,7 +3887,9 @@ on_exit() {
     onexit_exit_code="${3:-$onexit_last_exit_status}"
     [ "$AUTOINSTALL" -eq 1 ] && exit "$onexit_exit_code"
     if [ "$onexit_exit_code" -eq 130 ] || [ "$onexit_exit_code" -eq 0 ]; then
-        clear_screen
+        if [ "$DEBUG" -eq 0 ]; then
+            clear_screen
+        fi
     else
         printf "%s\n" "ERROR on line $onexit_parent_lineno - $onexit_message - exit code $onexit_exit_code"
     fi
