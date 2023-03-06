@@ -3417,7 +3417,7 @@ account_menu() {
                 elif [ "$feed_action_choice" = "📄" ]; then
                     clear_screen
                     [ "$MINIMAL" -eq 0 ] && paint_full_header
-                    feed_title="$(printf "%b""$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.title')"
+                    feed_title="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.title')"
                     feed_summary="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.summary')"
                     echo && line_to_remove
                     printf " ${MSG_WARN_COLOR}─ VIEWING FEED ENTRY SUMMARY ─\n\nTITLE: ${RESET}${MSG_INFO_COLOR}%s${RESET}\n" "$feed_title"
