@@ -785,7 +785,7 @@ get_trackma_tracker_name() {
 get_entry_from_title() {
     [ -z "$anime_title" ] && printf "💥 Unable to get entry (no title)." && kill $$
     while read -r get_entry_from_title_status; do
-        printf "filter %s\nsearch \"^%s$\"\n" "$get_entry_from_title_status" "$anime_title" | trackma_query >/dev/null 2>&1
+        printf "filter %s\nsearch \"^%s$\"\n" "$(get_trackma_status_code "$get_entry_from_title_status")" "$(sanitize_ext_regex "$anime_title")" | trackma_query >/dev/null 2>&1
         while ! grep "results" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
         format_trackma_list_res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
         get_entry_from_title_entry="$(format_trackma_list "$format_trackma_list_res")"
