@@ -2583,6 +2583,7 @@ incognito_menu() {
             [ -z "$anime_title" ] && clear_modifiers && continue
             anime_title="$(printf "%s" "$anime_title" | sed -E 's/[^a-zA-Z0-9 ]//g' | sed "s/[[:space:]]*$//g" | sed "s/^[[:space:]]*//g")"
             echo && line_to_remove
+            anime_synonyms=""
             anime_title_match="$anime_title"
             printf "      %s Enter an episode number if applicable\n" "$incognito_play_msg_emoji" && line_to_remove
             printf "         👉 " && line_to_remove
@@ -2605,6 +2606,7 @@ incognito_menu() {
                     clear_modifiers
                     break # go to main menu
                 fi
+                clear_lines
                 media_player_menu
                 clear_lines
                 if [ "$media_player_exit_code" = "$PLAYER_MENU_SELECT_SEARCH_RES_CODE" ]; then
@@ -2615,6 +2617,9 @@ incognito_menu() {
                     break # go to main menu
                 elif [ "$media_player_exit_code" = "$PLAYER_MENU_NEXT" ]; then
                     continue
+                else
+                    clear_modifiers
+                    break
                 fi
             done
             ;;
