@@ -60,6 +60,7 @@ video_ext = (".webm", ".mkv", ".flv", ".avi", ".mov", ".wmv", ".mp4", ".m4p",
              ".3g2")
 match_file_index = codes.CODE_FILE_SEL
 video_res = []
+all_video_files = []
 
 
 def parseEpisode(ep: str):
@@ -137,6 +138,7 @@ try:
             filename = re.sub(r'^\d+\s*', '', filename)
             if (not filename.endswith(video_ext)):
                 continue
+            all_video_files.append(anitopy.parse(filename_og))
             filename = normalize_fragment(filename)
             if args.type == "movie":
                 video_res.append(anitopy.parse(filename_og))
@@ -183,6 +185,6 @@ else:
         match_file_index = int(re.findall(
             "^(\d+)\s+.*", video_res[video_res_index]["file_name"])[0])
         parsed_title_res = video_res[video_res_index]
-        comp_res = '\\n'.join(p["file_name"] for p in video_res)
-        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{comp_res}////{match_file_index}"
+        video_content = '\\n'.join(p["file_name"] for p in all_video_files)
+        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{video_content}////{match_file_index}////"
 print(res)
