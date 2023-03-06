@@ -2189,13 +2189,12 @@ play_anime() {
                     # incognito mode source selection menu is the same as the main menu
                     # so we do not need two options in that case
                     # incognito mode does not know about synonyms either
+                    # shellcheck disable=SC2089
                     nyaa_search_res="{\"name\": \"$SELECT_SOURCE\"}\n{\"name\": \"$NYAA_SEARCH_SYNONYM\"}\n${nyaa_search_res}"
-                    # replace simple quotes with 'smart quotes' to avoid filtering command failure
-                    # and to not disrupt the user experience
-                    nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
                 fi
                 clear_lines
             fi
+            # shellcheck disable=SC2090
             export nyaa_search_res
             filter_nyaa_res_function_code='filter_nyaa_res() {
                 case "$1" in
@@ -2228,7 +2227,9 @@ play_anime() {
                     ;;
                 esac
             }'
-
+            # replace simple quotes with 'smart quotes' to avoid filtering
+            # command failure and to not disrupt the user experience
+            nyaa_search_res="$(printf "%s" "$nyaa_search_res" | sed "s/'/’/g")"
             FZF_PREVIEW_WINDOW_CMD="printf \"\n%s\n\n%b\" {} '────────────\nColor code: \n🟢 Trusted\n🔴 Remake\n⚪️ No category\n\nMore info: https://nyaa.si/help'"
             PROMPT_TEXT="Choose a search result: "
             nya_res_choice=$(
@@ -2582,6 +2583,7 @@ incognito_menu() {
             [ -z "$anime_title" ] && clear_modifiers && continue
             anime_title="$(printf "%s" "$anime_title" | sed -E 's/[^a-zA-Z0-9 ]//g' | sed "s/[[:space:]]*$//g" | sed "s/^[[:space:]]*//g")"
             echo && line_to_remove
+            anime_title_match="$anime_title"
             printf "      %s Enter an episode number if applicable\n" "$incognito_play_msg_emoji" && line_to_remove
             printf "         👉 " && line_to_remove
             read -r cur_anime_episode
@@ -3409,14 +3411,14 @@ account_menu() {
                     true
                 elif [ "$feed_action_choice" = "📄" ]; then
                     clear_screen
-                    paint_full_header
-                    feed_title="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.title')"
+                    [ "$MINIMAL" -eq 0 ] && paint_full_header
+                    feed_title="$(printf "%b""$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.title')"
                     feed_summary="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$feed_entry_choice\" )" | jq --raw-output '.summary')"
                     echo && line_to_remove
-                    printf " ${MSG_WARN_COLOR}─ VIEWING FEED ENTRY SUMMARY ─\n\n TITLE: ${RESET}${MSG_INFO_COLOR}%s${RESET}\n" "$feed_title"
+                    printf " ${MSG_WARN_COLOR}─ VIEWING FEED ENTRY SUMMARY ─\n\nTITLE: ${RESET}${MSG_INFO_COLOR}%s${RESET}\n" "$feed_title"
                     format_summary="$(printf "%b" "$feed_summary" | html2text -links -nobs)"
                     printf "${MSG_INFO_COLOR}%b${RESET}\n" "$format_summary" | sed "s/\* References \*/$(printf "%b" "${MSG_WARN_COLOR}")REFERENCES:$(printf "%b" "${RESET}${MSG_INFO_COLOR}")/g"
-                    printf " ${MSG_WARN_COLOR}[Enter] %s${RESET}\n" "$GENERIC_BACK_ENTRY" && line_to_remove
+                    printf "${MSG_WARN_COLOR}[Enter] %s${RESET}\n" "$GENERIC_BACK_ENTRY" && line_to_remove
                     while true; do
                         read -r key
                         key="$(start_substring "$key" 1)"
@@ -3425,7 +3427,7 @@ account_menu() {
                         fi
                     done
                     clear_screen
-                    paint_full_header
+                    [ "$MINIMAL" -eq 0 ] && paint_full_header
                 fi
             done
             ;;
