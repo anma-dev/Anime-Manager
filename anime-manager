@@ -966,7 +966,7 @@ get_last_show_ep_from_title() {
         printf "%s" "$status"
     else
         while read -r trackma_code; do
-            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$trackma_code")" "$(printf "%s" "$title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$trackma_code")" "$(sanitize_ext_regex "$title_fragment" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
             while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
             # Filter by index because we may get more than one match by fragment.
             res_title="$(filter_trackma_list "$(cat "$GLOBAL_TRACKMA_TMPFILE")")"
@@ -1053,7 +1053,7 @@ eval "$get_mixed_anime_info_function_code"
 get_show_entry() {
     status="$(get_show_status)"
     # trackma search uses regex so we need to sanitize it
-    printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
+    printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(sanitize_ext_regex "$anime_title" | sed "s/'/'\"'\"'/g")" | trackma_query >/dev/null 2>&1
     while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
     res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
     get_show_entry_list="$(filter_trackma_list "$res")"
@@ -2332,7 +2332,7 @@ play_anime() {
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
                     if ! grep "Select the search result" "$ANIMDL_LOGFILE" >/dev/null 2>&1; then
-                        if [ -n "$(sed -En "/Could not find any streams|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
+                        if [ -n "$(sed -En "/Could not find|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                             # stream started automatically
                             stream_health=0
                             printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
@@ -2393,7 +2393,7 @@ play_anime() {
                 echo && line_to_remove
                 printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Trying to stream with $decoded_stream_provider." && line_to_remove
                 while [ $stream_health -gt 0 ]; do
-                    if [ -n "$(sed -En "/Could not find any streams|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
+                    if [ -n "$(sed -En "/Could not find|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=0 # check next provider
                         break
                     elif [ -z "$(sed -En "/AV:|libmpv|A-V|File started|Running vlc/p" "$PLAYER_LOGFILE")" ]; then
@@ -2443,7 +2443,7 @@ play_anime() {
                 animdl_pid="$(cat "$stream_pid_file")"
                 stream_health=20
                 while [ $stream_health -gt 0 ]; do
-                    if [ -n "$(sed -En "/Could not find any streams|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
+                    if [ -n "$(sed -En "/Could not find|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                         # stream started automatically
                         stream_health=0
                         printf "$MSG_INFO_COLOR%s$RESET\n" "      🚫 Could not find any streams" && line_to_remove
@@ -2892,7 +2892,7 @@ watch_anime() {
             printf "filter %s\nstatus %s %s\n" "$(get_trackma_status_code "$status")" "$entry_index" "$(get_trackma_status_code "$new_status")" | trackma_query >"$TRACKMA_LOGFILE" 2>&1
             status=$new_status
             # update series index after changing lists
-            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(printf "%s" "$anime_title" | sed "s/'/'\\\''/g")" | trackma_query >/dev/null 2>&1
+            printf "filter %s\nsearch '^%s$'\n" "$(get_trackma_status_code "$status")" "$(sanitize_ext_regex "$anime_title" | sed "s/'/'\\\''/g")" | trackma_query >/dev/null 2>&1
             while ! grep "result" "$GLOBAL_TRACKMA_TMPFILE" >/dev/null 2>&1; do :; done
             res="$(cat "$GLOBAL_TRACKMA_TMPFILE")"
             entry_index="$(format_trackma_list "$res" | sed -En "s/$TRACKMA_ENTRY_REGEX/\1/p")"
