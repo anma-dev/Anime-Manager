@@ -10,6 +10,10 @@ Anime Manager can synchronize your watch progress with your [anime cataloguing s
 
 ## Features ✨
 
+- Integrated torrent client
+- Integrated streaming client
+- Integrated feed reader
+- Integrated anime list sync
 - Operations supported on lists: update anime status, add new anime, update episode count, set and update the score, delete anime from lists
 - Quickly search your lists with fuzzy and literal match.
 - Watch anime via streaming and torrenting
