@@ -1691,7 +1691,7 @@ get_feed_content() {
     get_feed_content_res=""
     [ -z "$feed_url" ] && printf "Unable to get feed content (no feed url)" && kill $$
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET\n" "      📰 Updating your feed, please wait..." && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      📰 Updating your feed..." && line_to_remove
     get_feed_etag
     get_feed_updated_date
     get_feed_ttl
@@ -2026,7 +2026,7 @@ play_torrent_id() {
     # printf "%s" "$episode_data" | jq '.name' >"$CURRENTLY_PLAYING_LOGFILE"
     # remove from job queue to avoid info messages if we have to end the process with kill
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 Torrent is playing soon (please wait...)" && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The torrenting is starting..." && line_to_remove
     play_episode_torrent_status=$(check_torrent_health "$(cat "$torrent_pid_file")")
     # block until socket responds, with timeout
     n=0
@@ -2211,7 +2211,7 @@ play_anime() {
                 echo && line_to_remove
                 nyaa_search_ret_code=""
                 nyaa_search_ret_msg=""
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      😺 Searching Nyaa Torrents. Please wait..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      😺 Searching Nyaa Torrents..." && line_to_remove
                 nyaa_search_res="$($NYAA_SEARCH_SCRIPT --title "$anime_title_match" --episode "$cur_anime_episode" --quality 1080 --show-type "$show_type")"
                 if printf "%s" "$nyaa_search_res" | grep "////" >/dev/null 2>&1; then
                     nyaa_search_ret_msg=$(printf "%s" "$nyaa_search_res" | awk -F "////" '{print $1}')
@@ -2372,7 +2372,7 @@ play_anime() {
                 set -m
                 animdl_pid="$(cat "$stream_pid_file")"
                 exec 4>"$play_episode_stream_fifo_write"
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Please wait, searching the stream provider ($decoded_stream_provider)..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the stream provider ($decoded_stream_provider)..." && line_to_remove
                 stream_health=20
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
@@ -2389,7 +2389,7 @@ play_anime() {
                             # stream started automatically
                             play_status=$PLAY_STATUS_OKPLAYING
                             cur_streaming_provider="$decoded_stream_provider"
-                            printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The stream is starting (please wait...)" && line_to_remove
+                            printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The streaming is starting..." && line_to_remove
                             break 2
                         fi
                     else
@@ -2461,7 +2461,7 @@ play_anime() {
                     rm "$play_episode_stream_fifo_write"
                     unset stream_tmpfile
                     unset stream_fifo_write
-                    printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The stream is starting (please wait...)" && line_to_remove
+                    printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The streaming is starting..." && line_to_remove
                     play_status=$PLAY_STATUS_OKPLAYING
                     cur_streaming_provider="$decoded_stream_provider"
                     break
@@ -2793,7 +2793,7 @@ add_anime() {
     fi
     results="$(printf "filter %s\nadd '%s'\n" "$(get_trackma_status_code "$new_status")" "$add_anime_title" | trackma_query)"
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the catalog ($TRACKER_SERVICE), please wait..." && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the catalog ($TRACKER_SERVICE)..." && line_to_remove
     while [ -z "$(sed -En "/Choose|DataError/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; do :; done
     clear_lines
     results="$(sed -En "/^[0-9]+:/p" "$GLOBAL_TRACKMA_TMPFILE")"
