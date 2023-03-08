@@ -3491,7 +3491,11 @@ account_menu() {
                         player_source="torrenting" # needed to bypass source selection
                         anime_synonyms=""
                         show_type=""
-                        get_torrent_id_info
+                        select_torrent_content_file
+                        if [ $play_status = "$PLAY_STATUS_ERRORED" ]; then
+                            handle_error "Unable to play this anime"
+                            continue
+                        fi
                         play_torrent_id
                         clear_lines
                         media_player_menu
