@@ -1855,14 +1855,14 @@ media_player_menu() {
                     playing_menu="🏁 Set as Watched"
                 else
                     if [ "$cur_anime_episode" -ne "$last_show_episode" ]; then
-                        playing_menu="⏭️  Set as Watched + Play next ▶"
+                        playing_menu="⏭️  Set as Watched + Play next episode ▶"
                     fi
                     [ -n "$playing_menu" ] && playing_menu="${playing_menu}\n"
                     playing_menu="${playing_menu}✅ Set as Watched"
                 fi
             else
                 if [ "$last_show_episode" != "?" ] && [ "$cur_anime_episode" -ne "$last_show_episode" ]; then
-                    playing_menu="⏭️  Play next ▶"
+                    playing_menu="⏭️  Play next episode ▶"
                 fi
             fi
         fi
