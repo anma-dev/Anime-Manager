@@ -4,7 +4,7 @@
 
 Anime Manager is a powerful open source script that allows you to watch anime and synchronize your watch progress from your terminal.
 
-<img src="https://user-images.githubusercontent.com/121255032/215242211-3225dcc9-17f2-41fa-bf61-ffa003aa4377.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/215242219-6edcfccf-a358-47af-9480-c24a0e3654ad.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/215242517-4f726787-1c4b-49ec-898f-a8745b5fcc98.png" width="30%"></img> 
+<img src="https://user-images.githubusercontent.com/121255032/223768824-8aab4c53-f15e-4941-88f2-3b45890e5273.jpeg" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/223768842-7ccab03e-0263-4474-8b7a-e4ef3ac3ae8e.png" width="30%"></img> <img src="https://user-images.githubusercontent.com/121255032/223768860-54851be7-ebf2-40b7-9917-e66f4d5d4360.png" width="30%"></img> 
 
 Anime Manager can synchronize your watch progress with your [anime cataloguing service](https://github.com/anma-dev/Anime-Manager/wiki#currently-supported-websites).
 
