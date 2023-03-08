@@ -346,6 +346,7 @@ clear_lines() {
 
 # this clears the terminal screen
 clear_screen() {
+    [ "$DEBUG" -eq 1 ] && return 0
     clear_lines
     clear && printf '\e[3J'
 }
@@ -1387,7 +1388,7 @@ eval "$trackma_query_function_code"
 close_trackma() {
     if [ -p "$GLOBAL_TRACKMA_FIFO" ]; then
         printf "$MSG_INFO_COLOR%s$RESET\n" "      ⚙️  Closing Trackma..." && line_to_remove
-        if [ -n "$(sed -En "s/no account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
+        if [ -n "$(sed -En "s/No account|Available accounts/&/p" "$GLOBAL_TRACKMA_TMPFILE")" ]; then
             printf "q\n" >"$GLOBAL_TRACKMA_FIFO"
         else
             printf "exit\n" >"$GLOBAL_TRACKMA_FIFO"
@@ -1476,16 +1477,18 @@ check_trackma_config() {
     elif [ -s "$HOME"/.config/trackma/config.json ]; then
         check_trackma_config_config_file="$HOME/.config/trackma/config.json"
     fi
-    AUTORET_VALUE="$(jq --raw-output '.autoretrieve' "$check_trackma_config_config_file")"
-    AUTOSEN_VALUE="$(jq --raw-output '.autosend' "$check_trackma_config_config_file")"
-    if [ "$AUTORET_VALUE" = "always" ] || [ "$AUTOSEN_VALUE" = "always" ]; then
-        printf "%b" "
+    if [ -n "$check_trackma_config_config_file" ]; then
+        AUTORET_VALUE="$(jq --raw-output '.autoretrieve' "$check_trackma_config_config_file")"
+        AUTOSEN_VALUE="$(jq --raw-output '.autosend' "$check_trackma_config_config_file")"
+        if [ "$AUTORET_VALUE" = "always" ] || [ "$AUTOSEN_VALUE" = "always" ]; then
+            printf "%b" "
 💥 Anime Manager was unable to start!
    Please change the 'autoretrieve' and 'autosave' options
    in '$check_trackma_config_config_file'
    to a value other than 'always'.
 "
-        exit
+            exit
+        fi
     fi
     select_account
 }
