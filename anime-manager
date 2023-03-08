@@ -2436,7 +2436,7 @@ play_anime() {
                 sleep 2 # wait for the stream to start
                 stream_health=20
                 echo && line_to_remove
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Trying to stream with $decoded_stream_provider." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Streaming with $decoded_stream_provider." && line_to_remove
                 while [ $stream_health -gt 0 ]; do
                     if [ -n "$(sed -En "/Could not find|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=0 # check next provider
