@@ -79,7 +79,7 @@ def get_match_index():
     match_index = 0
     """
     Try to find a title match and prioritize it.
-    This is useful for example when some uploader bundles 
+    This is useful for example when some uploader bundles
     stuff that a user did not request but is still a match
     by episode.
     It will not remove matches.
@@ -128,8 +128,6 @@ try:
     del result[-3:]
     if len(result) == 0:
         raise AssertionError("The torrent id has no content.")
-    if len(result) == 1:
-        video_res.append(anitopy.parse(result[0]))
     else:
         for filename in result:
             filename_og = filename
@@ -142,7 +140,7 @@ try:
             filename = normalize_fragment(filename)
             if args.type == "movie":
                 video_res.append(anitopy.parse(filename_og))
-                break
+                continue
             if args.type == "ova":
                 if "ova" in normalize_title(filename):
                     video_res.append(anitopy.parse(filename_og))
@@ -186,5 +184,5 @@ else:
             "^(\d+)\s+.*", video_res[video_res_index]["file_name"])[0])
         parsed_title_res = video_res[video_res_index]
         video_content = '\\n'.join(p["file_name"] for p in all_video_files)
-        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{video_content}////{match_file_index}////"
+        res = f"{json.dumps(parsed_title_res, ensure_ascii=False)}////{video_content}////{match_file_index}"
 print(res)
