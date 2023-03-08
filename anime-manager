@@ -50,7 +50,7 @@ clean_temp_data() {
 # Internet connectivity check with random selection of hosts
 connectivity_check() {
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET\n" "      ⚙️  Checking connectivity..." && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET" "      ⚙️  Checking connectivity..." && line_to_remove
     set +o errexit
     connectivity_check_tmout=3
     is_connected=0
@@ -87,6 +87,7 @@ connectivity_check() {
         key="$(start_substring "$key" 1)"
         [ "$key" = "" ] && clear_lines && connectivity_check
     done
+    printf "$MSG_INFO_COLOR%s$RESET\n" " OK"
     set -o errexit
 }
 
@@ -547,6 +548,7 @@ WEBTORRENT_LOGFILE="$LOG_DIR/webtorrent.log"
 TRACKMA_LOGFILE="$LOG_DIR/trackma.log"
 # CURRENTLY_PLAYING_LOGFILE="$CONFIG_PATH/now_playing.log"
 ANIMDL_LOGFILE="$LOG_DIR/animdl.log"
+STREAM_PROVIDERS="allanime\nanimepahe\nanimeout\ngogoanime\nmarin"
 # webtorrent globals
 # torrent status codes
 TORRENT_TMOUT=20
@@ -2045,12 +2047,13 @@ play_torrent_id() {
 # gets info from a torrent id
 get_torrent_id_info() {
     echo && line_to_remove
-    printf "$MSG_INFO_COLOR%s$RESET\n" "      🗃️  Searching for matching file..." && line_to_remove
+    printf "$MSG_INFO_COLOR%s$RESET" "      🗃️  Searching for matching file..." && line_to_remove
     get_torrent_id_info_data="$($NYAA_FE_SCRIPT --title "$anime_title_match" --synonyms "$anime_synonyms" --torrent-ids "$torrent_ids" --episode "$cur_anime_episode" --type "$show_type")"
     episode_data="$(printf "%s" "$get_torrent_id_info_data" | awk -F"////" '{print $1}' | sed "s/'/'\"'\"'/g")"
     file_list="$(printf "%s" "$get_torrent_id_info_data" | awk -F"////" '{print $2}')"
     file_index="$(printf "%s" "$get_torrent_id_info_data" | awk -F"////" '{print $3}')"
     debug_match_info=$episode_data
+    printf "$MSG_INFO_COLOR%s$RESET\n" " FOUND"
     # do not clear_lines here because the messages are chained
 }
 
@@ -2342,37 +2345,34 @@ play_anime() {
             play_torrent_id
         fi
     elif [ "$player_source" = "streaming" ]; then
-        stream_providers=$(array "animepahe" "gogoanime")
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      💡 Streaming (animdl)" && line_to_remove
-        while IFS= read -r provider; do
+        while IFS= read -r stream_provider; do
             while stream_is_playing; do exit_streaming_process; done
             while [ -n "$(cat "$ANIMDL_LOGFILE")" ]; do reset_logs; done
             reset_media_player_app
-            decoded_stream_provider=$(printf '%s\n' "$provider" | array_element_decode)
-            [ -n "$cur_streaming_provider" ] && decoded_stream_provider="$cur_streaming_provider"
             if [ "$animdl_playthrough" -eq 0 ]; then
                 play_episode_stream_fifo_write="$(get_temp_filename)"
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
                 # switch temporarily to mpv in exceptional case
-                if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
-                    # iina doesn't go well with allanime
-                    # fallback to compatible player
-                    printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Fallback to compatible player (mpv)." && line_to_remove
-                    # save player in helper var
-                    media_player_helper="iina"
-                    MEDIA_PLAYER_APP="mpv"
-                fi
+                # if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
+                #     # iina doesn't go well with allanime
+                #     # fallback to compatible player
+                #     printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Fallback to compatible player (mpv)." && line_to_remove
+                #     # save player in helper var
+                #     media_player_helper="iina"
+                #     MEDIA_PLAYER_APP="mpv"
+                # fi
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl --disable-update stream "$decoded_stream_provider:$anime_title_match" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl --disable-update stream "$stream_provider:$anime_title_match" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
                 animdl_pid="$(cat "$stream_pid_file")"
                 exec 4>"$play_episode_stream_fifo_write"
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the stream provider ($decoded_stream_provider)..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔎 Searching the stream provider ($stream_provider)..." && line_to_remove
                 stream_health=20
                 while [ $stream_health -gt 0 ]; do
                     # check for search result prompt
@@ -2388,7 +2388,7 @@ play_anime() {
                         else
                             # stream started automatically
                             play_status=$PLAY_STATUS_OKPLAYING
-                            cur_streaming_provider="$decoded_stream_provider"
+                            cur_streaming_provider="$stream_provider"
                             printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The streaming is starting..." && line_to_remove
                             break 2
                         fi
@@ -2398,7 +2398,7 @@ play_anime() {
                     sleep 1
                 done
                 if [ $stream_health -eq 0 ]; then
-                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 No results found ($decoded_stream_provider), next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 No results found ($stream_provider), next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     printf "" >"$ANIMDL_LOGFILE"
@@ -2411,23 +2411,24 @@ play_anime() {
                 animdl_search_index="$(
                     printf "%b" "$SELECT_SOURCE\n$TO_MAIN_MENU\n$results" | sed "s/^[[:space:]]*//" |
                         $FZF --prompt="Select a search result: " \
-                            --border-label "╢ ♣  SEARCH RESULTS ($decoded_stream_provider): $(trim "$anime_title_match" 20) ▶ $cur_anime_episode ♣  ╟" \
+                            --border-label "╢ ♣  SEARCH RESULTS ($stream_provider): $(trim "$anime_title_match" 20) ▶ $cur_anime_episode ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶ (streaming)" \
                             --header-first \
                             --tac | cut -d '.' -f1
                 )"
                 if [ "$animdl_search_index" = "$SELECT_SOURCE" ]; then
                     play_status="$PLAY_STATUS_SELECT_SOURCE"
+                    player_source=""
                     animdl_search_index=""
-                    break 2
+                    return 0
                 elif [ "$animdl_search_index" = "$TO_MAIN_MENU" ]; then
                     play_status=$PLAY_STATUS_EXITED
                     animdl_search_index=""
-                    break 2
+                    return 0
                 elif [ -z "$animdl_search_index" ]; then
                     play_status=$PLAY_STATUS_EXITED
                     animdl_search_index=""
-                    break
+                    return 0
                 fi
                 animdl_playthrough=1
                 printf "%b" "$animdl_search_index\n" >"$play_episode_stream_fifo_write"
@@ -2436,7 +2437,7 @@ play_anime() {
                 sleep 2 # wait for the stream to start
                 stream_health=20
                 echo && line_to_remove
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Streaming with $decoded_stream_provider." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET\n" "      ℹ️  Streaming with $stream_provider." && line_to_remove
                 while [ $stream_health -gt 0 ]; do
                     if [ -n "$(sed -En "/Could not find|Traceback|Exception/p" "$ANIMDL_LOGFILE")" ]; then
                         stream_health=0 # check next provider
@@ -2450,7 +2451,7 @@ play_anime() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $decoded_stream_provider, next..." && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $stream_provider, next..." && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     # next provider
                     printf "" >"$ANIMDL_LOGFILE"
@@ -2463,24 +2464,24 @@ play_anime() {
                     unset stream_fifo_write
                     printf "$MSG_INFO_COLOR%s$RESET\n" "      🚀 The streaming is starting..." && line_to_remove
                     play_status=$PLAY_STATUS_OKPLAYING
-                    cur_streaming_provider="$decoded_stream_provider"
+                    cur_streaming_provider="$stream_provider"
                     break
                 fi
             else
                 [ -z "$animdl_search_index" ] && kill $$
                 # switch temporarily to mpv in exceptional case
-                if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
-                    # iina doesn't go well with allanime
-                    # save player in helper var
-                    media_player_helper="iina"
-                    MEDIA_PLAYER_APP="mpv"
-                fi
+                # if [ "$decoded_stream_provider" = "allanime" ] && [ "$MEDIA_PLAYER_APP" = "iina" ]; then
+                #     # iina doesn't go well with allanime
+                #     # save player in helper var
+                #     media_player_helper="iina"
+                #     MEDIA_PLAYER_APP="mpv"
+                # fi
                 play_episode_stream_fifo_write="$(get_temp_filename)"
                 mkfifo -m 600 "$play_episode_stream_fifo_write"
                 stream_pid_file="$(get_temp_filename)"
                 set +m
                 (
-                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl --disable-update stream "$decoded_stream_provider:$anime_title_match" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
+                    ANIMDL_CONFIG="$ANIMDL_CONF_FILE" nohup animdl --disable-update stream "$stream_provider:$anime_title_match" --index "$animdl_search_index" --range "$cur_anime_episode" --player "$MEDIA_PLAYER_APP" <"$play_episode_stream_fifo_write" >"$ANIMDL_LOGFILE" 2>&1 &
                     echo $! >"$stream_pid_file"
                 )
                 set -m
@@ -2503,7 +2504,7 @@ play_anime() {
                 done
                 if [ $stream_health -eq 0 ]; then
                     echo && line_to_remove
-                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $decoded_stream_provider" && line_to_remove
+                    printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 Unable to stream with $stream_provider" && line_to_remove
                     play_status=$PLAY_STATUS_ERRORED
                     continue # next provider
                 else
@@ -2512,9 +2513,9 @@ play_anime() {
                 fi
             fi
         done <<EOF
-$stream_providers
+$(printf "%b" "$STREAM_PROVIDERS")
 EOF
-        printf "$MSG_WARN_COLOR%s$RESET\n" "      🚫 All streaming providers failed." && line_to_remove
+        printf "$MSG_WARN_COLOR%s$RESET\n" "      💥 Unable to stream this anime." && line_to_remove
     elif [ "$player_source" = "self_torrent_id" ]; then
         echo && line_to_remove
         printf "$MSG_INFO_COLOR%s$RESET\n" "      🔗 Paste your torrent id and press Enter (silent input): " && line_to_remove
@@ -2537,7 +2538,9 @@ EOF
             # check for cached data
             if [ "$play_status" != "$PLAY_STATUS_FILE_SEL" ]; then
                 echo && line_to_remove
-                printf "$MSG_INFO_COLOR%s$RESET\n" "      🔖 Loading bookmark..." && line_to_remove
+                printf "$MSG_INFO_COLOR%s$RESET" "      🔖 Loading bookmark..."
+                printf "$MSG_INFO_COLOR%s$RESET\n" " OK" && line_to_remove
+
             fi
             cached_playback=1
             torrent_ids="$(get_cached_link)"
