@@ -3264,7 +3264,7 @@ account_menu() {
             feed_entry_choice=$(
                 printf "%b" "$feeds\n. + Add Feed\n. $TO_MAIN_MENU" |
                     $FZF --with-nth 2.. -i --prompt="Select a feed: " \
-                        --border-label "╢ ♣  📰 MY FEEDS ♣  ╟" \
+                        --border-label "╢ ♣  🗞️  MY FEEDS ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
                         --header-first | sed "s/^\.[[:space:]]//"
             )
@@ -3373,7 +3373,7 @@ account_menu() {
                 while :; do
                     # handle the user feed entry selection
                     feed_action_choice=$(
-                        printf "▶️  Play ▶ (torrenting)\n💾 Add Anime + Play ▶ (torrenting)\n📄 View the feed summary\n%s" "$GENERIC_BACK_ENTRY" |
+                        printf "▶️  Play ▶ (torrenting)\n💾 Add Anime + Play ▶ (torrenting)\nℹ️  View the feed summary\n%s" "$GENERIC_BACK_ENTRY" |
                             $FZF -i --prompt="Select an action: " \
                                 --bind "ctrl-l:toggle-preview" \
                                 --preview "$FZF_PREVIEW_WINDOW_CMD" \
@@ -3505,12 +3505,12 @@ account_menu() {
                             clear_modifiers
                             continue
                         fi
-                    elif [ "$feed_action_choice" = "📄" ]; then
+                    elif [ "$feed_action_choice" = "ℹ️" ]; then
                         clear_screen
                         [ "$MINIMAL" -eq 0 ] && paint_full_header
                         echo && line_to_remove
                         printf " ${MSG_WARN_COLOR}─ VIEWING FEED ENTRY SUMMARY ─\n\nTITLE: ${RESET}${MSG_INFO_COLOR}%s${RESET}\n" "$feed_entry_title"
-                        format_summary="$(printf "%b" "$feed_entry_summary" | html2text -links -nobs)"
+                        format_summary="$(printf "%b" "$feed_entry_summary" | html2text -from_encoding "UTF8" -links -nobs)"
                         printf "${MSG_INFO_COLOR}%b${RESET}\n" "$format_summary" | sed "s/\* References \*/$(printf "%b" "${MSG_WARN_COLOR}")REFERENCES:$(printf "%b" "${RESET}${MSG_INFO_COLOR}")/g"
                         printf "${MSG_WARN_COLOR}[Enter] %s${RESET}\n" "$GENERIC_BACK_ENTRY" && line_to_remove
                         while true; do
