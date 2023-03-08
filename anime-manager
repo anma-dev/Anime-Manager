@@ -606,7 +606,7 @@ WATCH="📺 Watch"
 ADD_ANIME="🧩 Add Anime"
 LIST="📙 Lists"
 UPDATE_STATUS="🔄 Update Anime Status"
-SCORE_SHOW="👍 Score Anime"
+SCORE_ANIME="👍 Score Anime"
 EXIT_INCOGNITO_MODE="👤 Exit Incognito Mode"
 ENTER_INCOGNITO_MODE="🕵️  Enter Incognito Mode"
 TO_SUBMENU="MORE OPTIONS ▸"
@@ -2842,8 +2842,9 @@ watch_anime() {
         if [ ! "$full_info" ]; then
             full_info="Your watching list is empty"
             watch_choice=$(
-                printf "%s\n%s" "$full_info" "$TO_MAIN_MENU" |
+                printf "%s\n%s" "$full_info" ". $TO_MAIN_MENU" |
                     $FZF -i --prompt "Choose an anime to watch: " \
+                        --with-nth 2.. \
                         --border-label "╢ ♣  YOUR $(
                             if [ "$TRACKER_SERVICE" = "anilist" ]; then
                                 printf "%s" "(RE)WATCHING LISTS"
@@ -2852,7 +2853,7 @@ watch_anime() {
                             fi
                         ) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Play ▶" \
-                        --header-first
+                        --header-first | sed "s/^\.[[:space:]]//"
             )
             return
         fi
@@ -3091,7 +3092,7 @@ EOF
 # The menu that is presented when the user selects a Trackma account.
 account_menu() {
     prompt=""
-    MAINMENU_ENTRIES="$WATCH_HISTORY\n$MY_FEEDS\n$WATCH\n$ADD_ANIME\n$LIST\n$UPDATE_STATUS\n$SCORE_SHOW\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
+    MAINMENU_ENTRIES="$WATCH_HISTORY\n$MY_FEEDS\n$WATCH\n$ADD_ANIME\n$LIST\n$UPDATE_STATUS\n$SCORE_ANIME\n$ENTER_INCOGNITO_MODE\n$TO_SUBMENU"
     SUBMENU_ENTRIES="$EXIT_SCRIPT_SUB\n$SWITCH_ACCOUNTS\n$WATCH_RANDOM\n$DELETE_ANIME\n$WATCH_RAND_AIRING\n$LIST_AIRING\n$UPDATE_EPISODES\n$SET_ALTNAME\n$PULL\n$PUSH\n$LIST_BY_SCORE\n$PLAYLIST\n$TO_MAIN_MENU"
     MAINMENU_TITLE="MAIN MENU"
     SUBMENU_TITLE="MORE OPTIONS"
@@ -3225,13 +3226,14 @@ account_menu() {
             FULL_LIST=$(printf "filter %s\nls\n" "$status" | trackma_query)
             FULL_LIST=$(format_trackma_list "$FULL_LIST")
             [ -z "$FULL_LIST" ] && FULL_LIST="No anime found in this list..."
-            FULL_LIST="$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$FULL_LIST"
+            FULL_LIST=". $BACK_TO_SUBMENU\n. $SWITCH_STATUS_MSG_MENU_ENTRY\n$FULL_LIST"
             anime_sel=$(
                 printf "%b" "$FULL_LIST" |
                     $FZF -i --prompt="Choose an anime to DELETE: " \
+                        --with-nth 2.. \
                         --border-label "╢ ♣  DELETE ANIME ($status list) ♣  ╟" \
                         --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Delete" \
-                        --header-first --tac
+                        --header-first --tac | sed "s/^\.[[:space:]]//"
             )
             if [ "$anime_sel" = "$BACK_TO_SUBMENU" ]; then
                 prompt="$BACK_TO_SUBMENU"
@@ -3551,18 +3553,20 @@ account_menu() {
                     res="$(format_trackma_list "$res")"
                     if [ -z "$res" ]; then
                         res="This list has no items..."
-                        printf "%b" "$res\n$menuitem" | $FZF -i --prompt="Choose an anime to update: " \
+                        printf "%b" "$res\n. $menuitem" | $FZF -i --prompt="Choose an anime to update: " \
+                            --with-nth 2.. \
                             --border-label "╢ ♣  ${update_op_menu_label} ($status list) ♣  ╟" \
                             --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                            --header-first
+                            --header-first | sed "s/^\.[[:space:]]//"
                         continue
                     fi
                     update_choice="$(
-                        printf "%b" "$menuitem\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$res" |
+                        printf "%b" ". $menuitem\n. $SWITCH_STATUS_MSG_MENU_ENTRY\n$res" |
                             $FZF -i --prompt="Choose an anime to update: " \
+                                --with-nth 2.. \
                                 --border-label "╢ ♣  ${update_op_menu_label} ($status list) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                                --header-first --tac
+                                --header-first --tac | sed "s/^\.[[:space:]]//"
                     )"
                     if [ "$update_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ]; then
                         break
@@ -3622,7 +3626,7 @@ account_menu() {
             done
             clear_modifiers
             ;;
-        "$SCORE_SHOW")
+        "$SCORE_ANIME")
             # status selection loop
             while true; do
                 status=$(
@@ -3638,13 +3642,14 @@ account_menu() {
                 while true; do
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
                     full_info="$(format_trackma_list "$full_info")"
-                    full_info="$TO_MAIN_MENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
+                    full_info=". $TO_MAIN_MENU\n. $SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
                     score_anime_choice="$(
                         printf "%b" "$full_info" |
                             $FZF -i --prompt="Choose an anime to score: " \
+                                --with-nth 2.. \
                                 --border-label "╢ ♣  SCORE ANIME ($status) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                                --header-first --tac
+                                --header-first --tac | sed "s/^\.[[:space:]]//"
                     )"
                     [ "$score_anime_choice" = "$TO_MAIN_MENU" ] && clear_modifiers && break 2
                     [ "$score_anime_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
@@ -3678,13 +3683,14 @@ account_menu() {
                     full_info="$(printf "filter %s\nls\n" "$status" | trackma_query)"
                     full_info=$(format_trackma_list "$full_info")
                     [ -z "$full_info" ] && full_info="No entries in this list."
-                    full_info="$BACK_TO_SUBMENU\n$SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
+                    full_info=". $BACK_TO_SUBMENU\n. $SWITCH_STATUS_MSG_MENU_ENTRY\n$full_info"
                     altname_choice="$(
                         printf "%b" "$full_info" |
                             $FZF -i --prompt="Choose an anime: " \
+                                --with-nth 2.. \
                                 --border-label "╢ ♣  SET ALTERNATIVE NAME ($status list) ♣  ╟" \
                                 --header "⇅ Navigation ─ [ESC] Exit ─ [Enter] Select" \
-                                --header-first --tac
+                                --header-first --tac | sed "s/^\.[[:space:]]//"
                     )"
                     [ "$altname_choice" = "$BACK_TO_SUBMENU" ] && prompt=$BACK_TO_SUBMENU && break 2
                     [ "$altname_choice" = "$SWITCH_STATUS_MSG_MENU_ENTRY" ] && break
