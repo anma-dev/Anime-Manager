@@ -1148,7 +1148,7 @@ auto_compat() {
 install_dependencies() {
     shell_cfg="$(get_shell_config_file)"
     install_dep_msg="🎉 Finished the autoinstall!\nRestart your shell to start using Anime Manager.\n"
-    if ! which fzf nc animdl trackma jq node "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/javascript/webtorrent-cli/node_modules" ]; then
+    if ! which fzf nc animdl trackma jq node html2text "$MEDIA_PLAYER_APP" xxh128sum >/dev/null 2>&1 || [ ! -d "./lib/javascript/webtorrent-cli/node_modules" ]; then
         printf "%b" "Anime Manager can automatically install its dependencies.\nSome dependencies were not found!\n" && line_to_remove
         AUTOINSTALL=1
         AM_SHELL_CFG_MSG="### Anime Manager autoinstall ###"
@@ -1172,7 +1172,7 @@ install_dependencies() {
                 printf "%s" "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
             fi
             sudo apt update
-            sudo apt -y install build-essential procps netcat curl wget file git python3-setuptools python3-pip jq xxhash
+            sudo apt -y install build-essential procps netcat curl wget file git python3-setuptools python3-pip jq xxhash html2text
             mkdir -p "$HOME/.local/bin"
             if ! grep '$HOME/.local/bin:$PATH' "$shell_cfg"; then
                 printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
@@ -1239,6 +1239,7 @@ install_dependencies() {
             fi
             brew install curl jq grep axel openssl@1.1 ffmpeg git xxhash
             brew install patchelf cmake automake fzf
+            brew install html2text
             if ! command -v "$MEDIA_PLAYER_APP"; then
                 case "$MEDIA_PLAYER_APP" in
                 "mpv")
