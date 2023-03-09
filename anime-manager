@@ -1172,7 +1172,7 @@ install_dependencies() {
                 printf "%s" "💥 Your current user account has no administrative privileges.\nRequired dependencies unable to install\nPlease contact your system administrator." && exit 1
             fi
             sudo apt update
-            sudo apt -y install build-essential procps netcat curl wget file git python3-setuptools python3-pip jq xxhash html2text
+            sudo apt -y install build-essential procps netcat curl wget file git python3-setuptools python3-pip jq xxhash
             mkdir -p "$HOME/.local/bin"
             if ! grep '$HOME/.local/bin:$PATH' "$shell_cfg"; then
                 printf "\n%s\n%s\n" "$AM_SHELL_CFG_MSG" 'export PATH="$HOME/.local/bin:$PATH"' >>"$shell_cfg"
@@ -1186,6 +1186,21 @@ install_dependencies() {
                     sudo apt -y install vlc
                     ;;
                 esac
+            fi
+            if ! command -v html2text; then
+                # install updated version
+                curl -L -o html2text-am.tar.gz 'https://github.com/grobian/html2text/archive/refs/tags/v2.1.1.tar.gz'
+                mkdir ./html2text-am
+                tar -zxvf ./html2text-am.tar.gz || exit 1
+                cd ./html2text-2.1.1 || exit 1
+                ./configure
+                make
+                sudo make install
+                cd .. || exit 1
+                rm -rf ./html2text-2.1.1
+                rm ./html2text-am.tar.gz
+            elif [ "$(html2text -version | sed -En "s/.*version ([[:digit:]]*\.[[:digit:]]*\.[[:digit:]]*).*/\1/p")" != 2.1.1 ]; then
+                printf "\n\n -- Please ensure that your html2text installation version is >= 2.1.1. -- \n\n"
             fi
             if ! command -v fzf; then
                 if [ -d "$HOME/.fzf" ]; then
@@ -3299,12 +3314,14 @@ account_menu() {
                 handle_error "$am_ret_msg"
                 continue
             fi
+            tmp_feed_file="$(get_temp_filename)"
+            printf "%s" "$feed_entries" >"$tmp_feed_file"
+            export tmp_feed_file
             # feed entries loop
             while true; do
                 # shellcheck disable=SC2089
                 [ -z "$feed_entries" ] && feed_entries='[{"title": "This feed has no entries."}]'
                 # shellcheck disable=SC2090
-                export feed_entries
                 FZF_PREVIEW_WINDOW_CMD='
                 entry_name_color="\x1b[38;2;255;165;0m"
                 reset="\x1b[0m"
@@ -3321,7 +3338,7 @@ account_menu() {
                     ;;
                 *)
                     prev_feed_title="$(printf "%s" "$prev_feed_title" | sed "s/🧲/[Magnet]/g")"
-                    feed_entry_data="$(printf "%b" "$feed_entries" | jq -c ".[] | select( .title == \"$prev_feed_title\" )")"
+                    feed_entry_data="$(jq -c ".[] | select( .title == \"$prev_feed_title\" )" "$tmp_feed_file")"
                     printf "\n${entry_name_color}Title:${reset} %s\n" "$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.title'\'')"
                     prev_entry_date="$(printf "%s" "$feed_entry_data" | jq --raw-output '\''.published'\'')"
                     # format the date. sed scripts with regexp curly braces
@@ -3329,20 +3346,29 @@ account_menu() {
                     # this way it can work within fzf preview, otherwise it
                     # seems to be interpreted as an fzf placeholder expression.
                     # Normally I would do {N}.
+                    format_date() {
+                    	format_date_date="$1"
+                    	format_date_format="$2"
+                    	if [ -n "$(printf "%s" "$OSTYPE" | sed -En "/.*[Dd]arwin.*/p")" ]; then
+		            	date -j -f "$format_date_format" "$format_date_date" +"%a, %d %B %Y %T %Z"
+		            elif [ "$OSTYPE" = "Linux" ]; then
+		            	date -d "$format_date_date" +"%a, %d %B %Y %T %Z"
+		            fi
+                    }
                     if [ -n "$(printf "%s" "$prev_entry_date" | sed -En "/^[[:digit:]]{4,}-[[:digit:]]{2,}-[[:digit:]]{2,}T[[:digit:]]{2,}:[[:digit:]]{2,}:[[:digit:]]{2,}Z$/p")" ]; then
                         # It is an ISO8601 date
                         prev_entry_date="$(printf "%s" "$prev_entry_date" | sed -E "s/Z/ +0000/")"
-                        prev_entry_date="$(date -j -f "%Y-%m-%dT%H:%M:%S %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                        prev_entry_date="$(format_date "$prev_entry_date" "%Y-%m-%dT%H:%M:%S %z")"
                     elif [ -n "$(printf "%s\n" "$prev_entry_date" | sed -En "/^[a-zA-Z]{3,}, [[:digit:]]{2,} [a-zA-Z]{3,} [[:digit:]]{4,} [[:digit:]]{2,}:[[:digit:]]{2,}:[[:digit:]]{2,} \+[[:digit:]]{4,}$/p")" ]; then
                         # It is an RFC822 date
-                        prev_entry_date="$(date -j -f "%a, %d %b %Y %T %z" "$prev_entry_date" +"%a, %d %B %Y %T %Z")"
+                        prev_entry_date="$(format_date "$prev_entry_date" "%a, %d %b %Y %T %z")"
                     fi
                     printf "\n${entry_name_color}Date:${reset} %s\n" "$prev_entry_date"
                     ;;
                 esac
                 '
                 feed_entry_choice=$(
-                    printf "%s\n%s\n%s\n%s" "$(printf "%s" "$feed_entries" | jq --raw-output '.[] | .title' | sed "s/\[Magnet\]/🧲/g")" "🗑️  Remove feed" "📝 Rename feed" "$GENERIC_BACK_ENTRY" |
+                    printf "%s\n%s\n%s\n%s" "$(jq --raw-output '.[] | .title' "$tmp_feed_file" | sed "s/\[Magnet\]/🧲/g")" "🗑️  Remove feed" "📝 Rename feed" "$GENERIC_BACK_ENTRY" |
                         $FZF -i --prompt="Select a feed entry: " \
                             --bind "ctrl-l:toggle-preview" \
                             --preview "$FZF_PREVIEW_WINDOW_CMD" \
