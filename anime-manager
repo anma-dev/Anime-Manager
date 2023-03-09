@@ -1199,7 +1199,7 @@ install_dependencies() {
                 cd .. || exit 1
                 rm -rf ./html2text-2.1.1
                 rm ./html2text-am.tar.gz
-            elif [ "$(html2text -version | sed -En "s/.*version ([[:digit:]]*\.[[:digit:]]*\.[[:digit:]]*).*/\1/p")" != 2.1.1 ]; then
+            elif [ "$(html2text -version | sed -En "s/.*version ([[:digit:]]*\.[[:digit:]]*\.[[:digit:]]*).*/\1/p")" != "2.1.1" ]; then
                 printf "\n\n -- Please ensure that your html2text installation version is >= 2.1.1. -- \n\n"
             fi
             if ! command -v fzf; then

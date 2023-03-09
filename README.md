@@ -72,6 +72,7 @@ Python 3+, NodeJS >=14
 | [anitopy](https://github.com/igorcmoura/anitopy/) | Parsing filenames |
 | Compatible media player | The media player is automatically installed if necessary. Defaults: [mpv](https://mpv.io/) (Linux), [iina](https://iina.io/) (macOS). [VLC media player](https://www.videolan.org/) is also an option.|
 | [fzf](https://github.com/junegunn/fzf/) | Terminal menus.  Get a recent version that supports border label and border label coloring. Some repos provide older versions of fzf. |
+| [html2text](https://github.com/grobian/html2text) | "*HTML to text rendering aimed for E-mail*", but we use it for rendering the feed summaries that contain markdown. Make sure to install version 2.1.1 or later for link references support. |
 | [jq](https://github.com/stedolan/jq) | Parse semi-structured data |
 | [NyaaPy](https://github.com/JuanjoSalvador/NyaaPy/) | Scraping magnet links from the torrent tracker. |
 | [Trackma](https://github.com/z411/trackma) | Anime list sync |
