@@ -141,9 +141,6 @@ try:
             if args.type == "movie":
                 video_res.append(anitopy.parse(filename_og))
                 continue
-            if args.type == "ova":
-                if "ova" in normalize_title(filename):
-                    video_res.append(anitopy.parse(filename_og))
             else:
                 """
                 Match only the episode number because it might be the case
