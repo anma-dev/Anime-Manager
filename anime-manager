@@ -52,7 +52,7 @@ connectivity_check() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET" "      ⚙️  Checking connectivity..." && line_to_remove
     set +o errexit
-    connectivity_check_tmout=10
+    connectivity_check_tmout=3
     is_connected=0
     urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
     urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
@@ -71,7 +71,7 @@ connectivity_check() {
             is_connected=0
         fi
     elif [ "$OSTYPE" = "Linux" ]; then
-        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | timeout $connectivity_check_tmout nc "$rand_url" 443 >/dev/null 2>&1; then
+        if printf "%b" "GET https://$rand_url HTTP/1.0\n\n" | timeout $connectivity_check_tmout nc -z "$rand_url" 443 >/dev/null 2>&1; then
             is_connected=1
         else
             is_connected=0
