@@ -52,7 +52,7 @@ connectivity_check() {
     echo && line_to_remove
     printf "$MSG_INFO_COLOR%s$RESET" "      ⚙️  Checking connectivity..." && line_to_remove
     set +o errexit
-    connectivity_check_tmout=3
+    connectivity_check_tmout=10
     is_connected=0
     urls=$(array "ubuntu.com" "google.com" "duckduckgo.com" "bing.com")
     urls_len=$(printf '%s\n' "$urls" | array_len | sed "s/[[:space:]]//g")
