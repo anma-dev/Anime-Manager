@@ -2174,9 +2174,11 @@ create_playlist() {
         full_info="$(printf "%s" "$full_info")"
         WATCH_MENU_PREVIEW_CMD="TO_MAIN_MENU=\"$TO_MAIN_MENU\"; trackma_status_menu_entries=\"$trackma_status_menu_entries\"; TRACKMA_LIST_REGEX=\"$TRACKMA_LIST_REGEX\"; TRACKMA_ENTRY_REGEX=\"$TRACKMA_ENTRY_REGEX\"; GLOBAL_TRACKMA_FIFO=$GLOBAL_TRACKMA_FIFO; GLOBAL_TRACKMA_TMPFILE=$GLOBAL_TRACKMA_TMPFILE; $trackma_query_function_code; $filter_trackma_list_function_code; $get_trackma_status_code_function_code; $get_title_fragment_function_code; $get_entry_index_function_code; $format_anime_info_function_code; $get_mixed_anime_info_function_code; get_mixed_anime_info {}"
         create_playlist_choice=$(
-            printf "%s\n%s" "$BACK_TO_SUBMENU" "$full_info" |
+            printf "%s\n%s" ". $BACK_TO_SUBMENU" "$full_info" |
                 $FZF -i --prompt "(multi) Choose anime for your playlist: " \
+                    --with-nth 2.. \
                     --multi \
+                    --marker "● " \
                     --preview "$WATCH_MENU_PREVIEW_CMD" \
                     --preview-window "$PREVIEW_WINDOW_OPTS" \
                     --bind "shift-right:change-preview-window($MENU_PREVIEW_POS_MODES)+preview:$WATCH_MENU_PREVIEW_CMD" \
@@ -2190,7 +2192,7 @@ create_playlist() {
                     ) list) ♣  ╟" \
                     --header "⇅ Navigation ─ [Ctrl-L] Toggle info ─ [ESC] Exit ─ [Enter] Play ▶" \
                     --bind "ctrl-l:toggle-preview" \
-                    --header-first --tac
+                    --header-first --tac | sed "s/^\.[[:space:]]//"
         )
     fi
     if [ -n "$(printf "%s" "$create_playlist_choice" | sed -En "/$BACK_TO_SUBMENU/p")" ] || [ -z "$create_playlist_choice" ]; then
